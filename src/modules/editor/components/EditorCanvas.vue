@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watchEffect, nextTick, onMounted, onUnmounted } from 'vue'
 import { useEditorStore } from '../store'
 import { useAutoMask } from '../composables/useAutoMask'
 
@@ -9,11 +9,33 @@ const { generateMask } = useAutoMask()
 const containerRef = ref(null)
 const stageRef = ref(null)
 const charBottomLayer = ref(null)
+const frameLayer = ref(null)
 const charTopLayer = ref(null)
 
+// Размер контейнера — обновляется через ResizeObserver
+const containerW = ref(0)
+const containerH = ref(0)
+
+// Вписываем холст в контейнер с отступом, сохраняя пропорции
+const stageScale = computed(() => {
+  if (!containerW.value || !containerH.value) return 1
+  const padding = 40
+  const scaleX = (containerW.value - padding * 2) / store.canvasSize
+  const scaleY = (containerH.value - padding * 2) / store.canvasSize
+  return Math.min(scaleX, scaleY)
+})
+
+// Смещение чтобы холст был по центру контейнера
+const stageX = computed(() => (containerW.value - store.canvasSize * stageScale.value) / 2)
+const stageY = computed(() => (containerH.value - store.canvasSize * stageScale.value) / 2)
+
 const stageConfig = computed(() => ({
-  width: store.canvasSize,
-  height: store.canvasSize,
+  width: containerW.value || store.canvasSize,
+  height: containerH.value || store.canvasSize,
+  scaleX: stageScale.value,
+  scaleY: stageScale.value,
+  x: stageX.value,
+  y: stageY.value,
 }))
 
 const charW = computed(() =>
@@ -31,15 +53,26 @@ const splitY = computed(() => store.canvasSize * store.overflowY / 100)
 const charBottomCanvas = ref(null)
 const charTopCanvas = ref(null)
 
-watch(
-  [
-    () => store.charImage, () => store.charX, () => store.charY,
-    () => store.charScale, () => store.overflowY, () => store.overflowSoft,
-    () => store.maskImage, () => store.frameImage,
-  ],
-  () => { if (store.isReady) renderOffscreen() },
-  { immediate: true },
-)
+watchEffect(() => {
+  // Читаем все реактивные зависимости явно
+  const img = store.charImage
+  const frameImg = store.frameImage
+  const x = store.charX
+  const y = store.charY
+  const scale = store.charScale
+  const oy = store.overflowY
+  const os = store.overflowSoft
+  const maskImg = store.maskImage
+
+  if (!img) return
+  renderOffscreen()
+
+  // После обновления canvas — говорим Konva перерисовать слои
+  nextTick(() => {
+    charBottomLayer.value?.getNode()?.batchDraw()
+    charTopLayer.value?.getNode()?.batchDraw()
+  })
+})
 
 function renderOffscreen() {
   const size = store.canvasSize
@@ -85,6 +118,7 @@ const charBottomConfig = computed(() => ({
   x: 0, y: 0,
   width: store.canvasSize,
   height: store.canvasSize,
+  listening: false,
 }))
 
 const charTopConfig = computed(() => ({
@@ -92,6 +126,7 @@ const charTopConfig = computed(() => ({
   x: 0, y: 0,
   width: store.canvasSize,
   height: store.canvasSize,
+  listening: false,
 }))
 
 const frameConfig = computed(() => ({
@@ -115,14 +150,31 @@ function setCursor(cursor) {
   if (containerRef.value) containerRef.value.style.cursor = cursor
 }
 
+let ro = null
+
 onMounted(() => {
+  // Отслеживаем размер контейнера
+  ro = new ResizeObserver(entries => {
+    const { width, height } = entries[0].contentRect
+    containerW.value = width
+    containerH.value = height
+  })
+  ro.observe(containerRef.value)
+  containerW.value = containerRef.value.offsetWidth
+  containerH.value = containerRef.value.offsetHeight
+
   const stage = stageRef.value?.getStage()
   if (!stage) return
 
   stage.on('mousedown', () => {
     if (store.activeTool !== 'move') return
     isDragging = true
-    dragStart = stage.getPointerPosition()
+    const pos = stage.getPointerPosition()
+    // Переводим из экранного пространства в пространство холста
+    dragStart = {
+      x: (pos.x - stageX.value) / stageScale.value,
+      y: (pos.y - stageY.value) / stageScale.value,
+    }
     dragStartChar = { x: store.charX, y: store.charY }
     setCursor('grabbing')
   })
@@ -131,9 +183,11 @@ onMounted(() => {
     if (store.activeTool === 'move' && !isDragging) setCursor('grab')
     if (!isDragging || store.activeTool !== 'move') return
     const pos = stage.getPointerPosition()
+    const canvasX = (pos.x - stageX.value) / stageScale.value
+    const canvasY = (pos.y - stageY.value) / stageScale.value
     store.setCharPosition(
-      Math.round(dragStartChar.x + (pos.x - dragStart.x)),
-      Math.round(dragStartChar.y + (pos.y - dragStart.y)),
+      Math.round(dragStartChar.x + (canvasX - dragStart.x)),
+      Math.round(dragStartChar.y + (canvasY - dragStart.y)),
     )
   })
 
@@ -155,6 +209,8 @@ onMounted(() => {
     store.setCharScale(Math.round(newScale * 100) / 100)
   })
 })
+
+onUnmounted(() => ro?.disconnect())
 </script>
 
 <template>
@@ -208,6 +264,7 @@ onMounted(() => {
   justify-content: center;
   width: 100%;
   height: 100%;
+  overflow: hidden;
   background-image:
     linear-gradient(45deg, #2b2b36 25%, transparent 25%),
     linear-gradient(-45deg, #2b2b36 25%, transparent 25%),

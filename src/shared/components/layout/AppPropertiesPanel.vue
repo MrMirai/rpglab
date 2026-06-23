@@ -3,6 +3,8 @@ import { ref } from 'vue'
 import { useEditorStore } from '@/modules/editor'
 import CharacterUpload from '@/modules/editor/components/CharacterUpload.vue'
 import CharacterControls from '@/modules/editor/components/CharacterControls.vue'
+import FrameUpload from '@/modules/frames/components/FrameUpload.vue'
+import MaskControls from '@/modules/editor/components/MaskControls.vue'
 
 const store = useEditorStore()
 
@@ -35,6 +37,13 @@ function toggle(section) {
         <template v-if="section.id === 'character'">
           <CharacterUpload />
           <CharacterControls v-if="store.hasChar" />
+        </template>
+        <template v-else-if="section.id === 'frame'">
+          <FrameUpload />
+        </template>
+        <template v-else-if="section.id === 'mask'">
+          <MaskControls v-if="store.hasFrame" />
+          <p v-else class="placeholder-hint">Сначала загрузи рамку</p>
         </template>
         <p v-else class="placeholder">// компонент будет здесь</p>
       </div>
@@ -105,5 +114,11 @@ function toggle(section) {
   color: var(--color-text-3);
   font-family: var(--font-mono);
   line-height: var(--leading-normal);
+}
+
+.placeholder-hint {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-xs);
+  color: var(--color-text-3);
 }
 </style>

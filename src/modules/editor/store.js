@@ -17,6 +17,7 @@ export const useEditorStore = defineStore('editor', () => {
   // Маска (авто или кастомная)
   const maskImage = ref(null)      // HTMLImageElement
   const useCustomMask = ref(false)
+  const maskVersion = ref(0)       // инкремент форсирует пересчёт маски
 
   // Параметры маски вылезания
   const overflowY = ref(35)        // % от высоты холста
@@ -50,15 +51,21 @@ export const useEditorStore = defineStore('editor', () => {
   function loadFrameImage(htmlImageElement) { frameImage.value = htmlImageElement }
   function loadMaskImage(htmlImageElement) { maskImage.value = htmlImageElement }
 
+  function resetMask() {
+    maskImage.value = null
+    useCustomMask.value = false
+    maskVersion.value++
+  }
+
   return {
     canvasSize, charImage, charX, charY, charScale,
-    frameImage, maskImage, useCustomMask,
+    frameImage, maskImage, useCustomMask, maskVersion,
     overflowY, overflowSoft,
     activeTool, brushSize, brushHardness,
     showGrid, previewMode,
     hasChar, hasFrame, isReady,
     setActiveTool, toggleGrid, togglePreview,
     setCharPosition, setCharScale,
-    loadCharImage, loadFrameImage, loadMaskImage,
+    loadCharImage, loadFrameImage, loadMaskImage, resetMask,
   }
 })

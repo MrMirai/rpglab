@@ -63,6 +63,7 @@ watchEffect(() => {
   const oy = store.overflowY
   const os = store.overflowSoft
   const maskImg = store.maskImage
+  const mv = store.maskVersion
 
   if (!img) return
   renderOffscreen()
@@ -78,38 +79,25 @@ function renderOffscreen() {
   const size = store.canvasSize
   const img = store.charImage
 
-  // --- Нижний слой: персонаж, обрезанный маской рамки ---
+  // Нижний слой: персонаж обрезанный по маске рамки
   const bottomC = document.createElement('canvas')
   bottomC.width = size; bottomC.height = size
   const btx = bottomC.getContext('2d')
+
   btx.drawImage(img, charDrawX.value, charDrawY.value, charW.value, charH.value)
 
   const mask = store.maskImage || (store.frameImage ? generateMask(store.frameImage, size) : null)
   if (mask) {
     btx.globalCompositeOperation = 'destination-in'
-    if (mask instanceof HTMLCanvasElement) btx.drawImage(mask, 0, 0)
-    else btx.drawImage(mask, 0, 0, size, size)
+    btx.drawImage(mask, 0, 0, size, size)
     btx.globalCompositeOperation = 'source-over'
   }
 
   charBottomCanvas.value = bottomC
 
-  // --- Верхний слой: персонаж, видимый только выше линии splitY ---
+  // Верхний слой пока пустой (эффект вылезания — следующий шаг)
   const topC = document.createElement('canvas')
   topC.width = size; topC.height = size
-  const ttx = topC.getContext('2d')
-  ttx.drawImage(img, charDrawX.value, charDrawY.value, charW.value, charH.value)
-
-  // Прозрачим всё ниже splitY с мягким переходом
-  const soft = store.overflowSoft
-  const grad = ttx.createLinearGradient(0, splitY.value - soft, 0, splitY.value + soft)
-  grad.addColorStop(0, 'rgba(0,0,0,1)')
-  grad.addColorStop(1, 'rgba(0,0,0,0)')
-  ttx.globalCompositeOperation = 'destination-in'
-  ttx.fillStyle = grad
-  ttx.fillRect(0, 0, size, size)
-  ttx.globalCompositeOperation = 'source-over'
-
   charTopCanvas.value = topC
 }
 

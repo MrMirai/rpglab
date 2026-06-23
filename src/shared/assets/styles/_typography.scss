@@ -1,0 +1,54 @@
+// ─── Базовая типографика ──────────────────────────────────────────────────────
+
+body {
+  font-family: var(--font-family);
+  font-size: var(--text-md);
+  font-weight: var(--weight-regular);
+  color: var(--color-text-1);
+  background-color: var(--color-bg-1);
+  line-height: var(--leading-normal);
+}
+
+h1 {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  color: var(--color-text-1);
+}
+
+h2 {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  color: var(--color-text-1);
+}
+
+h3 {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  color: var(--color-text-1);
+}
+
+h4 {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-tight);
+  color: var(--color-text-2);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+p {
+  color: var(--color-text-2);
+  line-height: var(--leading-loose);
+}
+
+a {
+  color: var(--color-accent);
+  transition: color var(--transition-fast);
+
+  &:hover {
+    color: var(--color-accent-hover);
+  }
+}

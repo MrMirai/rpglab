@@ -1,0 +1,92 @@
+// ─── Цветовая палитра (тёмная тема) ───────────────────────────────────────────
+
+:root {
+  // Фоны — три уровня глубины
+  --color-bg-1: #17171b; // base, самый тёмный
+  --color-bg-2: #21212a; // панели, сайдбар
+  --color-bg-3: #2b2b36; // карточки, поднятые элементы
+
+  // Текст — три уровня
+  --color-text-1: #ede9df; // основной, тёплый белый
+  --color-text-2: #a09b91; // второстепенный
+  --color-text-3: #5e5a55; // подсказки, disabled
+
+  // Акцент — приглушённый янтарный (фэнтези/НРИ)
+  --color-accent: #c4954a;
+  --color-accent-hover: #d4a85e;
+  --color-accent-muted: rgba(196, 149, 74, 0.15);
+
+  // Семантические
+  --color-danger: #c0544a;
+  --color-success: #4e9e72;
+
+  // Рамки
+  --color-border: #35353f;
+  --color-border-strong: #484855;
+}
+
+// SCSS-переменные — для использования внутри миксинов и функций
+$accent: #c4954a;
+$bg-1: #17171b;
+$bg-2: #21212a;
+$bg-3: #2b2b36;
+$text-1: #ede9df;
+$text-2: #a09b91;
+$border: #35353f;
+
+// ─── Типографика ──────────────────────────────────────────────────────────────
+
+:root {
+  --font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+
+  // Размеры
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-md: 15px;
+  --text-lg: 18px;
+  --text-xl: 24px;
+
+  // Веса
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  // Межстрочный интервал
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-loose: 1.75;
+}
+
+// ─── Отступы (шаг 4px) ────────────────────────────────────────────────────────
+
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+}
+
+// ─── Радиусы скругления ────────────────────────────────────────────────────────
+
+:root {
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 16px;
+}
+
+// ─── Переходы ─────────────────────────────────────────────────────────────────
+
+:root {
+  --transition-fast: 100ms ease;
+  --transition-normal: 200ms ease;
+  --transition-slow: 350ms ease;
+}

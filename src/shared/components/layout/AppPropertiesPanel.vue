@@ -1,5 +1,10 @@
 <script setup>
 import { ref } from 'vue'
+import { useEditorStore } from '@/modules/editor'
+import CharacterUpload from '@/modules/editor/components/CharacterUpload.vue'
+import CharacterControls from '@/modules/editor/components/CharacterControls.vue'
+
+const store = useEditorStore()
 
 const sections = ref([
   { id: 'character', label: 'Персонаж', open: true },
@@ -27,7 +32,11 @@ function toggle(section) {
         </button>
       </div>
       <div class="section-content" :class="{ collapsed: !section.open }">
-        <p class="placeholder">// компонент будет здесь</p>
+        <template v-if="section.id === 'character'">
+          <CharacterUpload />
+          <CharacterControls v-if="store.hasChar" />
+        </template>
+        <p v-else class="placeholder">// компонент будет здесь</p>
       </div>
     </div>
   </aside>
@@ -79,7 +88,7 @@ function toggle(section) {
 }
 
 .section-content {
-  max-height: 400px;
+  max-height: 600px;
   overflow: hidden;
   transition: max-height var(--transition-normal);
 

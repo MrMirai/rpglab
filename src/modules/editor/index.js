@@ -1,3 +1,2 @@
-// Публичный API модуля editor
-// export { ... } from './components/...'
-// export { ... } from './store'
+export { useEditorStore } from './store.js'
+export { default as EditorCanvas } from './components/EditorCanvas.vue'

@@ -1,9 +1,9 @@
 <script setup>
-import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Save, FolderOpen, MousePointer2, Eraser, Paintbrush, Undo2, Redo2, Grid3x3, Eye } from 'lucide-vue-next'
+import { useEditorStore } from '@/modules/editor'
 
-const activeTool = ref('move')
+const store = useEditorStore()
 </script>
 
 <template>
@@ -15,15 +15,15 @@ const activeTool = ref('move')
 
     <nav class="toolbar">
       <div class="toolbar__group">
-        <button class="toolbar__btn" :class="{ active: activeTool === 'move' }" @click="activeTool = 'move'">
+        <button class="toolbar__btn" :class="{ active: store.activeTool === 'move' }" @click="store.setActiveTool('move')">
           <span class="icon"><MousePointer2 :size="16" /></span>
           <span class="label">Двигать</span>
         </button>
-        <button class="toolbar__btn" :class="{ active: activeTool === 'erase' }" @click="activeTool = 'erase'">
+        <button class="toolbar__btn" :class="{ active: store.activeTool === 'erase' }" @click="store.setActiveTool('erase')">
           <span class="icon"><Eraser :size="16" /></span>
           <span class="label">Стереть</span>
         </button>
-        <button class="toolbar__btn" :class="{ active: activeTool === 'restore' }" @click="activeTool = 'restore'">
+        <button class="toolbar__btn" :class="{ active: store.activeTool === 'restore' }" @click="store.setActiveTool('restore')">
           <span class="icon"><Paintbrush :size="16" /></span>
           <span class="label">Восстановить</span>
         </button>
@@ -45,11 +45,11 @@ const activeTool = ref('move')
       <div class="toolbar__divider" />
 
       <div class="toolbar__group">
-        <button class="toolbar__btn">
+        <button class="toolbar__btn" :class="{ active: store.showGrid }" @click="store.toggleGrid()">
           <span class="icon"><Grid3x3 :size="16" /></span>
           <span class="label">Сетка</span>
         </button>
-        <button class="toolbar__btn">
+        <button class="toolbar__btn" :class="{ active: store.previewMode }" @click="store.togglePreview()">
           <span class="icon"><Eye :size="16" /></span>
           <span class="label">Превью</span>
         </button>

@@ -6,14 +6,14 @@ import { useExport } from '@/modules/editor/composables/useExport'
 import { useBrushMask } from '@/modules/editor/composables/useBrushMask'
 
 const store = useEditorStore()
-const { exportToken, downloadPng } = useExport()
+const { exportToken, downloadCanvas } = useExport()
 const { brushCanvas } = useBrushMask()
 
 const sizes = [256, 512, 1024, 2048]
 const exportSize = ref(512)
 const isExporting = ref(false)
 
-async function doExport(mode) {
+async function doExport(mode, format = 'png') {
   if (isExporting.value) return
   isExporting.value = true
   try {
@@ -22,7 +22,7 @@ async function doExport(mode) {
       mode,
     })
     const suffix = mode === 'char-only' ? 'char' : 'token'
-    downloadPng(canvas, `${suffix}_${exportSize.value}.png`)
+    downloadCanvas(canvas, `${suffix}_${exportSize.value}`, format)
   } finally {
     isExporting.value = false
   }
@@ -55,8 +55,11 @@ async function doExport(mode) {
             <div class="modal__section-title">Полный токен</div>
             <p class="modal__hint">Полный токен с рамкой и фоном</p>
             <div class="modal__actions">
-              <button class="export-btn" :disabled="isExporting" @click="doExport('full')">
+              <button class="export-btn" :disabled="isExporting" @click="doExport('full', 'png')">
                 <Download :size="14" /> PNG
+              </button>
+              <button class="export-btn" :disabled="isExporting" @click="doExport('full', 'webp')">
+                <Download :size="14" /> WebP
               </button>
             </div>
           </div>
@@ -69,8 +72,11 @@ async function doExport(mode) {
               Подойдет для Foundry VTT с Динамическим кольцом.
             </p>
             <div class="modal__actions">
-              <button class="export-btn" :disabled="isExporting" @click="doExport('char-only')">
+              <button class="export-btn" :disabled="isExporting" @click="doExport('char-only', 'png')">
                 <Download :size="14" /> PNG
+              </button>
+              <button class="export-btn" :disabled="isExporting" @click="doExport('char-only', 'webp')">
+                <Download :size="14" /> WebP
               </button>
             </div>
           </div>

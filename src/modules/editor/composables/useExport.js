@@ -120,16 +120,22 @@ export function useExport() {
     return canvas
   }
 
-  function downloadPng(canvas, filename = 'token.png') {
+  // Скачивает canvas в указанном формате ('png' | 'webp')
+  function downloadCanvas(canvas, filename = 'token', format = 'png') {
+    const mime = format === 'webp' ? 'image/webp' : 'image/png'
     canvas.toBlob((blob) => {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = filename
+      a.download = `${filename}.${format}`
       a.click()
       URL.revokeObjectURL(url)
-    }, 'image/png')
+    }, mime)
   }
 
-  return { exportToken, downloadPng }
+  function downloadPng(canvas, filename = 'token.png') {
+    downloadCanvas(canvas, filename.replace(/\.png$/, ''), 'png')
+  }
+
+  return { exportToken, downloadCanvas, downloadPng }
 }

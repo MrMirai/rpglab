@@ -9,15 +9,14 @@ const { loadFromFile } = useImageLoader()
 
 const fileInput = ref(null)
 const isDragOver = ref(false)
-const previewUrl = ref(null)
 
 function triggerFileInput() { fileInput.value.click() }
 
 async function loadFile(file) {
   if (!file || !file.type.startsWith('image/')) return
   const img = await loadFromFile(file)
-  previewUrl.value = URL.createObjectURL(file)
-  store.loadCharImage(img)
+  const url = URL.createObjectURL(file)
+  store.loadCharImage(img, url)
   const maxDim = Math.max(img.width, img.height)
   const scale = Math.min(1, (store.canvasSize * 0.8) / maxDim)
   store.setCharScale(scale)
@@ -30,10 +29,9 @@ async function onDrop(e) {
   await loadFile(e.dataTransfer.files[0])
 }
 
-function removeChar() {
-  store.loadCharImage(null)
-  previewUrl.value = null
-  fileInput.value.value = ''
+function onRemove() {
+  store.removeChar()
+  fileInput.value.value = '' // сброс, чтобы повторный выбор того же файла сработал
 }
 </script>
 
@@ -55,9 +53,9 @@ function removeChar() {
 
     <div v-else class="char-preview">
       <div class="char-preview__thumb">
-        <img :src="previewUrl" alt="Персонаж" />
+        <img :src="store.charPreviewUrl" alt="Персонаж" />
       </div>
-      <button class="char-preview__remove" @click="removeChar">
+      <button class="char-preview__remove" @click="onRemove">
         <X :size="14" /> Удалить
       </button>
     </div>

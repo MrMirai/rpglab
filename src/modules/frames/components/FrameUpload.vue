@@ -9,17 +9,15 @@ const { loadFromFile } = useImageLoader()
 
 const fileInput = ref(null)
 const isDragOver = ref(false)
-const previewUrl = ref(null)
-const fileName = ref('')
 
 function triggerFileInput() { fileInput.value.click() }
 
 async function loadFile(file) {
   if (!file || file.type !== 'image/png') return
   const img = await loadFromFile(file)
-  previewUrl.value = URL.createObjectURL(file)
-  fileName.value = file.name
-  store.loadFrameImage(img)
+  const url = URL.createObjectURL(file)
+  store.loadFrameImage(img, url)
+  store.frameFileName = file.name
   // Сбрасываем кастомную маску — рамка новая, нужна новая авто-маска
   store.loadMaskImage(null)
   store.useCustomMask = false
@@ -31,12 +29,10 @@ async function onDrop(e) {
   await loadFile(e.dataTransfer.files[0])
 }
 
-function removeFrame() {
-  store.loadFrameImage(null)
-  store.loadMaskImage(null)
-  previewUrl.value = null
-  fileName.value = ''
-  fileInput.value.value = ''
+function onRemove() {
+  store.removeFrame()
+  store.useCustomMask = false
+  fileInput.value.value = '' // сброс, чтобы повторный выбор того же файла сработал
 }
 </script>
 
@@ -58,11 +54,11 @@ function removeFrame() {
 
     <div v-else class="frame-preview">
       <div class="frame-preview__thumb">
-        <img :src="previewUrl" alt="Рамка" />
+        <img :src="store.framePreviewUrl" alt="Рамка" />
       </div>
       <div class="frame-preview__info">
-        <span class="frame-preview__name">{{ fileName }}</span>
-        <button class="frame-preview__remove" @click="removeFrame">
+        <span class="frame-preview__name">{{ store.frameFileName }}</span>
+        <button class="frame-preview__remove" @click="onRemove">
           <X :size="14" />
         </button>
       </div>

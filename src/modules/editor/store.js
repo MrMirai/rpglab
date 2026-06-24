@@ -13,6 +13,12 @@ export const useEditorStore = defineStore('editor', () => {
 
   // Рамка
   const frameImage = ref(null)     // HTMLImageElement
+  const frameFileName = ref('')
+
+  // Превью URL (object URLs) — в сторе, чтобы не терялись при размонтировании компонентов
+  const charPreviewUrl = ref(null)
+  const framePreviewUrl = ref(null)
+  const bgPreviewUrl = ref(null)
 
   // Маска (авто или кастомная)
   const maskImage = ref(null)      // HTMLImageElement
@@ -79,7 +85,14 @@ export const useEditorStore = defineStore('editor', () => {
 
   function setBgType(type) { bgType.value = type }
   function setBgColor(color) { bgColor.value = color }
-  function loadBgImage(img) { bgImage.value = img; bgType.value = img ? 'image' : 'none' }
+  function loadBgImage(img, url = null) {
+    bgImage.value = img
+    bgType.value = img ? 'image' : 'none'
+    if (url) {
+      if (bgPreviewUrl.value) URL.revokeObjectURL(bgPreviewUrl.value)
+      bgPreviewUrl.value = url
+    }
+  }
   function setBgAutoColor(c) { bgAutoColor.value = c }
   function setBgNoiseType(t) { bgNoiseType.value = t }
 
@@ -91,9 +104,36 @@ export const useEditorStore = defineStore('editor', () => {
   function setCharPosition(x, y) { charX.value = x; charY.value = y }
   function setCharScale(scale) { charScale.value = scale }
 
-  function loadCharImage(htmlImageElement) { charImage.value = htmlImageElement }
-  function loadFrameImage(htmlImageElement) { frameImage.value = htmlImageElement }
+  function loadCharImage(img, url = null) {
+    charImage.value = img
+    if (url) {
+      if (charPreviewUrl.value) URL.revokeObjectURL(charPreviewUrl.value)
+      charPreviewUrl.value = url
+    }
+  }
+  function loadFrameImage(img, url = null) {
+    frameImage.value = img
+    if (url) {
+      if (framePreviewUrl.value) URL.revokeObjectURL(framePreviewUrl.value)
+      framePreviewUrl.value = url
+    }
+  }
   function loadMaskImage(htmlImageElement) { maskImage.value = htmlImageElement }
+
+  function removeChar() {
+    if (charPreviewUrl.value) URL.revokeObjectURL(charPreviewUrl.value)
+    charImage.value = null
+    charPreviewUrl.value = null
+  }
+
+  function removeFrame() {
+    if (framePreviewUrl.value) URL.revokeObjectURL(framePreviewUrl.value)
+    frameImage.value = null
+    framePreviewUrl.value = null
+    frameFileName.value = ''
+    maskImage.value = null
+    maskVersion.value++
+  }
 
   function resetMask() {
     maskImage.value = null
@@ -103,7 +143,8 @@ export const useEditorStore = defineStore('editor', () => {
 
   return {
     canvasSize, charImage, charX, charY, charScale,
-    frameImage, maskImage, useCustomMask, maskVersion,
+    frameImage, frameFileName, maskImage, useCustomMask, maskVersion,
+    charPreviewUrl, framePreviewUrl, bgPreviewUrl,
     overflowY, overflowSoft,
     activeTool, brushSize, brushHardness,
     bgType, bgColor, bgImage, setBgType, setBgColor, loadBgImage,
@@ -116,5 +157,6 @@ export const useEditorStore = defineStore('editor', () => {
     setActiveTool, toggleGrid, togglePreview, toggleMaskOverlay, toggleFrontOnly,
     setCharPosition, setCharScale,
     loadCharImage, loadFrameImage, loadMaskImage, resetMask,
+    removeChar, removeFrame,
   }
 })

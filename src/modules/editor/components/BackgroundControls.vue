@@ -11,7 +11,6 @@ const store = useEditorStore()
 const { loadFromFile } = useImageLoader()
 const { extractColor } = useAutoBackground()
 const fileInput = ref(null)
-const previewUrl = ref(null)
 
 const typeOptions = [
   { value: 'none',  label: 'Нет' },
@@ -49,8 +48,8 @@ async function onFileChange(e) {
   const file = e.target.files[0]
   if (!file) return
   const img = await loadFromFile(file)
-  previewUrl.value = URL.createObjectURL(file)
-  store.loadBgImage(img)
+  const url = URL.createObjectURL(file)
+  store.loadBgImage(img, url)
 }
 </script>
 
@@ -92,7 +91,7 @@ async function onFileChange(e) {
         {{ store.bgImage ? 'Заменить фон' : 'Загрузить фон' }}
       </button>
       <div v-if="store.bgImage" class="bg-preview">
-        <img :src="previewUrl" alt="Фон" />
+        <img :src="store.bgPreviewUrl" alt="Фон" />
       </div>
       <input
         ref="fileInput"

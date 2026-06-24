@@ -138,6 +138,19 @@ async function onFileChange(e) {
         :min="0" :max="60" :step="1" suffix="%"
         @update:model-value="store.bgNoiseStrength = $event"
       />
+
+      <label class="bg-controls__label">Тип шума</label>
+      <div class="bg-controls__types" style="margin-bottom: var(--space-3)">
+        <button
+          :class="['type-btn', { active: store.bgNoiseType === 'random' }]"
+          @click="store.setBgNoiseType('random')"
+        >Случайный</button>
+        <button
+          :class="['type-btn', { active: store.bgNoiseType === 'perlin' }]"
+          @click="store.setBgNoiseType('perlin')"
+        >Перлин</button>
+      </div>
+
       <SliderControl
         label="Зерно шума"
         :model-value="store.bgGrain"

@@ -44,7 +44,8 @@ export const useEditorStore = defineStore('editor', () => {
   const bgCenterLight = ref(0.7)        // множитель яркости центра
   const bgEdgeLight = ref(1.3)          // множитель яркости краёв
   const bgNoiseStrength = ref(15)       // сила шума, % (0..100)
-  const bgGrain = ref(4)                // размер крупинок шума
+  const bgGrain = ref(6)                // размер крупинок шума
+  const bgNoiseType = ref('perlin')     // 'random' | 'perlin'
 
   // Режимы отображения
   const showMaskOverlay = ref(false)
@@ -73,6 +74,7 @@ export const useEditorStore = defineStore('editor', () => {
   function setBgColor(color) { bgColor.value = color }
   function loadBgImage(img) { bgImage.value = img; bgType.value = img ? 'image' : 'none' }
   function setBgAutoColor(c) { bgAutoColor.value = c }
+  function setBgNoiseType(t) { bgNoiseType.value = t }
 
   function setCharPosition(x, y) { charX.value = x; charY.value = y }
   function setCharScale(scale) { charScale.value = scale }
@@ -93,7 +95,8 @@ export const useEditorStore = defineStore('editor', () => {
     overflowY, overflowSoft,
     activeTool, brushSize, brushHardness,
     bgType, bgColor, bgImage, setBgType, setBgColor, loadBgImage,
-    bgAutoColor, bgCenterLight, bgEdgeLight, bgNoiseStrength, bgGrain, setBgAutoColor,
+    bgAutoColor, bgCenterLight, bgEdgeLight, bgNoiseStrength, bgGrain, bgNoiseType,
+    setBgAutoColor, setBgNoiseType,
     showGrid, previewMode, showMaskOverlay, showFrontOnly,
     hasChar, hasFrame, isReady,
     setActiveTool, toggleGrid, togglePreview, toggleMaskOverlay, toggleFrontOnly,

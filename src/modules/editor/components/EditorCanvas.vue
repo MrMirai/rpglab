@@ -59,6 +59,35 @@ const charBottomCanvas = ref(null)
 const charTopCanvas = ref(null)
 const overlayCanvas = ref(null)
 
+// Кеш дорогого авто-фона: пересчитываем только при смене bg-параметров,
+// а не на каждый ререндер (renderBg вызывается при каждом движении персонажа).
+let autoBgCache = null
+let autoBgKey = ''
+
+function getAutoBg(size) {
+  const key = [
+    store.bgAutoColor, store.bgCenterLight, store.bgEdgeLight,
+    store.bgNoiseStrength, store.bgGrain, store.bgNoiseType, size,
+  ].join('|')
+  if (autoBgCache && autoBgKey === key) return autoBgCache
+
+  const hex = store.bgAutoColor.replace('#', '')
+  const baseColor = {
+    r: parseInt(hex.substring(0, 2), 16),
+    g: parseInt(hex.substring(2, 4), 16),
+    b: parseInt(hex.substring(4, 6), 16),
+  }
+  autoBgCache = generateBackground(baseColor, {
+    centerLightness: store.bgCenterLight,
+    edgeLightness: store.bgEdgeLight,
+    noiseStrength: store.bgNoiseStrength / 100,
+    grain: store.bgGrain,
+    noiseType: store.bgNoiseType,
+  }, size)
+  autoBgKey = key
+  return autoBgCache
+}
+
 function renderBg() {
   const size = store.canvasSize
   if (store.bgType === 'none') { bgCanvas.value = null; return }
@@ -79,19 +108,7 @@ function renderBg() {
     const sy = (size - sh) / 2
     btx.drawImage(img, sx, sy, sw, sh)
   } else if (store.bgType === 'auto') {
-    const hex = store.bgAutoColor.replace('#', '')
-    const baseColor = {
-      r: parseInt(hex.substring(0, 2), 16),
-      g: parseInt(hex.substring(2, 4), 16),
-      b: parseInt(hex.substring(4, 6), 16),
-    }
-    const bg = generateBackground(baseColor, {
-      centerLightness: store.bgCenterLight,
-      edgeLightness: store.bgEdgeLight,
-      noiseStrength: store.bgNoiseStrength / 100,
-      grain: store.bgGrain,
-    }, size)
-    btx.drawImage(bg, 0, 0)
+    btx.drawImage(getAutoBg(size), 0, 0)
   }
 
   // Обрезаем маской формы рамки
@@ -206,6 +223,7 @@ watchEffect(() => {
   const bel = store.bgEdgeLight
   const bns = store.bgNoiseStrength
   const bgr = store.bgGrain
+  const bnt = store.bgNoiseType
 
   if (!img) {
     // Фон может быть без персонажа

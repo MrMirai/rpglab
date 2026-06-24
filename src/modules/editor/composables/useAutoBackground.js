@@ -1,5 +1,57 @@
-// Процедурная генерация фона: радиальный градиент + сглаженный шум.
+// Процедурная генерация фона: радиальный градиент + шум (случайный или Перлин).
 // Базовый цвет может автоподбираться из доминирующего цвета рамки.
+
+// Шум Перлина с фрактальным суммированием октав (fbm)
+class PerlinNoise {
+  constructor() {
+    const perm = Array.from({ length: 256 }, (_, i) => i)
+    // Перемешиваем
+    for (let i = 255; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[perm[i], perm[j]] = [perm[j], perm[i]]
+    }
+    // Дублируем чтобы избежать проверок границ
+    this.p = [...perm, ...perm]
+  }
+
+  fade(t) { return t * t * t * (t * (t * 6 - 15) + 10) }
+  lerp(t, a, b) { return a + t * (b - a) }
+  grad(hash, x, y) {
+    const h = hash & 3
+    const u = h < 2 ? x : y
+    const v = h < 2 ? y : x
+    return (h & 1 ? -u : u) + (h & 2 ? -v : v)
+  }
+
+  noise(x, y) {
+    const X = Math.floor(x) & 255
+    const Y = Math.floor(y) & 255
+    x -= Math.floor(x)
+    y -= Math.floor(y)
+    const u = this.fade(x)
+    const v = this.fade(y)
+    const a = this.p[X] + Y
+    const b = this.p[X + 1] + Y
+    return this.lerp(v,
+      this.lerp(u, this.grad(this.p[a], x, y),
+                   this.grad(this.p[b], x - 1, y)),
+      this.lerp(u, this.grad(this.p[a + 1], x, y - 1),
+                   this.grad(this.p[b + 1], x - 1, y - 1))
+    )
+  }
+
+  // Фрактальный шум (несколько октав для богатой текстуры)
+  fbm(x, y, octaves = 4) {
+    let val = 0, amp = 0.5, freq = 1, max = 0
+    for (let i = 0; i < octaves; i++) {
+      val += this.noise(x * freq, y * freq) * amp
+      max += amp
+      amp *= 0.5
+      freq *= 2
+    }
+    return val / max  // нормализуем в -1..1
+  }
+}
 
 export function useAutoBackground() {
 
@@ -25,28 +77,53 @@ export function useAutoBackground() {
     }
   }
 
-  // Сглаженный шум: генерим в низком разрешении, растягиваем с интерполяцией
-  function generateNoise(size, grain) {
-    const lowRes = Math.max(8, Math.round(size / grain))
-    const noiseCanvas = document.createElement('canvas')
-    noiseCanvas.width = lowRes; noiseCanvas.height = lowRes
-    const nctx = noiseCanvas.getContext('2d')
-    const imgData = nctx.createImageData(lowRes, lowRes)
-    for (let i = 0; i < lowRes * lowRes; i++) {
-      const v = Math.round(Math.random() * 255)
-      imgData.data[i * 4] = v
-      imgData.data[i * 4 + 1] = v
-      imgData.data[i * 4 + 2] = v
-      imgData.data[i * 4 + 3] = 255
-    }
-    nctx.putImageData(imgData, 0, 0)
+  // Шум: 'random' (сглаженный low-res) или 'perlin' (попиксельный fbm)
+  function generateNoise(size, grain, type = 'random') {
+    if (type === 'perlin') {
+      const canvas = document.createElement('canvas')
+      canvas.width = size; canvas.height = size
+      const ctx = canvas.getContext('2d')
+      const imgData = ctx.createImageData(size, size)
+      const perlin = new PerlinNoise()
+      const scale = grain / size * 8  // масштаб шума
 
-    const full = document.createElement('canvas')
-    full.width = size; full.height = size
-    const fctx = full.getContext('2d')
-    fctx.imageSmoothingEnabled = true
-    fctx.drawImage(noiseCanvas, 0, 0, size, size)
-    return full
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const n = perlin.fbm(x * scale, y * scale, 4)
+          const v = Math.round((n + 1) / 2 * 255)
+          const i = (y * size + x) * 4
+          imgData.data[i] = v
+          imgData.data[i + 1] = v
+          imgData.data[i + 2] = v
+          imgData.data[i + 3] = 255
+        }
+      }
+      ctx.putImageData(imgData, 0, 0)
+      return canvas
+
+    } else {
+      // Случайный шум, сглаженный через low-res + интерполяцию
+      const lowRes = Math.max(8, Math.round(size / grain))
+      const noiseCanvas = document.createElement('canvas')
+      noiseCanvas.width = lowRes; noiseCanvas.height = lowRes
+      const nctx = noiseCanvas.getContext('2d')
+      const imgData = nctx.createImageData(lowRes, lowRes)
+      for (let i = 0; i < lowRes * lowRes; i++) {
+        const v = Math.round(Math.random() * 255)
+        imgData.data[i * 4] = v
+        imgData.data[i * 4 + 1] = v
+        imgData.data[i * 4 + 2] = v
+        imgData.data[i * 4 + 3] = 255
+      }
+      nctx.putImageData(imgData, 0, 0)
+
+      const full = document.createElement('canvas')
+      full.width = size; full.height = size
+      const fctx = full.getContext('2d')
+      fctx.imageSmoothingEnabled = true
+      fctx.drawImage(noiseCanvas, 0, 0, size, size)
+      return full
+    }
   }
 
   // Генерирует фон: радиальный градиент + шум
@@ -56,6 +133,7 @@ export function useAutoBackground() {
       edgeLightness = 1.3,
       noiseStrength = 0.15,
       grain = 4,
+      noiseType = 'perlin',  // 'random' | 'perlin'
     } = options
 
     const canvas = document.createElement('canvas')
@@ -73,7 +151,7 @@ export function useAutoBackground() {
     ctx.fillRect(0, 0, size, size)
 
     if (noiseStrength > 0) {
-      const noise = generateNoise(size, grain)
+      const noise = generateNoise(size, grain, noiseType)
       ctx.globalAlpha = noiseStrength
       ctx.globalCompositeOperation = 'overlay'
       ctx.drawImage(noise, 0, 0)

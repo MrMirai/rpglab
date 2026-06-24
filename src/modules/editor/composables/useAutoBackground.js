@@ -152,9 +152,27 @@ export function useAutoBackground() {
 
     if (noiseStrength > 0) {
       const noise = generateNoise(size, grain, noiseType)
+
+      // Модулируем шум радиальной маской: в центре затухает, к краям усиливается
+      const modulated = document.createElement('canvas')
+      modulated.width = size; modulated.height = size
+      const mctx = modulated.getContext('2d')
+
+      mctx.drawImage(noise, 0, 0)
+
+      // Маска: прозрачно в центре → непрозрачно к краям
+      const radMask = mctx.createRadialGradient(cx, cy, 0, cx, cy, size / 2)
+      radMask.addColorStop(0, 'rgba(0,0,0,0)')      // центр — шум не виден
+      radMask.addColorStop(0.4, 'rgba(0,0,0,0.3)')  // плавный переход
+      radMask.addColorStop(1, 'rgba(0,0,0,1)')      // край — полный шум
+      mctx.globalCompositeOperation = 'destination-in'
+      mctx.fillStyle = radMask
+      mctx.fillRect(0, 0, size, size)
+      mctx.globalCompositeOperation = 'source-over'
+
       ctx.globalAlpha = noiseStrength
       ctx.globalCompositeOperation = 'overlay'
-      ctx.drawImage(noise, 0, 0)
+      ctx.drawImage(modulated, 0, 0)
       ctx.globalAlpha = 1
       ctx.globalCompositeOperation = 'source-over'
     }

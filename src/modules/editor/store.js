@@ -34,6 +34,11 @@ export const useEditorStore = defineStore('editor', () => {
   const showGrid = ref(false)
   const previewMode = ref(false)
 
+  // Фон токена
+  const bgType = ref('none')        // 'none' | 'color' | 'image'
+  const bgColor = ref('#1a1a2e')
+  const bgImage = ref(null)         // HTMLImageElement
+
   // Режимы отображения
   const showMaskOverlay = ref(false)
   const showFrontOnly = ref(false)
@@ -57,6 +62,10 @@ export const useEditorStore = defineStore('editor', () => {
     if (showFrontOnly.value) showMaskOverlay.value = false
   }
 
+  function setBgType(type) { bgType.value = type }
+  function setBgColor(color) { bgColor.value = color }
+  function loadBgImage(img) { bgImage.value = img; bgType.value = img ? 'image' : 'none' }
+
   function setCharPosition(x, y) { charX.value = x; charY.value = y }
   function setCharScale(scale) { charScale.value = scale }
 
@@ -75,6 +84,7 @@ export const useEditorStore = defineStore('editor', () => {
     frameImage, maskImage, useCustomMask, maskVersion,
     overflowY, overflowSoft,
     activeTool, brushSize, brushHardness,
+    bgType, bgColor, bgImage, setBgType, setBgColor, loadBgImage,
     showGrid, previewMode, showMaskOverlay, showFrontOnly,
     hasChar, hasFrame, isReady,
     setActiveTool, toggleGrid, togglePreview, toggleMaskOverlay, toggleFrontOnly,

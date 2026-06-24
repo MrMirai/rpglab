@@ -5,14 +5,16 @@ import CharacterUpload from '@/modules/editor/components/CharacterUpload.vue'
 import CharacterControls from '@/modules/editor/components/CharacterControls.vue'
 import FrameUpload from '@/modules/frames/components/FrameUpload.vue'
 import MaskControls from '@/modules/editor/components/MaskControls.vue'
+import BackgroundControls from '@/modules/editor/components/BackgroundControls.vue'
 
 const store = useEditorStore()
 
 const sections = ref([
-  { id: 'character', label: 'Персонаж', open: true },
-  { id: 'frame',     label: 'Рамка',    open: true },
-  { id: 'mask',      label: 'Маска',    open: true },
-  { id: 'brush',     label: 'Кисть',    open: true },
+  { id: 'frame',       label: 'Рамка',    open: true },
+  { id: 'background',  label: 'Фон',      open: true },
+  { id: 'character',   label: 'Персонаж', open: true },
+  { id: 'mask',        label: 'Маска',    open: true },
+  { id: 'brush',       label: 'Кисть',    open: true },
 ])
 
 function toggle(section) {
@@ -34,18 +36,32 @@ function toggle(section) {
         </button>
       </div>
       <div class="section-content" :class="{ collapsed: !section.open }">
-        <template v-if="section.id === 'character'">
-          <CharacterUpload />
-          <CharacterControls v-if="store.hasChar" />
-        </template>
-        <template v-else-if="section.id === 'frame'">
+        <template v-if="section.id === 'frame'">
           <FrameUpload />
         </template>
-        <template v-else-if="section.id === 'mask'">
-          <MaskControls v-if="store.hasFrame" />
+        <template v-else-if="section.id === 'background'">
+          <BackgroundControls v-if="store.hasFrame" />
           <p v-else class="placeholder-hint">Сначала загрузи рамку</p>
         </template>
-        <p v-else class="placeholder">// компонент будет здесь</p>
+        <template v-else-if="section.id === 'character'">
+          <template v-if="store.hasFrame">
+            <CharacterUpload />
+            <CharacterControls v-if="store.hasChar" />
+          </template>
+          <p v-else class="placeholder-hint">Сначала загрузи рамку</p>
+        </template>
+        <template v-else-if="section.id === 'mask'">
+          <MaskControls v-if="store.hasFrame && store.hasChar" />
+          <p v-else class="placeholder-hint">
+            {{ !store.hasFrame ? 'Сначала загрузи рамку' : 'Сначала загрузи персонажа' }}
+          </p>
+        </template>
+        <template v-else-if="section.id === 'brush'">
+          <p v-if="!store.hasFrame || !store.hasChar" class="placeholder-hint">
+            {{ !store.hasFrame ? 'Сначала загрузи рамку' : 'Сначала загрузи персонажа' }}
+          </p>
+          <p v-else class="placeholder">// настройки кисти</p>
+        </template>
       </div>
     </div>
   </aside>

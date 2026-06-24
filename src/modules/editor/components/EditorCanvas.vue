@@ -3,6 +3,7 @@ import { ref, computed, watch, watchEffect, nextTick, onMounted, onUnmounted } f
 import { useEditorStore } from '../store'
 import { useAutoMask } from '../composables/useAutoMask'
 import { useBrushMask } from '../composables/useBrushMask'
+import ZoomNavigator from '@/shared/components/ZoomNavigator.vue'
 
 const store = useEditorStore()
 const { generateMask } = useAutoMask()
@@ -10,6 +11,7 @@ const { brushCanvas, paint, setRedraw } = useBrushMask()
 
 const containerRef = ref(null)
 const stageRef = ref(null)
+const bgLayer = ref(null)
 const charBottomLayer = ref(null)
 const frameLayer = ref(null)
 const charTopLayer = ref(null)
@@ -50,11 +52,46 @@ const charH = computed(() =>
 const charDrawX = computed(() => store.canvasSize / 2 + store.charX - charW.value / 2)
 const charDrawY = computed(() => store.canvasSize / 2 + store.charY - charH.value / 2)
 
+const bgCanvas = ref(null)
 const charBottomCanvas = ref(null)
 const charTopCanvas = ref(null)
 const overlayCanvas = ref(null)
 
+function renderBg() {
+  const size = store.canvasSize
+  if (store.bgType === 'none') { bgCanvas.value = null; return }
+
+  const bgC = document.createElement('canvas')
+  bgC.width = size; bgC.height = size
+  const btx = bgC.getContext('2d')
+
+  if (store.bgType === 'color') {
+    btx.fillStyle = store.bgColor
+    btx.fillRect(0, 0, size, size)
+  } else if (store.bgType === 'image' && store.bgImage) {
+    const img = store.bgImage
+    const scale = Math.max(size / img.width, size / img.height)
+    const sw = img.width * scale
+    const sh = img.height * scale
+    const sx = (size - sw) / 2
+    const sy = (size - sh) / 2
+    btx.drawImage(img, sx, sy, sw, sh)
+  }
+
+  // Обрезаем маской формы рамки
+  const mask = store.maskImage || (store.frameImage ? generateMask(store.frameImage, size) : null)
+  if (mask) {
+    btx.globalCompositeOperation = 'destination-in'
+    btx.drawImage(mask, 0, 0, size, size)
+    btx.globalCompositeOperation = 'source-over'
+  }
+
+  bgCanvas.value = bgC
+}
+
 function renderOffscreen() {
+  renderBg()
+
   const size = store.canvasSize
   const img = store.charImage
 
@@ -92,11 +129,11 @@ function renderOverlay() {
   const octx = oc.getContext('2d')
 
   if (store.showMaskOverlay) {
-    // brushCanvas подкрашенный пурпурным
-    octx.drawImage(brushCanvas, 0, 0)
-    octx.globalCompositeOperation = 'source-in'
-    octx.fillStyle = 'rgba(200, 80, 200, 0.6)'
+    // Инвертированный оверлей: янтарный там где маска прозрачная (скрытая область)
+    octx.fillStyle = 'rgba(196, 149, 74, 0.45)'
     octx.fillRect(0, 0, size, size)
+    octx.globalCompositeOperation = 'destination-out'
+    octx.drawImage(brushCanvas, 0, 0)
     octx.globalCompositeOperation = 'source-over'
   } else if (store.showFrontOnly) {
     // Шахматный фон
@@ -124,6 +161,7 @@ function redrawAll() {
   renderOffscreen()
   renderOverlay()
   nextTick(() => {
+    bgLayer.value?.getNode()?.batchDraw()
     charBottomLayer.value?.getNode()?.batchDraw()
     charTopLayer.value?.getNode()?.batchDraw()
   })
@@ -144,12 +182,21 @@ watchEffect(() => {
   const scale = store.charScale
   const maskImg = store.maskImage
   const mv = store.maskVersion
+  const bt = store.bgType
+  const bc = store.bgColor
+  const bi = store.bgImage
 
-  if (!img) return
+  if (!img) {
+    // Фон может быть без персонажа
+    renderBg()
+    nextTick(() => bgLayer.value?.getNode()?.batchDraw())
+    return
+  }
   renderOffscreen()
   renderOverlay()
 
   nextTick(() => {
+    bgLayer.value?.getNode()?.batchDraw()
     charBottomLayer.value?.getNode()?.batchDraw()
     charTopLayer.value?.getNode()?.batchDraw()
   })
@@ -325,12 +372,30 @@ onMounted(() => {
   })
 })
 
+function onZoomSlider(val) {
+  const cx = containerW.value / 2
+  const cy = containerH.value / 2
+  viewX.value = cx - (cx - viewX.value) * (val / viewZoom.value)
+  viewY.value = cy - (cy - viewY.value) * (val / viewZoom.value)
+  viewZoom.value = val
+}
+function zoomIn() { onZoomSlider(Math.min(8, viewZoom.value * 1.2)) }
+function zoomOut() { onZoomSlider(Math.max(0.1, viewZoom.value / 1.2)) }
+
 onUnmounted(() => ro?.disconnect())
 </script>
 
 <template>
   <div class="editor-canvas" ref="containerRef">
     <v-stage :config="stageConfig" ref="stageRef">
+
+      <!-- Слой 0: фон токена -->
+      <v-layer ref="bgLayer">
+        <v-image
+          v-if="bgCanvas"
+          :config="{ image: bgCanvas, x: 0, y: 0, width: store.canvasSize, height: store.canvasSize, listening: false }"
+        />
+      </v-layer>
 
       <!-- Слой 1: персонаж ЗА рамкой -->
       <v-layer ref="charBottomLayer">
@@ -377,11 +442,21 @@ onUnmounted(() => ro?.disconnect())
       </v-layer>
 
     </v-stage>
+
+    <ZoomNavigator
+      :zoom="viewZoom"
+      :min-zoom="0.1"
+      :max-zoom="8"
+      @update:zoom="onZoomSlider"
+      @zoom-in="zoomIn"
+      @zoom-out="zoomOut"
+    />
   </div>
 </template>
 
 <style lang="scss" scoped>
 .editor-canvas {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;

@@ -1,11 +1,14 @@
 <script setup>
 import { ref } from 'vue'
-import { ImagePlus } from 'lucide-vue-next'
+import { ImagePlus, Pipette } from 'lucide-vue-next'
 import { useEditorStore } from '../store'
 import { useImageLoader } from '../composables/useImageLoader'
+import { useAutoBackground } from '../composables/useAutoBackground'
+import SliderControl from './SliderControl.vue'
 
 const store = useEditorStore()
 const { loadFromFile } = useImageLoader()
+const { extractColor } = useAutoBackground()
 const fileInput = ref(null)
 const previewUrl = ref(null)
 
@@ -13,7 +16,24 @@ const typeOptions = [
   { value: 'none',  label: 'Нет' },
   { value: 'color', label: 'Цвет' },
   { value: 'image', label: 'Картинка' },
+  { value: 'auto',  label: 'Авто' },
 ]
+
+function colorToHex(c) {
+  return '#' + [c.r, c.g, c.b].map(v => v.toString(16).padStart(2, '0')).join('')
+}
+
+function selectType(type) {
+  store.setBgType(type)
+  if (type === 'auto' && store.frameImage) {
+    store.setBgAutoColor(colorToHex(extractColor(store.frameImage)))
+  }
+}
+
+function repickColor() {
+  if (!store.frameImage) return
+  store.setBgAutoColor(colorToHex(extractColor(store.frameImage)))
+}
 
 const swatches = [
   '#1a1a2e', '#16213e', '#0f3460',
@@ -41,7 +61,7 @@ async function onFileChange(e) {
         v-for="opt in typeOptions"
         :key="opt.value"
         :class="['type-btn', { active: store.bgType === opt.value }]"
-        @click="store.setBgType(opt.value)"
+        @click="selectType(opt.value)"
       >{{ opt.label }}</button>
     </div>
 
@@ -82,6 +102,47 @@ async function onFileChange(e) {
         accept="image/*"
         style="display: none"
         @change="onFileChange"
+      />
+    </div>
+
+    <div v-else-if="store.bgType === 'auto'" class="bg-controls__auto">
+      <label class="bg-controls__label">Базовый цвет</label>
+      <div class="bg-controls__color-row">
+        <input
+          type="color"
+          :value="store.bgAutoColor"
+          class="color-picker"
+          @input="store.setBgAutoColor($event.target.value)"
+        />
+        <span class="color-value">{{ store.bgAutoColor }}</span>
+        <button class="repick-btn" @click="repickColor" title="Подобрать из рамки">
+          <Pipette :size="14" />
+        </button>
+      </div>
+
+      <SliderControl
+        label="Яркость центра"
+        :model-value="Math.round(store.bgCenterLight * 100)"
+        :min="20" :max="150" :step="1" suffix="%"
+        @update:model-value="store.bgCenterLight = $event / 100"
+      />
+      <SliderControl
+        label="Яркость краёв"
+        :model-value="Math.round(store.bgEdgeLight * 100)"
+        :min="20" :max="200" :step="1" suffix="%"
+        @update:model-value="store.bgEdgeLight = $event / 100"
+      />
+      <SliderControl
+        label="Сила шума"
+        :model-value="store.bgNoiseStrength"
+        :min="0" :max="60" :step="1" suffix="%"
+        @update:model-value="store.bgNoiseStrength = $event"
+      />
+      <SliderControl
+        label="Зерно шума"
+        :model-value="store.bgGrain"
+        :min="1" :max="12" :step="1"
+        @update:model-value="store.bgGrain = $event"
       />
     </div>
 
@@ -156,6 +217,25 @@ async function onFileChange(e) {
   border-radius: var(--radius-sm);
   background: var(--color-bg-1);
   cursor: pointer;
+}
+
+.repick-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-2);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+
+  &:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
 }
 
 .color-value {

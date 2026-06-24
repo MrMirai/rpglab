@@ -35,9 +35,16 @@ export const useEditorStore = defineStore('editor', () => {
   const previewMode = ref(false)
 
   // Фон токена
-  const bgType = ref('none')        // 'none' | 'color' | 'image'
+  const bgType = ref('none')        // 'none' | 'color' | 'image' | 'auto'
   const bgColor = ref('#1a1a2e')
   const bgImage = ref(null)         // HTMLImageElement
+
+  // Авто-фон (процедурный градиент + шум)
+  const bgAutoColor = ref('#28283c')    // базовый цвет (hex)
+  const bgCenterLight = ref(0.7)        // множитель яркости центра
+  const bgEdgeLight = ref(1.3)          // множитель яркости краёв
+  const bgNoiseStrength = ref(15)       // сила шума, % (0..100)
+  const bgGrain = ref(4)                // размер крупинок шума
 
   // Режимы отображения
   const showMaskOverlay = ref(false)
@@ -65,6 +72,7 @@ export const useEditorStore = defineStore('editor', () => {
   function setBgType(type) { bgType.value = type }
   function setBgColor(color) { bgColor.value = color }
   function loadBgImage(img) { bgImage.value = img; bgType.value = img ? 'image' : 'none' }
+  function setBgAutoColor(c) { bgAutoColor.value = c }
 
   function setCharPosition(x, y) { charX.value = x; charY.value = y }
   function setCharScale(scale) { charScale.value = scale }
@@ -85,6 +93,7 @@ export const useEditorStore = defineStore('editor', () => {
     overflowY, overflowSoft,
     activeTool, brushSize, brushHardness,
     bgType, bgColor, bgImage, setBgType, setBgColor, loadBgImage,
+    bgAutoColor, bgCenterLight, bgEdgeLight, bgNoiseStrength, bgGrain, setBgAutoColor,
     showGrid, previewMode, showMaskOverlay, showFrontOnly,
     hasChar, hasFrame, isReady,
     setActiveTool, toggleGrid, togglePreview, toggleMaskOverlay, toggleFrontOnly,

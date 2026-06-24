@@ -3,11 +3,13 @@ import { ref, computed, watch, watchEffect, nextTick, onMounted, onUnmounted } f
 import { useEditorStore } from '../store'
 import { useAutoMask } from '../composables/useAutoMask'
 import { useBrushMask } from '../composables/useBrushMask'
+import { useAutoBackground } from '../composables/useAutoBackground'
 import ZoomNavigator from '@/shared/components/ZoomNavigator.vue'
 
 const store = useEditorStore()
 const { generateMask } = useAutoMask()
 const { brushCanvas, paint, setRedraw } = useBrushMask()
+const { generateBackground } = useAutoBackground()
 
 const containerRef = ref(null)
 const stageRef = ref(null)
@@ -76,6 +78,20 @@ function renderBg() {
     const sx = (size - sw) / 2
     const sy = (size - sh) / 2
     btx.drawImage(img, sx, sy, sw, sh)
+  } else if (store.bgType === 'auto') {
+    const hex = store.bgAutoColor.replace('#', '')
+    const baseColor = {
+      r: parseInt(hex.substring(0, 2), 16),
+      g: parseInt(hex.substring(2, 4), 16),
+      b: parseInt(hex.substring(4, 6), 16),
+    }
+    const bg = generateBackground(baseColor, {
+      centerLightness: store.bgCenterLight,
+      edgeLightness: store.bgEdgeLight,
+      noiseStrength: store.bgNoiseStrength / 100,
+      grain: store.bgGrain,
+    }, size)
+    btx.drawImage(bg, 0, 0)
   }
 
   // Обрезаем маской формы рамки
@@ -185,6 +201,11 @@ watchEffect(() => {
   const bt = store.bgType
   const bc = store.bgColor
   const bi = store.bgImage
+  const bac = store.bgAutoColor
+  const bcl = store.bgCenterLight
+  const bel = store.bgEdgeLight
+  const bns = store.bgNoiseStrength
+  const bgr = store.bgGrain
 
   if (!img) {
     // Фон может быть без персонажа

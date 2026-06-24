@@ -665,15 +665,30 @@ onMounted(() => {
     const pos = stage.getPointerPosition()
     const tool = store.activeTool
 
-    if (e.evt.ctrlKey || e.evt.metaKey || isSpaceDown || tool === 'hand') {
-      // Zoom вьюпорта относительно позиции курсора
+    if (e.evt.ctrlKey || e.evt.metaKey) {
+      if (tool === 'erase' || tool === 'restore') {
+        // Ctrl+колёсико в режиме кисти — меняем размер кисти
+        const dir = e.evt.deltaY > 0 ? -1 : 1
+        const step = Math.max(1, Math.round(store.brushSize * 0.08))
+        store.brushSize = Math.min(200, Math.max(5, store.brushSize + dir * step))
+        drawBrushCursor(cursorX, cursorY)
+      } else {
+        // Ctrl+колёсико в остальных инструментах — zoom вьюпорта
+        const zoomFactor = e.evt.deltaY > 0 ? 0.9 : 1.1
+        const newZoom = Math.min(8, Math.max(0.1, viewZoom.value * zoomFactor))
+        viewX.value = pos.x - (pos.x - viewX.value) * (newZoom / viewZoom.value)
+        viewY.value = pos.y - (pos.y - viewY.value) * (newZoom / viewZoom.value)
+        viewZoom.value = newZoom
+      }
+    } else if (isSpaceDown || tool === 'hand') {
+      // Пробел+колёсико или hand tool — zoom вьюпорта
       const zoomFactor = e.evt.deltaY > 0 ? 0.9 : 1.1
       const newZoom = Math.min(8, Math.max(0.1, viewZoom.value * zoomFactor))
       viewX.value = pos.x - (pos.x - viewX.value) * (newZoom / viewZoom.value)
       viewY.value = pos.y - (pos.y - viewY.value) * (newZoom / viewZoom.value)
       viewZoom.value = newZoom
     } else if (tool === 'move') {
-      // Zoom персонажа (только в инструменте move)
+      // Колёсико без модификаторов в move — zoom персонажа
       const delta = e.evt.deltaY > 0 ? -0.05 : 0.05
       const newScale = Math.min(3, Math.max(0.1, store.charScale + delta))
       store.setCharScale(Math.round(newScale * 100) / 100)

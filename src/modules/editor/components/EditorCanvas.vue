@@ -126,17 +126,52 @@ function renderBg() {
   bgCanvas.value = bgC
 }
 
+// Собирает CSS-строку фильтра персонажа из параметров стора
+function buildCharFilter() {
+  const filters = []
+  if (store.charHue !== 0)
+    filters.push(`hue-rotate(${store.charHue}deg)`)
+  if (store.charSaturation !== 100)
+    filters.push(`saturate(${store.charSaturation}%)`)
+  if (store.charBrightness !== 100)
+    filters.push(`brightness(${store.charBrightness}%)`)
+  if (store.charContrast !== 100)
+    filters.push(`contrast(${store.charContrast}%)`)
+  return filters.length ? filters.join(' ') : 'none'
+}
+
+// Рисует персонажа с фильтрами и тенью на переданном контексте
+function renderCharWithFilters(targetCtx, x, y, w, h) {
+  const filter = buildCharFilter()
+  targetCtx.save()
+
+  if (store.charShadowEnabled) {
+    const shadowOpacity = store.charShadowOpacity / 100
+    const sc = store.charShadowColor
+    const sr = parseInt(sc.slice(1, 3), 16)
+    const sg = parseInt(sc.slice(3, 5), 16)
+    const sb = parseInt(sc.slice(5, 7), 16)
+    targetCtx.shadowColor = `rgba(${sr},${sg},${sb},${shadowOpacity})`
+    targetCtx.shadowBlur = store.charShadowBlur
+    targetCtx.shadowOffsetX = store.charShadowOffsetX
+    targetCtx.shadowOffsetY = store.charShadowOffsetY
+  }
+
+  if (filter !== 'none') targetCtx.filter = filter
+  targetCtx.drawImage(store.charImage, x, y, w, h)
+  targetCtx.restore()
+}
+
 function renderOffscreen() {
   renderBg()
 
   const size = store.canvasSize
-  const img = store.charImage
 
   // Нижний слой: персонаж обрезанный по маске формы рамки
   const bottomC = document.createElement('canvas')
   bottomC.width = size; bottomC.height = size
   const btx = bottomC.getContext('2d')
-  btx.drawImage(img, charDrawX.value, charDrawY.value, charW.value, charH.value)
+  renderCharWithFilters(btx, charDrawX.value, charDrawY.value, charW.value, charH.value)
 
   const mask = store.maskImage || (store.frameImage ? generateMask(store.frameImage, size) : null)
   if (mask) {
@@ -151,7 +186,7 @@ function renderOffscreen() {
   const topC = document.createElement('canvas')
   topC.width = size; topC.height = size
   const ttx = topC.getContext('2d')
-  ttx.drawImage(img, charDrawX.value, charDrawY.value, charW.value, charH.value)
+  renderCharWithFilters(ttx, charDrawX.value, charDrawY.value, charW.value, charH.value)
   ttx.globalCompositeOperation = 'destination-in'
   ttx.drawImage(brushCanvas, 0, 0)
   ttx.globalCompositeOperation = 'source-over'
@@ -315,6 +350,17 @@ watchEffect(() => {
   const bns = store.bgNoiseStrength
   const bgr = store.bgGrain
   const bnt = store.bgNoiseType
+  // Фильтры персонажа — пересобираем слои при изменении
+  const fHue = store.charHue
+  const fSat = store.charSaturation
+  const fBri = store.charBrightness
+  const fCon = store.charContrast
+  const shEn = store.charShadowEnabled
+  const shCol = store.charShadowColor
+  const shBlur = store.charShadowBlur
+  const shOx = store.charShadowOffsetX
+  const shOy = store.charShadowOffsetY
+  const shOp = store.charShadowOpacity
 
   if (!img) {
     // Фон может быть без персонажа

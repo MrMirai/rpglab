@@ -38,17 +38,36 @@ const buttonRef = ref(null)
 const popupRef = ref(null)
 const popupStyle = ref({})
 
+const POPUP_W = 220
+const POPUP_H = 330
+
 function toggle() {
   isOpen.value = !isOpen.value
-  if (isOpen.value) {
-    // Позиционируем попап под кнопкой
-    const rect = buttonRef.value.getBoundingClientRect()
-    popupStyle.value = {
-      position: 'fixed',
-      top: rect.bottom + 4 + 'px',
-      left: rect.left + 'px',
-      zIndex: 2000,
-    }
+  if (!isOpen.value) return
+
+  const rect = buttonRef.value.getBoundingClientRect()
+  const viewH = window.innerHeight
+  const viewW = window.innerWidth
+  const margin = 8
+
+  let top
+  if (rect.bottom + POPUP_H + margin > viewH) {
+    top = rect.top - POPUP_H - margin
+  } else {
+    top = rect.bottom + margin
+  }
+
+  let left = rect.left
+  if (left + POPUP_W > viewW - margin) {
+    left = viewW - POPUP_W - margin
+  }
+  if (left < margin) left = margin
+
+  popupStyle.value = {
+    position: 'fixed',
+    top: Math.round(Math.max(margin, top)) + 'px',
+    left: Math.round(left) + 'px',
+    zIndex: 2000,
   }
 }
 

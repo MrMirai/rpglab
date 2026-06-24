@@ -59,6 +59,32 @@ export function useExport() {
     return null
   }
 
+  // Применяет фильтры и тень персонажа к контексту перед отрисовкой.
+  // scale — коэффициент масштаба экспорта (тень в пикселях относительно холста 500).
+  function applyCharFilters(ctx, store, drawFn, scale = 1) {
+    ctx.save()
+    const filters = []
+    if (store.charHue !== 0) filters.push(`hue-rotate(${store.charHue}deg)`)
+    if (store.charSaturation !== 100) filters.push(`saturate(${store.charSaturation}%)`)
+    if (store.charBrightness !== 100) filters.push(`brightness(${store.charBrightness}%)`)
+    if (store.charContrast !== 100) filters.push(`contrast(${store.charContrast}%)`)
+    if (filters.length) ctx.filter = filters.join(' ')
+
+    if (store.charShadowEnabled) {
+      const sc = store.charShadowColor
+      const sr = parseInt(sc.slice(1, 3), 16)
+      const sg = parseInt(sc.slice(3, 5), 16)
+      const sb = parseInt(sc.slice(5, 7), 16)
+      ctx.shadowColor = `rgba(${sr},${sg},${sb},${store.charShadowOpacity / 100})`
+      ctx.shadowBlur = store.charShadowBlur * scale
+      ctx.shadowOffsetX = store.charShadowOffsetX * scale
+      ctx.shadowOffsetY = store.charShadowOffsetY * scale
+    }
+
+    drawFn(ctx)
+    ctx.restore()
+  }
+
   function drawMasked(ctx, size, drawFn, maskCanvas) {
     const tmp = document.createElement('canvas')
     tmp.width = size
@@ -95,7 +121,8 @@ export function useExport() {
     const charX = size / 2 + store.charX * ratio - charW / 2
     const charY = size / 2 + store.charY * ratio - charH / 2
 
-    const drawChar = (tc) => tc.drawImage(charImg, charX, charY, charW, charH)
+    const drawChar = (tc) =>
+      applyCharFilters(tc, store, (c) => c.drawImage(charImg, charX, charY, charW, charH), ratio)
 
     if (mode === 'full') {
       // 1. Фон × маска1

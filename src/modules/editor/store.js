@@ -36,6 +36,34 @@ export const useEditorStore = defineStore('editor', () => {
   const brushSize = ref(30)
   const brushHardness = ref(50)
 
+  // Фильтры персонажа
+  const charHue = ref(0)              // -180..180 градусов
+  const charSaturation = ref(100)     // 0..200 %
+  const charBrightness = ref(100)     // 0..200 %
+  const charContrast = ref(100)       // 0..200 %
+  const charLuminosity = ref(0)       // -100..100 (через brightness слоя)
+
+  // Тень персонажа
+  const charShadowEnabled = ref(false)
+  const charShadowColor = ref('#000000')
+  const charShadowBlur = ref(20)
+  const charShadowOffsetX = ref(0)
+  const charShadowOffsetY = ref(8)
+  const charShadowOpacity = ref(60)   // 0..100 %
+
+  function resetCharFilters() {
+    charHue.value = 0
+    charSaturation.value = 100
+    charBrightness.value = 100
+    charContrast.value = 100
+    charLuminosity.value = 0
+    charShadowEnabled.value = false
+    charShadowBlur.value = 20
+    charShadowOffsetX.value = 0
+    charShadowOffsetY.value = 8
+    charShadowOpacity.value = 60
+  }
+
   // Сетка и превью
   const showGrid = ref(false)
   const previewMode = ref(false)
@@ -147,6 +175,10 @@ export const useEditorStore = defineStore('editor', () => {
     charPreviewUrl, framePreviewUrl, bgPreviewUrl,
     overflowY, overflowSoft,
     activeTool, brushSize, brushHardness,
+    charHue, charSaturation, charBrightness, charContrast, charLuminosity,
+    charShadowEnabled, charShadowColor, charShadowBlur,
+    charShadowOffsetX, charShadowOffsetY, charShadowOpacity,
+    resetCharFilters,
     bgType, bgColor, bgImage, setBgType, setBgColor, loadBgImage,
     bgAutoColor, bgCenterLight, bgEdgeLight, bgNoiseStrength, bgGrain, bgNoiseType,
     setBgAutoColor, setBgNoiseType,

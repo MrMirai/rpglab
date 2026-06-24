@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useEditorStore } from '@/modules/editor'
 import CharacterUpload from '@/modules/editor/components/CharacterUpload.vue'
 import CharacterControls from '@/modules/editor/components/CharacterControls.vue'
+import CharacterFilters from '@/modules/editor/components/CharacterFilters.vue'
 import FrameUpload from '@/modules/frames/components/FrameUpload.vue'
 import MaskControls from '@/modules/editor/components/MaskControls.vue'
 import BackgroundControls from '@/modules/editor/components/BackgroundControls.vue'
@@ -11,11 +12,12 @@ import BrushControls from '@/modules/editor/components/BrushControls.vue'
 const store = useEditorStore()
 
 const sections = ref([
-  { id: 'frame',       label: 'Рамка',    open: true },
-  { id: 'background',  label: 'Фон',      open: true },
-  { id: 'character',   label: 'Персонаж', open: true },
-  { id: 'mask',        label: 'Маска',    open: true },
-  { id: 'brush',       label: 'Кисть',    open: true },
+  { id: 'frame',       label: 'Рамка',      open: true  },
+  { id: 'background',  label: 'Фон',        open: true  },
+  { id: 'character',   label: 'Персонаж',   open: true  },
+  { id: 'correction',  label: 'Коррекция',  open: false },
+  { id: 'mask',        label: 'Маска',      open: true  },
+  { id: 'brush',       label: 'Кисть',      open: true  },
 ])
 
 function toggle(section) {
@@ -37,32 +39,38 @@ function toggle(section) {
         </button>
       </div>
       <div class="section-content" :class="{ collapsed: !section.open }">
-        <template v-if="section.id === 'frame'">
-          <FrameUpload />
-        </template>
-        <template v-else-if="section.id === 'background'">
-          <BackgroundControls v-if="store.hasFrame" />
-          <p v-else class="placeholder-hint">Сначала загрузи рамку</p>
-        </template>
-        <template v-else-if="section.id === 'character'">
-          <template v-if="store.hasFrame">
-            <CharacterUpload />
-            <CharacterControls v-if="store.hasChar" />
+        <div>
+          <template v-if="section.id === 'frame'">
+            <FrameUpload />
           </template>
-          <p v-else class="placeholder-hint">Сначала загрузи рамку</p>
-        </template>
-        <template v-else-if="section.id === 'mask'">
-          <MaskControls v-if="store.hasFrame && store.hasChar" />
-          <p v-else class="placeholder-hint">
-            {{ !store.hasFrame ? 'Сначала загрузи рамку' : 'Сначала загрузи персонажа' }}
-          </p>
-        </template>
-        <template v-else-if="section.id === 'brush'">
-          <BrushControls v-if="store.hasFrame && store.hasChar" />
-          <p v-else class="placeholder-hint">
-            {{ !store.hasFrame ? 'Сначала загрузи рамку' : 'Сначала загрузи персонажа' }}
-          </p>
-        </template>
+          <template v-else-if="section.id === 'background'">
+            <BackgroundControls v-if="store.hasFrame" />
+            <p v-else class="placeholder-hint">Сначала загрузи рамку</p>
+          </template>
+          <template v-else-if="section.id === 'character'">
+            <template v-if="store.hasFrame">
+              <CharacterUpload />
+              <CharacterControls v-if="store.hasChar" />
+            </template>
+            <p v-else class="placeholder-hint">Сначала загрузи рамку</p>
+          </template>
+          <template v-else-if="section.id === 'correction'">
+            <CharacterFilters v-if="store.hasChar" />
+            <p v-else class="placeholder-hint">Сначала загрузи персонажа</p>
+          </template>
+          <template v-else-if="section.id === 'mask'">
+            <MaskControls v-if="store.hasFrame && store.hasChar" />
+            <p v-else class="placeholder-hint">
+              {{ !store.hasFrame ? 'Сначала загрузи рамку' : 'Сначала загрузи персонажа' }}
+            </p>
+          </template>
+          <template v-else-if="section.id === 'brush'">
+            <BrushControls v-if="store.hasFrame && store.hasChar" />
+            <p v-else class="placeholder-hint">
+              {{ !store.hasFrame ? 'Сначала загрузи рамку' : 'Сначала загрузи персонажа' }}
+            </p>
+          </template>
+        </div>
       </div>
     </div>
   </aside>
@@ -71,8 +79,6 @@ function toggle(section) {
 <style lang="scss" scoped>
 .app-properties {
   width: 260px;
-  height: 100%;
-  overflow-y: auto;
   background-color: var(--color-bg-2);
   border-left: 1px solid var(--color-border);
 }
@@ -114,15 +120,19 @@ function toggle(section) {
 }
 
 .section-content {
-  max-height: 600px;
+  display: grid;
+  grid-template-rows: 1fr;
   overflow: hidden;
-  transition: max-height var(--transition-normal);
+  transition: grid-template-rows var(--transition-normal);
 
   &.collapsed {
-    max-height: 0;
+    grid-template-rows: 0fr;
   }
 
-  margin-top: var(--space-2);
+  & > div {
+    min-height: 0;
+    overflow: hidden;
+  }
 }
 
 .placeholder {

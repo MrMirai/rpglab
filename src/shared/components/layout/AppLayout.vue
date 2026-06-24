@@ -44,5 +44,8 @@ import AppPropertiesPanel from './AppPropertiesPanel.vue'
 .layout-properties {
   grid-column: 3;
   grid-row: 2;
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: 100%;
 }
 </style>

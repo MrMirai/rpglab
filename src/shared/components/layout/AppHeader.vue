@@ -1,6 +1,6 @@
 <script setup>
 import { RouterLink } from 'vue-router'
-import { Save, FolderOpen, MousePointer2, Eraser, Paintbrush, Undo2, Redo2, Grid3x3, Eye, Layers, Square, Download } from 'lucide-vue-next'
+import { Save, FolderOpen, MousePointer2, Eraser, Paintbrush, Hand, Undo2, Redo2, Grid3x3, Eye, Layers, Square, Download } from 'lucide-vue-next'
 import { useEditorStore } from '@/modules/editor'
 import { useEditorBridge } from '@/modules/editor/composables/useEditorBridge'
 
@@ -17,16 +17,32 @@ const bridge = useEditorBridge()
 
     <nav class="toolbar">
       <div class="toolbar__group">
-        <button class="toolbar__btn" :class="{ active: store.activeTool === 'move' }" @click="store.setActiveTool('move')">
-          <span class="icon"><MousePointer2 :size="16" /></span>
+        <button class="toolbar__btn" :class="{ active: store.activeTool === 'hand' }"
+          @click="store.setActiveTool('hand')">
+          <span class="icon">
+            <Hand :size="16" />
+          </span>
+          <span class="label">Рука</span>
+        </button>
+        <button class="toolbar__btn" :class="{ active: store.activeTool === 'move' }"
+          @click="store.setActiveTool('move')">
+          <span class="icon">
+            <MousePointer2 :size="16" />
+          </span>
           <span class="label">Двигать</span>
         </button>
-        <button class="toolbar__btn" :class="{ active: store.activeTool === 'erase' }" @click="store.setActiveTool('erase')">
-          <span class="icon"><Eraser :size="16" /></span>
+        <button class="toolbar__btn" :class="{ active: store.activeTool === 'erase' }"
+          @click="store.setActiveTool('erase')">
+          <span class="icon">
+            <Eraser :size="16" />
+          </span>
           <span class="label">Стереть</span>
         </button>
-        <button class="toolbar__btn" :class="{ active: store.activeTool === 'restore' }" @click="store.setActiveTool('restore')">
-          <span class="icon"><Paintbrush :size="16" /></span>
+        <button class="toolbar__btn" :class="{ active: store.activeTool === 'restore' }"
+          @click="store.setActiveTool('restore')">
+          <span class="icon">
+            <Paintbrush :size="16" />
+          </span>
           <span class="label">Восстановить</span>
         </button>
       </div>
@@ -35,11 +51,15 @@ const bridge = useEditorBridge()
 
       <div class="toolbar__group">
         <button class="toolbar__btn" :disabled="!store.canUndo" @click="bridge.performUndo()">
-          <span class="icon"><Undo2 :size="16" /></span>
+          <span class="icon">
+            <Undo2 :size="16" />
+          </span>
           <span class="label">Отменить</span>
         </button>
         <button class="toolbar__btn" :disabled="!store.canRedo" @click="bridge.performRedo()">
-          <span class="icon"><Redo2 :size="16" /></span>
+          <span class="icon">
+            <Redo2 :size="16" />
+          </span>
           <span class="label">Повторить</span>
         </button>
       </div>
@@ -48,30 +68,36 @@ const bridge = useEditorBridge()
 
       <div class="toolbar__group">
         <button class="toolbar__btn" :class="{ active: store.showGrid }" @click="store.toggleGrid()">
-          <span class="icon"><Grid3x3 :size="16" /></span>
+          <span class="icon">
+            <Grid3x3 :size="16" />
+          </span>
           <span class="label">Сетка</span>
         </button>
         <button class="toolbar__btn" :class="{ active: store.previewMode }" @click="store.togglePreview()">
-          <span class="icon"><Eye :size="16" /></span>
+          <span class="icon">
+            <Eye :size="16" />
+          </span>
           <span class="label">Превью</span>
         </button>
-        <button class="toolbar__btn" :class="{ active: store.showMaskOverlay }" @click="store.toggleMaskOverlay()" title="Показать маску">
-          <span class="icon"><Layers :size="16" /></span>
+        <button class="toolbar__btn" :class="{ active: store.showMaskOverlay }" @click="store.toggleMaskOverlay()"
+          title="Показать маску">
+          <span class="icon">
+            <Layers :size="16" />
+          </span>
           <span class="label">Маска</span>
         </button>
-        <button class="toolbar__btn" :class="{ active: store.showFrontOnly }" @click="store.toggleFrontOnly()" title="Передний план">
-          <span class="icon"><Square :size="16" /></span>
+        <button class="toolbar__btn" :class="{ active: store.showFrontOnly }" @click="store.toggleFrontOnly()"
+          title="Передний план">
+          <span class="icon">
+            <Square :size="16" />
+          </span>
           <span class="label">Передний</span>
         </button>
       </div>
     </nav>
 
     <div class="actions">
-      <button
-        class="header-btn accent-outline"
-        :disabled="!store.isReady"
-        @click="store.openExportModal()"
-      >
+      <button class="header-btn accent-outline" :disabled="!store.isReady" @click="store.openExportModal()">
         <Download :size="16" />
         <span>Экспорт</span>
       </button>

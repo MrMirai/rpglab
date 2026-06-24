@@ -327,6 +327,9 @@ watch(() => store.activeTool, (tool) => {
       startCursorAnim()
       if (containerRef.value) containerRef.value.style.cursor = 'none'
     }
+  } else if (tool === 'hand') {
+    stopCursorAnim()
+    setCursor('grab')
   } else {
     stopCursorAnim()
     if (containerRef.value) containerRef.value.style.cursor = ''
@@ -412,6 +415,10 @@ function setCursor(cursor) {
   // В режиме кисти системный курсор скрыт — рисуем свой
   if (tool === 'erase' || tool === 'restore') {
     containerRef.value.style.cursor = 'none'
+    return
+  }
+  if (tool === 'hand') {
+    containerRef.value.style.cursor = isPanning ? 'grabbing' : 'grab'
     return
   }
   containerRef.value.style.cursor = cursor
@@ -572,11 +579,19 @@ onMounted(() => {
 
   stage.on('mousedown', () => {
     const tool = store.activeTool
-    const screenPos = stage.getPointerPosition()
+    const pos = stage.getPointerPosition()
 
     if (isSpaceDown) {
       isPanning = true
-      panStart = { x: screenPos.x, y: screenPos.y }
+      panStart = { x: pos.x, y: pos.y }
+      panStartView = { x: viewX.value, y: viewY.value }
+      setCursor('grabbing')
+      return
+    }
+
+    if (tool === 'hand') {
+      isPanning = true
+      panStart = { x: pos.x, y: pos.y }
       panStartView = { x: viewX.value, y: viewY.value }
       setCursor('grabbing')
       return
@@ -585,13 +600,13 @@ onMounted(() => {
     const canvasPos = getCanvasPos(stage)
 
     if (tool === 'move') {
-      recordHistory() // снимок один раз при начале drag
+      recordHistory()
       isDragging = true
       dragStart = canvasPos
       dragStartChar = { x: store.charX, y: store.charY }
       setCursor('grabbing')
     } else if ((tool === 'erase' || tool === 'restore') && store.isReady) {
-      recordHistory() // снимок один раз при начале рисования
+      recordHistory()
       isPainting = true
       paint(canvasPos.x, canvasPos.y, store.brushSize, store.brushHardness, tool === 'erase')
       redrawAll()
@@ -600,15 +615,20 @@ onMounted(() => {
 
   stage.on('mousemove', () => {
     const tool = store.activeTool
-    const screenPos = stage.getPointerPosition()
+    const pos = stage.getPointerPosition()
 
     if (isPanning) {
-      viewX.value = panStartView.x + (screenPos.x - panStart.x)
-      viewY.value = panStartView.y + (screenPos.y - panStart.y)
+      viewX.value = panStartView.x + (pos.x - panStart.x)
+      viewY.value = panStartView.y + (pos.y - panStart.y)
       return
     }
 
     const canvasPos = getCanvasPos(stage)
+
+    if (tool === 'hand') {
+      setCursor('grab')
+      return
+    }
 
     if (tool === 'move') {
       if (!isDragging) { setCursor('grab'); return }
@@ -623,11 +643,14 @@ onMounted(() => {
   })
 
   stage.on('mouseup', () => {
+    const tool = store.activeTool
     isPanning = false
     isPainting = false
     isDragging = false
-    if (isSpaceDown) setCursor('grab')
-    else setCursor(store.activeTool === 'move' ? 'grab' : 'crosshair')
+    if (isSpaceDown) { setCursor('grab'); return }
+    if (tool === 'hand') setCursor('grab')
+    else if (tool === 'move') setCursor('grab')
+    else setCursor('crosshair')
   })
 
   stage.on('mouseleave', () => {
@@ -640,21 +663,16 @@ onMounted(() => {
   stage.on('wheel', (e) => {
     e.evt.preventDefault()
     const pos = stage.getPointerPosition()
+    const tool = store.activeTool
 
-    if (e.evt.ctrlKey || e.evt.metaKey) {
-      // Ctrl+колёсико — меняем размер кисти (шаг пропорционален размеру)
-      const dir = e.evt.deltaY > 0 ? -1 : 1
-      const step = Math.max(1, Math.round(store.brushSize * 0.08))
-      store.brushSize = Math.min(200, Math.max(5, store.brushSize + dir * step))
-      drawBrushCursor(cursorX, cursorY)
-    } else if (isSpaceDown) {
-      // Zoom вьюпорта — зумируем относительно позиции курсора (пробел+колёсико)
+    if (e.evt.ctrlKey || e.evt.metaKey || isSpaceDown || tool === 'hand') {
+      // Zoom вьюпорта относительно позиции курсора
       const zoomFactor = e.evt.deltaY > 0 ? 0.9 : 1.1
       const newZoom = Math.min(8, Math.max(0.1, viewZoom.value * zoomFactor))
       viewX.value = pos.x - (pos.x - viewX.value) * (newZoom / viewZoom.value)
       viewY.value = pos.y - (pos.y - viewY.value) * (newZoom / viewZoom.value)
       viewZoom.value = newZoom
-    } else if (store.activeTool === 'move') {
+    } else if (tool === 'move') {
       // Zoom персонажа (только в инструменте move)
       const delta = e.evt.deltaY > 0 ? -0.05 : 0.05
       const newScale = Math.min(3, Math.max(0.1, store.charScale + delta))

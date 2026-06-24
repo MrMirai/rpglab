@@ -30,7 +30,7 @@ export const useEditorStore = defineStore('editor', () => {
   const overflowSoft = ref(20)     // px, мягкость перехода
 
   // Активный инструмент
-  const activeTool = ref('move')   // 'move' | 'erase' | 'restore'
+  const activeTool = ref('move')   // 'move' | 'erase' | 'restore' | 'hand'
 
   // Кисть
   const brushSize = ref(30)

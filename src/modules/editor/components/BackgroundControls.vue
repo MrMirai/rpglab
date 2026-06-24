@@ -5,6 +5,7 @@ import { useEditorStore } from '../store'
 import { useImageLoader } from '../composables/useImageLoader'
 import { useAutoBackground } from '../composables/useAutoBackground'
 import SliderControl from './SliderControl.vue'
+import ColorButton from '@/shared/components/ColorButton.vue'
 
 const store = useEditorStore()
 const { loadFromFile } = useImageLoader()
@@ -68,13 +69,10 @@ async function onFileChange(e) {
     <div v-if="store.bgType === 'color'" class="bg-controls__color">
       <label class="bg-controls__label">Цвет фона</label>
       <div class="bg-controls__color-row">
-        <input
-          type="color"
-          :value="store.bgColor"
-          class="color-picker"
-          @input="store.setBgColor($event.target.value)"
+        <ColorButton
+          :model-value="store.bgColor"
+          @update:model-value="store.setBgColor($event)"
         />
-        <span class="color-value">{{ store.bgColor }}</span>
       </div>
       <div class="bg-controls__swatches">
         <button
@@ -108,13 +106,10 @@ async function onFileChange(e) {
     <div v-else-if="store.bgType === 'auto'" class="bg-controls__auto">
       <label class="bg-controls__label">Базовый цвет</label>
       <div class="bg-controls__color-row">
-        <input
-          type="color"
-          :value="store.bgAutoColor"
-          class="color-picker"
-          @input="store.setBgAutoColor($event.target.value)"
+        <ColorButton
+          :model-value="store.bgAutoColor"
+          @update:model-value="store.setBgAutoColor($event)"
         />
-        <span class="color-value">{{ store.bgAutoColor }}</span>
         <button class="repick-btn" @click="repickColor" title="Подобрать из рамки">
           <Pipette :size="14" />
         </button>
@@ -222,16 +217,6 @@ async function onFileChange(e) {
   }
 }
 
-.color-picker {
-  width: 36px;
-  height: 28px;
-  padding: 2px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-1);
-  cursor: pointer;
-}
-
 .repick-btn {
   width: 28px;
   height: 28px;
@@ -249,12 +234,6 @@ async function onFileChange(e) {
     border-color: var(--color-accent);
     color: var(--color-accent);
   }
-}
-
-.color-value {
-  font-size: var(--text-xs);
-  color: var(--color-text-2);
-  font-variant-numeric: tabular-nums;
 }
 
 .swatch {

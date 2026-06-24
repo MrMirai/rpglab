@@ -1,3 +1,35 @@
 @use 'variables';
 @use 'reset';
 @use 'typography';
+
+// ─── Кастомный скроллбар ──────────────────────────────────────────────────────
+
+// Webkit (Chrome, Edge, Safari)
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 3px;
+  transition: background var(--transition-fast);
+
+  &:hover {
+    background: var(--color-text-3);
+  }
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+// Firefox
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+}

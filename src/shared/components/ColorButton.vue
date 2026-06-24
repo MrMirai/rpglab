@@ -1,0 +1,88 @@
+<template>
+  <div class="color-button" ref="buttonRef">
+    <button
+      class="color-button__swatch"
+      :style="{ background: modelValue }"
+      @click="toggle"
+    />
+    <span class="color-button__value">{{ modelValue }}</span>
+
+    <!-- Попап с пикером -->
+    <Teleport to="body">
+      <div
+        v-if="isOpen"
+        class="color-button__popup"
+        :style="popupStyle"
+        ref="popupRef"
+      >
+        <ColorPicker
+          :model-value="modelValue"
+          @update:model-value="$emit('update:modelValue', $event)"
+        />
+      </div>
+    </Teleport>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted, onUnmounted } from 'vue'
+import ColorPicker from './ColorPicker.vue'
+
+const props = defineProps({
+  modelValue: { type: String, default: '#000000' },
+})
+defineEmits(['update:modelValue'])
+
+const isOpen = ref(false)
+const buttonRef = ref(null)
+const popupRef = ref(null)
+const popupStyle = ref({})
+
+function toggle() {
+  isOpen.value = !isOpen.value
+  if (isOpen.value) {
+    // Позиционируем попап под кнопкой
+    const rect = buttonRef.value.getBoundingClientRect()
+    popupStyle.value = {
+      position: 'fixed',
+      top: rect.bottom + 4 + 'px',
+      left: rect.left + 'px',
+      zIndex: 2000,
+    }
+  }
+}
+
+// Закрыть при клике вне кнопки и вне попапа (попап в body через Teleport)
+function onClickOutside(e) {
+  if (!isOpen.value) return
+  if (buttonRef.value?.contains(e.target)) return
+  if (popupRef.value?.contains(e.target)) return
+  isOpen.value = false
+}
+onMounted(() => document.addEventListener('mousedown', onClickOutside))
+onUnmounted(() => document.removeEventListener('mousedown', onClickOutside))
+</script>
+
+<style lang="scss" scoped>
+.color-button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+
+  &__swatch {
+    width: 24px; height: 24px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border-strong);
+    cursor: pointer;
+    transition: transform var(--transition-fast);
+    flex-shrink: 0;
+    &:hover { transform: scale(1.1); }
+  }
+
+  &__value {
+    font-size: var(--text-xs);
+    color: var(--color-text-2);
+    font-family: var(--font-mono);
+  }
+}
+</style>

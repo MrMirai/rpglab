@@ -2,8 +2,10 @@
 import { RouterLink } from 'vue-router'
 import { Save, FolderOpen, MousePointer2, Eraser, Paintbrush, Undo2, Redo2, Grid3x3, Eye, Layers, Square } from 'lucide-vue-next'
 import { useEditorStore } from '@/modules/editor'
+import { useEditorBridge } from '@/modules/editor/composables/useEditorBridge'
 
 const store = useEditorStore()
+const bridge = useEditorBridge()
 </script>
 
 <template>
@@ -32,11 +34,11 @@ const store = useEditorStore()
       <div class="toolbar__divider" />
 
       <div class="toolbar__group">
-        <button class="toolbar__btn">
+        <button class="toolbar__btn" :disabled="!store.canUndo" @click="bridge.performUndo()">
           <span class="icon"><Undo2 :size="16" /></span>
           <span class="label">Отменить</span>
         </button>
-        <button class="toolbar__btn">
+        <button class="toolbar__btn" :disabled="!store.canRedo" @click="bridge.performRedo()">
           <span class="icon"><Redo2 :size="16" /></span>
           <span class="label">Повторить</span>
         </button>
@@ -151,6 +153,12 @@ const store = useEditorStore()
     &.active {
       background: var(--color-accent-muted);
       color: var(--color-accent);
+    }
+
+    &:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+      pointer-events: none;
     }
 
     .icon {

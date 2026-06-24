@@ -4,10 +4,12 @@ import { ArrowUp, ArrowDown, Maximize2, X } from 'lucide-vue-next'
 import { useEditorStore } from '../store'
 import { useImageLoader } from '../composables/useImageLoader'
 import { useBrushMask } from '../composables/useBrushMask'
+import { useEditorBridge } from '../composables/useEditorBridge'
 
 const store = useEditorStore()
 const { loadFromFile } = useImageLoader()
 const { fillTop, fillBottom, fillAll, clear, redraw } = useBrushMask()
+const bridge = useEditorBridge()
 
 const maskFileInput = ref(null)
 
@@ -22,6 +24,7 @@ async function onMaskFileChange(e) {
 }
 
 function runPreset(type) {
+  bridge.recordHistory() // снимок перед изменением маски
   if (type === 'top') fillTop()
   else if (type === 'bottom') fillBottom()
   else if (type === 'all') fillAll()

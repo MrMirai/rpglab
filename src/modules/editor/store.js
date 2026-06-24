@@ -51,6 +51,10 @@ export const useEditorStore = defineStore('editor', () => {
   const showMaskOverlay = ref(false)
   const showFrontOnly = ref(false)
 
+  // История действий (флаги для кнопок тулбара)
+  const canUndo = ref(false)
+  const canRedo = ref(false)
+
   // Вычисляемые
   const hasChar = computed(() => charImage.value !== null)
   const hasFrame = computed(() => frameImage.value !== null)
@@ -76,6 +80,8 @@ export const useEditorStore = defineStore('editor', () => {
   function setBgAutoColor(c) { bgAutoColor.value = c }
   function setBgNoiseType(t) { bgNoiseType.value = t }
 
+  function setUndoRedo(u, r) { canUndo.value = u; canRedo.value = r }
+
   function setCharPosition(x, y) { charX.value = x; charY.value = y }
   function setCharScale(scale) { charScale.value = scale }
 
@@ -98,6 +104,7 @@ export const useEditorStore = defineStore('editor', () => {
     bgAutoColor, bgCenterLight, bgEdgeLight, bgNoiseStrength, bgGrain, bgNoiseType,
     setBgAutoColor, setBgNoiseType,
     showGrid, previewMode, showMaskOverlay, showFrontOnly,
+    canUndo, canRedo, setUndoRedo,
     hasChar, hasFrame, isReady,
     setActiveTool, toggleGrid, togglePreview, toggleMaskOverlay, toggleFrontOnly,
     setCharPosition, setCharScale,

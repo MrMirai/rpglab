@@ -4,12 +4,16 @@ import { useEditorStore } from '../store'
 import { useAutoMask } from '../composables/useAutoMask'
 import { useBrushMask } from '../composables/useBrushMask'
 import { useAutoBackground } from '../composables/useAutoBackground'
+import { useHistory } from '../composables/useHistory'
+import { useEditorBridge } from '../composables/useEditorBridge'
 import ZoomNavigator from '@/shared/components/ZoomNavigator.vue'
 
 const store = useEditorStore()
 const { generateMask } = useAutoMask()
 const { brushCanvas, paint, setRedraw } = useBrushMask()
 const { generateBackground } = useAutoBackground()
+const history = useHistory()
+const bridge = useEditorBridge()
 
 const containerRef = ref(null)
 const stageRef = ref(null)
@@ -202,6 +206,79 @@ function redrawAll() {
 
 setRedraw(() => redrawAll())
 
+// --- История действий ---
+function takeSnapshot() {
+  const size = store.canvasSize
+  const snap = document.createElement('canvas')
+  snap.width = size; snap.height = size
+  snap.getContext('2d').drawImage(brushCanvas, 0, 0)
+
+  return {
+    charX: store.charX,
+    charY: store.charY,
+    charScale: store.charScale,
+    bgType: store.bgType,
+    bgColor: store.bgColor,
+    bgAutoColor: store.bgAutoColor,
+    bgCenterLight: store.bgCenterLight,
+    bgEdgeLight: store.bgEdgeLight,
+    bgNoiseStrength: store.bgNoiseStrength,
+    bgGrain: store.bgGrain,
+    bgNoiseType: store.bgNoiseType,
+    brushSnapshot: snap,
+  }
+}
+
+function applySnapshot(snapshot) {
+  store.setCharPosition(snapshot.charX, snapshot.charY)
+  store.setCharScale(snapshot.charScale)
+  store.setBgType(snapshot.bgType)
+  store.setBgColor(snapshot.bgColor)
+  store.setBgAutoColor(snapshot.bgAutoColor)
+  store.bgCenterLight = snapshot.bgCenterLight
+  store.bgEdgeLight = snapshot.bgEdgeLight
+  store.bgNoiseStrength = snapshot.bgNoiseStrength
+  store.bgGrain = snapshot.bgGrain
+  store.setBgNoiseType(snapshot.bgNoiseType)
+
+  const size = store.canvasSize
+  const bctx = brushCanvas.getContext('2d')
+  bctx.clearRect(0, 0, size, size)
+  bctx.drawImage(snapshot.brushSnapshot, 0, 0)
+}
+
+function recordHistory() {
+  history.push(takeSnapshot())
+  store.setUndoRedo(history.canUndo(), history.canRedo())
+}
+
+function performUndo() {
+  if (!history.canUndo()) return
+  const snapshot = history.undo(takeSnapshot())
+  if (snapshot) {
+    applySnapshot(snapshot)
+    store.setUndoRedo(history.canUndo(), history.canRedo())
+    redrawAll()
+  }
+}
+
+function performRedo() {
+  if (!history.canRedo()) return
+  const snapshot = history.redo(takeSnapshot())
+  if (snapshot) {
+    applySnapshot(snapshot)
+    store.setUndoRedo(history.canUndo(), history.canRedo())
+    redrawAll()
+  }
+}
+
+bridge.setHandlers({
+  centerView: () => centerView(),
+  recordHistory,
+  performUndo,
+  performRedo,
+})
+
 watch(
   [() => store.showMaskOverlay, () => store.showFrontOnly],
   () => renderOverlay(),
@@ -310,6 +387,15 @@ onMounted(() => {
       e.preventDefault()
       isSpaceDown = true
       setCursor('grab')
+      return
+    }
+    if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ' && !e.shiftKey) {
+      e.preventDefault()
+      performUndo()
+    }
+    if ((e.ctrlKey || e.metaKey) && (e.code === 'KeyY' || (e.code === 'KeyZ' && e.shiftKey))) {
+      e.preventDefault()
+      performRedo()
     }
   })
   containerRef.value.addEventListener('keyup', (e) => {
@@ -341,11 +427,13 @@ onMounted(() => {
     const canvasPos = getCanvasPos(stage)
 
     if (tool === 'move') {
+      recordHistory() // снимок один раз при начале drag
       isDragging = true
       dragStart = canvasPos
       dragStartChar = { x: store.charX, y: store.charY }
       setCursor('grabbing')
     } else if ((tool === 'erase' || tool === 'restore') && store.isReady) {
+      recordHistory() // снимок один раз при начале рисования
       isPainting = true
       paint(canvasPos.x, canvasPos.y, store.brushSize, store.brushHardness, tool === 'erase')
       redrawAll()

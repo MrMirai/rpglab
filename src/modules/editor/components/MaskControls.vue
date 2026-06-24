@@ -1,11 +1,14 @@
 <script setup>
 import { ref } from 'vue'
+import { ArrowUp, ArrowDown, Maximize2, X } from 'lucide-vue-next'
 import { useEditorStore } from '../store'
 import { useImageLoader } from '../composables/useImageLoader'
-import SliderControl from './SliderControl.vue'
+import { useBrushMask } from '../composables/useBrushMask'
 
 const store = useEditorStore()
 const { loadFromFile } = useImageLoader()
+const { fillTop, fillBottom, fillAll, clear, redraw } = useBrushMask()
+
 const maskFileInput = ref(null)
 
 function triggerMaskUpload() { maskFileInput.value.click() }
@@ -16,6 +19,14 @@ async function onMaskFileChange(e) {
   const img = await loadFromFile(file)
   store.loadMaskImage(img)
   store.useCustomMask = true
+}
+
+function runPreset(type) {
+  if (type === 'top') fillTop()
+  else if (type === 'bottom') fillBottom()
+  else if (type === 'all') fillAll()
+  else if (type === 'clear') clear()
+  redraw()
 }
 </script>
 
@@ -32,29 +43,26 @@ async function onMaskFileChange(e) {
       >Загрузить</button>
     </div>
 
-    <p v-if="!store.useCustomMask" class="mask-controls__hint">
-      Маска генерируется автоматически из рамки
-    </p>
-    <p v-else-if="store.maskImage" class="mask-controls__hint">
-      Кастомная маска загружена
-    </p>
-    <p v-else class="mask-controls__hint warning">
-      Выбери PNG-файл маски
+    <p class="mask-controls__hint">
+      Рисуй кистью на холсте где персонаж вылезает над рамкой.
+      Инструмент «Восстановить» проявляет, «Стереть» убирает.
     </p>
 
-    <div class="mask-controls__section-label">Граница вылезания</div>
-    <SliderControl
-      label="Позиция Y"
-      :model-value="store.overflowY"
-      :min="0" :max="100" :step="1" suffix="%"
-      @update:model-value="store.overflowY = $event"
-    />
-    <SliderControl
-      label="Мягкость"
-      :model-value="store.overflowSoft"
-      :min="0" :max="80" :step="1" suffix="px"
-      @update:model-value="store.overflowSoft = $event"
-    />
+    <div class="mask-controls__section-label">Быстрый старт</div>
+    <div class="mask-controls__presets">
+      <button class="preset-btn" @click="runPreset('top')">
+        <ArrowUp :size="14" /> Верх
+      </button>
+      <button class="preset-btn" @click="runPreset('bottom')">
+        <ArrowDown :size="14" /> Низ
+      </button>
+      <button class="preset-btn" @click="runPreset('all')">
+        <Maximize2 :size="14" /> Всё
+      </button>
+      <button class="preset-btn danger" @click="runPreset('clear')">
+        <X :size="14" /> Очистить
+      </button>
+    </div>
 
     <input
       ref="maskFileInput"
@@ -79,11 +87,8 @@ async function onMaskFileChange(e) {
   &__hint {
     font-size: var(--text-xs);
     color: var(--color-text-3);
+    line-height: var(--leading-normal);
     margin-bottom: var(--space-3);
-
-    &.warning {
-      color: var(--color-accent);
-    }
   }
 
   &__section-label {
@@ -92,7 +97,12 @@ async function onMaskFileChange(e) {
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin-bottom: var(--space-2);
-    margin-top: var(--space-2);
+  }
+
+  &__presets {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-1);
   }
 }
 
@@ -116,6 +126,31 @@ async function onMaskFileChange(e) {
   &:hover:not(.active) {
     border-color: var(--color-border-strong);
     color: var(--color-text-1);
+  }
+}
+
+.preset-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  font-size: var(--text-xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-2);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+
+  &:hover {
+    border-color: var(--color-border-strong);
+    color: var(--color-text-1);
+  }
+
+  &.danger:hover {
+    border-color: var(--color-danger);
+    color: var(--color-danger);
   }
 }
 </style>

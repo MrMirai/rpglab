@@ -2,9 +2,11 @@
 import { ref, computed, watchEffect, nextTick, onMounted, onUnmounted } from 'vue'
 import { useEditorStore } from '../store'
 import { useAutoMask } from '../composables/useAutoMask'
+import { useBrushMask } from '../composables/useBrushMask'
 
 const store = useEditorStore()
 const { generateMask } = useAutoMask()
+const { brushCanvas, paint, setRedraw } = useBrushMask()
 
 const containerRef = ref(null)
 const stageRef = ref(null)
@@ -12,11 +14,9 @@ const charBottomLayer = ref(null)
 const frameLayer = ref(null)
 const charTopLayer = ref(null)
 
-// Размер контейнера — обновляется через ResizeObserver
 const containerW = ref(0)
 const containerH = ref(0)
 
-// Вписываем холст в контейнер с отступом, сохраняя пропорции
 const stageScale = computed(() => {
   if (!containerW.value || !containerH.value) return 1
   const padding = 40
@@ -25,7 +25,6 @@ const stageScale = computed(() => {
   return Math.min(scaleX, scaleY)
 })
 
-// Смещение чтобы холст был по центру контейнера
 const stageX = computed(() => (containerW.value - store.canvasSize * stageScale.value) / 2)
 const stageY = computed(() => (containerH.value - store.canvasSize * stageScale.value) / 2)
 
@@ -47,43 +46,17 @@ const charH = computed(() =>
 const charDrawX = computed(() => store.canvasSize / 2 + store.charX - charW.value / 2)
 const charDrawY = computed(() => store.canvasSize / 2 + store.charY - charH.value / 2)
 
-// Линия вылезания в px
-const splitY = computed(() => store.canvasSize * store.overflowY / 100)
-
 const charBottomCanvas = ref(null)
 const charTopCanvas = ref(null)
-
-watchEffect(() => {
-  // Читаем все реактивные зависимости явно
-  const img = store.charImage
-  const frameImg = store.frameImage
-  const x = store.charX
-  const y = store.charY
-  const scale = store.charScale
-  const oy = store.overflowY
-  const os = store.overflowSoft
-  const maskImg = store.maskImage
-  const mv = store.maskVersion
-
-  if (!img) return
-  renderOffscreen()
-
-  // После обновления canvas — говорим Konva перерисовать слои
-  nextTick(() => {
-    charBottomLayer.value?.getNode()?.batchDraw()
-    charTopLayer.value?.getNode()?.batchDraw()
-  })
-})
 
 function renderOffscreen() {
   const size = store.canvasSize
   const img = store.charImage
 
-  // Нижний слой: персонаж обрезанный по маске рамки
+  // Нижний слой: персонаж обрезанный по маске формы рамки
   const bottomC = document.createElement('canvas')
   bottomC.width = size; bottomC.height = size
   const btx = bottomC.getContext('2d')
-
   btx.drawImage(img, charDrawX.value, charDrawY.value, charW.value, charH.value)
 
   const mask = store.maskImage || (store.frameImage ? generateMask(store.frameImage, size) : null)
@@ -95,11 +68,45 @@ function renderOffscreen() {
 
   charBottomCanvas.value = bottomC
 
-  // Верхний слой пока пустой (эффект вылезания — следующий шаг)
+  // Верхний слой: персонаж обрезанный по кисти маски вылезания
   const topC = document.createElement('canvas')
   topC.width = size; topC.height = size
+  const ttx = topC.getContext('2d')
+  ttx.drawImage(img, charDrawX.value, charDrawY.value, charW.value, charH.value)
+  ttx.globalCompositeOperation = 'destination-in'
+  ttx.drawImage(brushCanvas, 0, 0)
+  ttx.globalCompositeOperation = 'source-over'
+
   charTopCanvas.value = topC
 }
+
+function redrawAll() {
+  renderOffscreen()
+  nextTick(() => {
+    charBottomLayer.value?.getNode()?.batchDraw()
+    charTopLayer.value?.getNode()?.batchDraw()
+  })
+}
+
+setRedraw(() => redrawAll())
+
+watchEffect(() => {
+  const img = store.charImage
+  const frameImg = store.frameImage
+  const x = store.charX
+  const y = store.charY
+  const scale = store.charScale
+  const maskImg = store.maskImage
+  const mv = store.maskVersion
+
+  if (!img) return
+  renderOffscreen()
+
+  nextTick(() => {
+    charBottomLayer.value?.getNode()?.batchDraw()
+    charTopLayer.value?.getNode()?.batchDraw()
+  })
+})
 
 const charBottomConfig = computed(() => ({
   image: charBottomCanvas.value,
@@ -129,19 +136,26 @@ const gridLines = computed(() => {
   return Array.from({ length: count - 1 }, (_, i) => i + 1)
 })
 
-// Перетаскивание и масштаб в режиме move
-let isDragging = false
-let dragStart = { x: 0, y: 0 }
-let dragStartChar = { x: 0, y: 0 }
-
 function setCursor(cursor) {
   if (containerRef.value) containerRef.value.style.cursor = cursor
 }
 
+function getCanvasPos(stage) {
+  const pos = stage.getPointerPosition()
+  return {
+    x: (pos.x - stageX.value) / stageScale.value,
+    y: (pos.y - stageY.value) / stageScale.value,
+  }
+}
+
+let isPainting = false
+let isDragging = false
+let dragStart = { x: 0, y: 0 }
+let dragStartChar = { x: 0, y: 0 }
+
 let ro = null
 
 onMounted(() => {
-  // Отслеживаем размер контейнера
   ro = new ResizeObserver(entries => {
     const { width, height } = entries[0].contentRect
     containerW.value = width
@@ -155,39 +169,37 @@ onMounted(() => {
   if (!stage) return
 
   stage.on('mousedown', () => {
-    if (store.activeTool !== 'move') return
-    isDragging = true
-    const pos = stage.getPointerPosition()
-    // Переводим из экранного пространства в пространство холста
-    dragStart = {
-      x: (pos.x - stageX.value) / stageScale.value,
-      y: (pos.y - stageY.value) / stageScale.value,
+    const tool = store.activeTool
+    const pos = getCanvasPos(stage)
+    if (tool === 'move') {
+      isDragging = true
+      dragStart = pos
+      dragStartChar = { x: store.charX, y: store.charY }
+      setCursor('grabbing')
+    } else if ((tool === 'erase' || tool === 'restore') && store.isReady) {
+      isPainting = true
+      paint(pos.x, pos.y, store.brushSize, store.brushHardness, tool === 'erase')
+      redrawAll()
     }
-    dragStartChar = { x: store.charX, y: store.charY }
-    setCursor('grabbing')
   })
 
   stage.on('mousemove', () => {
-    if (store.activeTool === 'move' && !isDragging) setCursor('grab')
-    if (!isDragging || store.activeTool !== 'move') return
-    const pos = stage.getPointerPosition()
-    const canvasX = (pos.x - stageX.value) / stageScale.value
-    const canvasY = (pos.y - stageY.value) / stageScale.value
-    store.setCharPosition(
-      Math.round(dragStartChar.x + (canvasX - dragStart.x)),
-      Math.round(dragStartChar.y + (canvasY - dragStart.y)),
-    )
+    const tool = store.activeTool
+    const pos = getCanvasPos(stage)
+    if (tool === 'move') {
+      if (!isDragging) { setCursor('grab'); return }
+      store.setCharPosition(
+        Math.round(dragStartChar.x + (pos.x - dragStart.x)),
+        Math.round(dragStartChar.y + (pos.y - dragStart.y)),
+      )
+    } else if ((tool === 'erase' || tool === 'restore') && isPainting) {
+      paint(pos.x, pos.y, store.brushSize, store.brushHardness, tool === 'erase')
+      redrawAll()
+    }
   })
 
-  stage.on('mouseup', () => {
-    isDragging = false
-    if (store.activeTool === 'move') setCursor('grab')
-  })
-
-  stage.on('mouseleave', () => {
-    isDragging = false
-    setCursor('default')
-  })
+  stage.on('mouseup', () => { isPainting = false; isDragging = false; setCursor('default') })
+  stage.on('mouseleave', () => { isPainting = false; isDragging = false; setCursor('default') })
 
   stage.on('wheel', (e) => {
     if (store.activeTool !== 'move') return

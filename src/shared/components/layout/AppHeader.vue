@@ -1,6 +1,6 @@
 <script setup>
 import { RouterLink } from 'vue-router'
-import { Save, FolderOpen, MousePointer2, Eraser, Paintbrush, Undo2, Redo2, Grid3x3, Eye } from 'lucide-vue-next'
+import { Save, FolderOpen, MousePointer2, Eraser, Paintbrush, Undo2, Redo2, Grid3x3, Eye, Layers, Square } from 'lucide-vue-next'
 import { useEditorStore } from '@/modules/editor'
 
 const store = useEditorStore()
@@ -52,6 +52,14 @@ const store = useEditorStore()
         <button class="toolbar__btn" :class="{ active: store.previewMode }" @click="store.togglePreview()">
           <span class="icon"><Eye :size="16" /></span>
           <span class="label">Превью</span>
+        </button>
+        <button class="toolbar__btn" :class="{ active: store.showMaskOverlay }" @click="store.toggleMaskOverlay()" title="Показать маску">
+          <span class="icon"><Layers :size="16" /></span>
+          <span class="label">Маска</span>
+        </button>
+        <button class="toolbar__btn" :class="{ active: store.showFrontOnly }" @click="store.toggleFrontOnly()" title="Передний план">
+          <span class="icon"><Square :size="16" /></span>
+          <span class="label">Передний</span>
         </button>
       </div>
     </nav>

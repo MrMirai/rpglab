@@ -34,6 +34,10 @@ export const useEditorStore = defineStore('editor', () => {
   const showGrid = ref(false)
   const previewMode = ref(false)
 
+  // Режимы отображения
+  const showMaskOverlay = ref(false)
+  const showFrontOnly = ref(false)
+
   // Вычисляемые
   const hasChar = computed(() => charImage.value !== null)
   const hasFrame = computed(() => frameImage.value !== null)
@@ -43,6 +47,15 @@ export const useEditorStore = defineStore('editor', () => {
   function setActiveTool(tool) { activeTool.value = tool }
   function toggleGrid() { showGrid.value = !showGrid.value }
   function togglePreview() { previewMode.value = !previewMode.value }
+
+  function toggleMaskOverlay() {
+    showMaskOverlay.value = !showMaskOverlay.value
+    if (showMaskOverlay.value) showFrontOnly.value = false
+  }
+  function toggleFrontOnly() {
+    showFrontOnly.value = !showFrontOnly.value
+    if (showFrontOnly.value) showMaskOverlay.value = false
+  }
 
   function setCharPosition(x, y) { charX.value = x; charY.value = y }
   function setCharScale(scale) { charScale.value = scale }
@@ -62,9 +75,9 @@ export const useEditorStore = defineStore('editor', () => {
     frameImage, maskImage, useCustomMask, maskVersion,
     overflowY, overflowSoft,
     activeTool, brushSize, brushHardness,
-    showGrid, previewMode,
+    showGrid, previewMode, showMaskOverlay, showFrontOnly,
     hasChar, hasFrame, isReady,
-    setActiveTool, toggleGrid, togglePreview,
+    setActiveTool, toggleGrid, togglePreview, toggleMaskOverlay, toggleFrontOnly,
     setCharPosition, setCharScale,
     loadCharImage, loadFrameImage, loadMaskImage, resetMask,
   }

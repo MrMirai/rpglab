@@ -13,7 +13,9 @@ let _redrawCallback = null
 export function useBrushMask() {
   function paint(x, y, brushSize, hardness, erase = false) {
     const r = Math.max(brushSize / 2, 1)
-    const hard = Math.max(0.01, hardness / 100)
+    // Внутренний радиус строго меньше внешнего: при r0 === r1 (жёсткость 100)
+    // радиальный градиент вырожден и ничего не рисует — оставляем 1% на переход.
+    const hard = Math.max(0.01, Math.min(hardness / 100, 0.99))
     const grad = brushCtx.createRadialGradient(x, y, r * hard, x, y, r)
     if (!erase) {
       grad.addColorStop(0, 'rgba(255,255,255,1)')

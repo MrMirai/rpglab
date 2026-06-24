@@ -6,6 +6,7 @@ import CharacterControls from '@/modules/editor/components/CharacterControls.vue
 import FrameUpload from '@/modules/frames/components/FrameUpload.vue'
 import MaskControls from '@/modules/editor/components/MaskControls.vue'
 import BackgroundControls from '@/modules/editor/components/BackgroundControls.vue'
+import BrushControls from '@/modules/editor/components/BrushControls.vue'
 
 const store = useEditorStore()
 
@@ -57,10 +58,10 @@ function toggle(section) {
           </p>
         </template>
         <template v-else-if="section.id === 'brush'">
-          <p v-if="!store.hasFrame || !store.hasChar" class="placeholder-hint">
+          <BrushControls v-if="store.hasFrame && store.hasChar" />
+          <p v-else class="placeholder-hint">
             {{ !store.hasFrame ? 'Сначала загрузи рамку' : 'Сначала загрузи персонажа' }}
           </p>
-          <p v-else class="placeholder">// настройки кисти</p>
         </template>
       </div>
     </div>

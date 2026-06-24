@@ -55,6 +55,9 @@ export const useEditorStore = defineStore('editor', () => {
   const canUndo = ref(false)
   const canRedo = ref(false)
 
+  // Модальное окно экспорта
+  const exportModalOpen = ref(false)
+
   // Вычисляемые
   const hasChar = computed(() => charImage.value !== null)
   const hasFrame = computed(() => frameImage.value !== null)
@@ -82,6 +85,9 @@ export const useEditorStore = defineStore('editor', () => {
 
   function setUndoRedo(u, r) { canUndo.value = u; canRedo.value = r }
 
+  function openExportModal() { exportModalOpen.value = true }
+  function closeExportModal() { exportModalOpen.value = false }
+
   function setCharPosition(x, y) { charX.value = x; charY.value = y }
   function setCharScale(scale) { charScale.value = scale }
 
@@ -105,6 +111,7 @@ export const useEditorStore = defineStore('editor', () => {
     setBgAutoColor, setBgNoiseType,
     showGrid, previewMode, showMaskOverlay, showFrontOnly,
     canUndo, canRedo, setUndoRedo,
+    exportModalOpen, openExportModal, closeExportModal,
     hasChar, hasFrame, isReady,
     setActiveTool, toggleGrid, togglePreview, toggleMaskOverlay, toggleFrontOnly,
     setCharPosition, setCharScale,

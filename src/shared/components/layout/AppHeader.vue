@@ -1,6 +1,6 @@
 <script setup>
 import { RouterLink } from 'vue-router'
-import { Save, FolderOpen, MousePointer2, Eraser, Paintbrush, Undo2, Redo2, Grid3x3, Eye, Layers, Square } from 'lucide-vue-next'
+import { Save, FolderOpen, MousePointer2, Eraser, Paintbrush, Undo2, Redo2, Grid3x3, Eye, Layers, Square, Download } from 'lucide-vue-next'
 import { useEditorStore } from '@/modules/editor'
 import { useEditorBridge } from '@/modules/editor/composables/useEditorBridge'
 
@@ -67,6 +67,14 @@ const bridge = useEditorBridge()
     </nav>
 
     <div class="actions">
+      <button
+        class="header-btn accent-outline"
+        :disabled="!store.isReady"
+        @click="store.openExportModal()"
+      >
+        <Download :size="16" />
+        <span>Экспорт</span>
+      </button>
       <button class="btn-save">
         <Save :size="16" />
         <span>Сохранить</span>
@@ -178,6 +186,33 @@ const bridge = useEditorBridge()
   align-items: center;
   gap: var(--space-4);
   flex-shrink: 0;
+}
+
+.header-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+
+  &.accent-outline {
+    background: transparent;
+    border: 1px solid var(--color-accent);
+    color: var(--color-accent);
+
+    &:hover:not(:disabled) {
+      background: var(--color-accent-muted);
+    }
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
 }
 
 .btn-save {

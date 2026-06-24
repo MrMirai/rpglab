@@ -77,7 +77,23 @@ export function useAutoMask() {
     }
 
     mc.putImageData(maskData, 0, 0)
-    return maskCanvas
+
+    // Dilate: расширяем маску на 3px чтобы фон/персонаж заходили под край рамки
+    // и не оставляли ореол на антиалиасинге рамки.
+    const dilateAmount = 3
+    const dilated = document.createElement('canvas')
+    dilated.width = size; dilated.height = size
+    const dc = dilated.getContext('2d')
+
+    for (let dy = -dilateAmount; dy <= dilateAmount; dy++) {
+      for (let dx = -dilateAmount; dx <= dilateAmount; dx++) {
+        if (dx === 0 && dy === 0) continue
+        dc.drawImage(maskCanvas, dx, dy)
+      }
+    }
+    dc.drawImage(maskCanvas, 0, 0)  // поверх — оригинал
+
+    return dilated
   }
 
   return { generateMask }

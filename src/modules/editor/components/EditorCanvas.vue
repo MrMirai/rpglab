@@ -284,6 +284,20 @@ watch(
   () => renderOverlay(),
 )
 
+// Смена инструмента — запускаем/останавливаем визуализацию курсора кисти.
+// Размер/жёсткость читаются из store прямо в анимационном loop, отдельный watch не нужен.
+watch(() => store.activeTool, (tool) => {
+  if (tool === 'erase' || tool === 'restore') {
+    if (isCursorVisible) {
+      startCursorAnim()
+      if (containerRef.value) containerRef.value.style.cursor = 'none'
+    }
+  } else {
+    stopCursorAnim()
+    if (containerRef.value) containerRef.value.style.cursor = ''
+  }
+})
+
 watchEffect(() => {
   const img = store.charImage
   const frameImg = store.frameImage
@@ -347,7 +361,87 @@ const gridLines = computed(() => {
 })
 
 function setCursor(cursor) {
-  if (containerRef.value) containerRef.value.style.cursor = cursor
+  if (!containerRef.value) return
+  const tool = store.activeTool
+  // В режиме кисти системный курсор скрыт — рисуем свой
+  if (tool === 'erase' || tool === 'restore') {
+    containerRef.value.style.cursor = 'none'
+    return
+  }
+  containerRef.value.style.cursor = cursor
+}
+
+// --- Визуализация курсора кисти (обычный HTML canvas поверх Konva) ---
+const cursorCanvasRef = ref(null)
+let cursorX = 0
+let cursorY = 0
+let isCursorVisible = false
+let cursorDashOffset = 0
+let cursorAnimFrame = null
+
+function drawBrushCursor(x, y) {
+  const canvas = cursorCanvasRef.value
+  if (!canvas) return
+  const ctx = canvas.getContext('2d')
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+  if (!isCursorVisible) return
+  const tool = store.activeTool
+  if (tool !== 'erase' && tool !== 'restore') return
+
+  // Радиус кисти в экранных координатах (с учётом zoom вьюпорта)
+  const screenR = (store.brushSize / 2) * viewZoom.value
+  const hard = store.brushHardness / 100
+  const coreR = screenR * hard
+
+  // Градиентное ядро — зона жёсткости
+  if (coreR > 1) {
+    const grad = ctx.createRadialGradient(x, y, 0, x, y, screenR)
+    if (tool === 'restore') {
+      grad.addColorStop(0, 'rgba(196, 149, 74, 0.35)')
+      grad.addColorStop(hard, 'rgba(196, 149, 74, 0.35)')
+      grad.addColorStop(1, 'rgba(196, 149, 74, 0)')
+    } else {
+      grad.addColorStop(0, 'rgba(192, 84, 74, 0.35)')
+      grad.addColorStop(hard, 'rgba(192, 84, 74, 0.35)')
+      grad.addColorStop(1, 'rgba(192, 84, 74, 0)')
+    }
+    ctx.beginPath()
+    ctx.arc(x, y, screenR, 0, Math.PI * 2)
+    ctx.fillStyle = grad
+    ctx.fill()
+  }
+
+  // Пунктирная граница — полный радиус кисти
+  ctx.beginPath()
+  ctx.arc(x, y, screenR, 0, Math.PI * 2)
+  ctx.strokeStyle = tool === 'restore'
+    ? 'rgba(196, 149, 74, 0.9)'
+    : 'rgba(192, 84, 74, 0.9)'
+  ctx.lineWidth = 1
+  ctx.setLineDash([4, 4])
+  ctx.lineDashOffset = -cursorDashOffset
+  ctx.stroke()
+  ctx.setLineDash([])
+}
+
+function startCursorAnim() {
+  if (cursorAnimFrame) return
+  function tick() {
+    cursorDashOffset = (cursorDashOffset + 0.3) % 16
+    drawBrushCursor(cursorX, cursorY)
+    cursorAnimFrame = requestAnimationFrame(tick)
+  }
+  cursorAnimFrame = requestAnimationFrame(tick)
+}
+
+function stopCursorAnim() {
+  if (cursorAnimFrame) {
+    cancelAnimationFrame(cursorAnimFrame)
+    cursorAnimFrame = null
+  }
+  const canvas = cursorCanvasRef.value
+  if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height)
 }
 
 function getCanvasPos(stage) {
@@ -405,8 +499,26 @@ onMounted(() => {
       setCursor(store.activeTool === 'move' ? 'grab' : 'crosshair')
     }
   })
+  containerRef.value.addEventListener('mousemove', (e) => {
+    const rect = containerRef.value.getBoundingClientRect()
+    cursorX = e.clientX - rect.left
+    cursorY = e.clientY - rect.top
+  })
+
   containerRef.value.addEventListener('mouseenter', () => {
     containerRef.value.focus({ preventScroll: true })
+    isCursorVisible = true
+    const tool = store.activeTool
+    if (tool === 'erase' || tool === 'restore') {
+      startCursorAnim()
+      containerRef.value.style.cursor = 'none'
+    }
+  })
+
+  containerRef.value.addEventListener('mouseleave', () => {
+    isCursorVisible = false
+    stopCursorAnim()
+    containerRef.value.style.cursor = ''
   })
 
   const stage = stageRef.value?.getStage()
@@ -483,8 +595,14 @@ onMounted(() => {
     e.evt.preventDefault()
     const pos = stage.getPointerPosition()
 
-    if (e.evt.ctrlKey || isSpaceDown) {
-      // Zoom вьюпорта — зумируем относительно позиции курсора
+    if (e.evt.ctrlKey || e.evt.metaKey) {
+      // Ctrl+колёсико — меняем размер кисти (шаг пропорционален размеру)
+      const dir = e.evt.deltaY > 0 ? -1 : 1
+      const step = Math.max(1, Math.round(store.brushSize * 0.08))
+      store.brushSize = Math.min(200, Math.max(5, store.brushSize + dir * step))
+      drawBrushCursor(cursorX, cursorY)
+    } else if (isSpaceDown) {
+      // Zoom вьюпорта — зумируем относительно позиции курсора (пробел+колёсико)
       const zoomFactor = e.evt.deltaY > 0 ? 0.9 : 1.1
       const newZoom = Math.min(8, Math.max(0.1, viewZoom.value * zoomFactor))
       viewX.value = pos.x - (pos.x - viewX.value) * (newZoom / viewZoom.value)
@@ -509,7 +627,10 @@ function onZoomSlider(val) {
 function zoomIn() { onZoomSlider(Math.min(8, viewZoom.value * 1.2)) }
 function zoomOut() { onZoomSlider(Math.max(0.1, viewZoom.value / 1.2)) }
 
-onUnmounted(() => ro?.disconnect())
+onUnmounted(() => {
+  ro?.disconnect()
+  stopCursorAnim()
+})
 </script>
 
 <template>
@@ -570,6 +691,13 @@ onUnmounted(() => ro?.disconnect())
 
     </v-stage>
 
+    <canvas
+      ref="cursorCanvasRef"
+      class="cursor-canvas"
+      :width="containerW || 500"
+      :height="containerH || 500"
+    />
+
     <ZoomNavigator
       :zoom="viewZoom"
       :min-zoom="0.1"
@@ -599,5 +727,13 @@ onUnmounted(() => ro?.disconnect())
   background-size: 16px 16px;
   background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
   background-color: #21212a;
+}
+
+.cursor-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none; // не перехватывает события мыши
+  z-index: 10;
 }
 </style>

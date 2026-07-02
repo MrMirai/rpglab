@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue'
-import { X, Download } from 'lucide-vue-next'
+import { X, Download, AlertTriangle } from 'lucide-vue-next'
 import { useEditorStore } from '@/modules/editor/store'
 import { useExport } from '@/modules/editor/composables/useExport'
 import { useBrushMask } from '@/modules/editor/composables/useBrushMask'
@@ -16,7 +16,9 @@ const isExporting = ref(false)
 const exportInfo = computed(() => {
   if (!store.isReady) return null
   const pixelSize = calcExportSize(store, exportSize.value, brushCanvas, brushVersion.value)
-  return { pixelSize }
+  // Персонаж выходит за границу клетки рамки — итоговый размер больше выбранного
+  const oversized = pixelSize > exportSize.value
+  return { pixelSize, oversized }
 })
 
 async function doExport(mode, format = 'png') {
@@ -52,8 +54,14 @@ async function doExport(mode, format = 'png') {
           <div class="modal__section">
             <div class="modal__label">Размер</div>
             <div class="size-grid">
-              <button v-for="s in sizes" :key="s" :class="['size-btn', { active: exportSize === s }]"
-                @click="exportSize = s">{{ s }}×{{ s }}</button>
+              <button
+                v-for="s in sizes"
+                :key="s"
+                :class="['size-btn', { active: exportSize === s }]"
+                @click="exportSize = s"
+              >
+                {{ s }}×{{ s }}
+              </button>
             </div>
           </div>
 
@@ -75,26 +83,36 @@ async function doExport(mode, format = 'png') {
           <div class="modal__section">
             <div class="modal__section-title">Персонаж без рамки</div>
             <p class="modal__hint">
-              Обрезан по форме токена, без рамки.<br>
+              Обрезан по форме токена, без рамки.<br />
               Подойдет для Foundry VTT с Динамическим кольцом.
             </p>
             <div class="modal__actions">
-              <button class="export-btn" :disabled="isExporting" @click="doExport('char-only', 'png')">
+              <button
+                class="export-btn"
+                :disabled="isExporting"
+                @click="doExport('char-only', 'png')"
+              >
                 <Download :size="14" /> PNG
               </button>
-              <button class="export-btn" :disabled="isExporting" @click="doExport('char-only', 'webp')">
+              <button
+                class="export-btn"
+                :disabled="isExporting"
+                @click="doExport('char-only', 'webp')"
+              >
                 <Download :size="14" /> WebP
               </button>
             </div>
           </div>
 
-          <p v-if="exportInfo" class="modal__hint modal__export-info">
-            Размер экспорта: {{ exportInfo.pixelSize }}×{{ exportInfo.pixelSize }}px
-          </p>
+          <div v-if="exportInfo?.oversized" class="modal__warning">
+            <AlertTriangle :size="16" class="modal__warning-icon" />
+            <span>
+              Персонаж выходит за границу клетки — итоговое изображение будет больше выбранного
+              размера ({{ exportInfo.pixelSize }}×{{ exportInfo.pixelSize }}px).
+            </span>
+          </div>
 
-          <p v-if="isExporting" class="modal__status">
-            Генерация…
-          </p>
+          <p v-if="isExporting" class="modal__status">Генерация…</p>
         </div>
       </div>
     </div>
@@ -195,6 +213,24 @@ async function doExport(mode, format = 'png') {
     font-size: var(--text-xs);
     color: var(--color-accent);
     text-align: center;
+  }
+
+  &__warning {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-xs);
+    line-height: 1.5;
+    color: var(--color-accent);
+    background: var(--color-accent-muted);
+    border: 1px solid var(--color-accent);
+    border-radius: var(--radius-md);
+  }
+
+  &__warning-icon {
+    flex-shrink: 0;
+    margin-top: 1px;
   }
 }
 

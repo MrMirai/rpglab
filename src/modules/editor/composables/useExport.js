@@ -175,12 +175,29 @@ export function useExport() {
     const overBottom = Math.max(0, bounds.bottom - frameSize)
 
     const maxOver = Math.max(overLeft, overTop, overRight, overBottom)
-    // Лимит запаса — как раньше максимум 5 клеток итогового холста (2 клетки на сторону)
+    // Лимит запаса — 2 клетки на сторону (кисть покрывает unbounded-холст 5×5)
     const overflow = Math.min(maxOver, frameSize * 2)
 
     overflowBoundsCacheKey = key
     overflowBoundsCache = overflow
     return overflow
+  }
+
+  // Итоговый множитель экспорта — минимальная степень двойки (1, 2, 4...), при
+  // которой выступающие части персонажа умещаются в холст. Рамка остаётся по
+  // центру, поэтому запас с каждой стороны = baseSize*(mult-1)/2 должен покрыть
+  // overflow. Множитель степенями двойки — чтобы итоговый размер был кратен
+  // базовому (512→1024→2048), а не произвольным числом пикселей.
+  function calcExportMultiplier(store, baseSize, brushCanvas, brushVersion) {
+    const frameSize = store.canvasSize
+    const scale = baseSize / frameSize
+    const exportOverflow = calcOverflow(store, brushCanvas, brushVersion) * scale
+    let mult = 1
+    // Запас с каждой стороны при данном множителе: baseSize*(mult-1)/2.
+    // Кисть покрывает максимум 2 клетки запаса вокруг рамки (unbounded-холст 5×5),
+    // поэтому множитель ограничен ×4 — дальше был бы пустой прозрачный запас.
+    while (baseSize * (mult - 1) / 2 < exportOverflow && mult < 4) mult *= 2
+    return mult
   }
 
   async function exportToken(store, brushCanvas, options = {}) {
@@ -189,10 +206,11 @@ export function useExport() {
     const frameSize = store.canvasSize
     const baseSize = options.size || frameSize
     const scale = baseSize / frameSize
-    const overflow = calcOverflow(store, brushCanvas, brushVersion)
-    // Запас переводим в масштаб экспорта и округляем вверх, чтобы точно вместить выступ
-    const exportOverflow = Math.ceil(overflow * scale)
-    const exportSize = baseSize + exportOverflow * 2
+    const mult = calcExportMultiplier(store, baseSize, brushCanvas, brushVersion)
+    const exportSize = baseSize * mult
+    // Смещение рамки (по центру) в px экспорта и в масштабе рамки — для геометрии кисти
+    const exportFrameOffset = (exportSize - baseSize) / 2
+    const overflow = exportFrameOffset / scale
 
     const canvas = document.createElement('canvas')
     canvas.width = exportSize; canvas.height = exportSize
@@ -204,9 +222,6 @@ export function useExport() {
     }
 
     const mask = await getMask(store.frameImage, baseSize)
-
-    // Смещение рамки внутри экспортного canvas
-    const exportFrameOffset = exportOverflow
 
     // Персонаж в координатах экспортного canvas
     const charImg = store.charImage
@@ -282,13 +297,10 @@ export function useExport() {
   }
 
   // Итоговый размер экспортного холста (px) для заданного базового размера —
-  // базовый размер + точный запас на выступающие части персонажа с каждой стороны.
+  // базовый размер, умноженный на степень двойки (×1/×2/×4), достаточную чтобы
+  // вместить выступающие за рамку части персонажа.
   function calcExportSize(store, baseSize, brushCanvas, brushVersion) {
-    const frameSize = store.canvasSize
-    const scale = baseSize / frameSize
-    const overflow = calcOverflow(store, brushCanvas, brushVersion)
-    const exportOverflow = Math.ceil(overflow * scale)
-    return baseSize + exportOverflow * 2
+    return baseSize * calcExportMultiplier(store, baseSize, brushCanvas, brushVersion)
   }
 
   return { exportToken, downloadCanvas, downloadPng, calcExportSize }

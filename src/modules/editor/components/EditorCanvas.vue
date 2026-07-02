@@ -170,26 +170,39 @@ function buildCharFilter() {
   return filters.length ? filters.join(' ') : 'none'
 }
 
-// Рисует персонажа с фильтрами и тенью на переданном контексте
+// Рисует персонажа только с цветовыми фильтрами (без тени) на переданном контексте.
+// Тень намеренно не печётся здесь: её нужно отбрасывать от уже обрезанного маской
+// силуэта, иначе тень режется той же маской (см. castShadowFromSilhouette).
 function renderCharWithFilters(targetCtx, x, y, w, h) {
   const filter = buildCharFilter()
   targetCtx.save()
-
-  if (store.charShadowEnabled) {
-    const shadowOpacity = store.charShadowOpacity / 100
-    const sc = store.charShadowColor
-    const sr = parseInt(sc.slice(1, 3), 16)
-    const sg = parseInt(sc.slice(3, 5), 16)
-    const sb = parseInt(sc.slice(5, 7), 16)
-    targetCtx.shadowColor = `rgba(${sr},${sg},${sb},${shadowOpacity})`
-    targetCtx.shadowBlur = store.charShadowBlur
-    targetCtx.shadowOffsetX = store.charShadowOffsetX
-    targetCtx.shadowOffsetY = store.charShadowOffsetY
-  }
-
   if (filter !== 'none') targetCtx.filter = filter
   targetCtx.drawImage(store.charImage, x, y, w, h)
   targetCtx.restore()
+}
+
+// Возвращает canvas «тень + силуэт поверх»: тень строится из альфы уже готового
+// (обрезанного маской) силуэта, поэтому она повторяет форму видимого персонажа
+// и не обрезается маской. Если тень выключена — возвращает исходный силуэт как есть.
+function castShadowFromSilhouette(silhouette) {
+  if (!store.charShadowEnabled) return silhouette
+
+  const out = document.createElement('canvas')
+  out.width = silhouette.width
+  out.height = silhouette.height
+  const ctx = out.getContext('2d')
+
+  const sc = store.charShadowColor
+  const sr = parseInt(sc.slice(1, 3), 16)
+  const sg = parseInt(sc.slice(3, 5), 16)
+  const sb = parseInt(sc.slice(5, 7), 16)
+  ctx.shadowColor = `rgba(${sr},${sg},${sb},${store.charShadowOpacity / 100})`
+  ctx.shadowBlur = store.charShadowBlur
+  ctx.shadowOffsetX = store.charShadowOffsetX
+  ctx.shadowOffsetY = store.charShadowOffsetY
+  // drawImage с включённой тенью кладёт и силуэт, и его тень (тень — позади силуэта).
+  ctx.drawImage(silhouette, 0, 0)
+  return out
 }
 
 function renderOffscreen() {
@@ -213,15 +226,16 @@ function renderOffscreen() {
     mc.globalCompositeOperation = 'source-over'
   }
 
-  const bottomC = document.createElement('canvas')
-  bottomC.width = fullSize; bottomC.height = fullSize
-  bottomC.getContext('2d').drawImage(maskedChar, offset, offset)
-  charBottomCanvas.value = bottomC
+  // Готовый силуэт нижнего слоя в полных координатах — от него отбрасываем тень.
+  const bottomSilhouette = document.createElement('canvas')
+  bottomSilhouette.width = fullSize; bottomSilhouette.height = fullSize
+  bottomSilhouette.getContext('2d').drawImage(maskedChar, offset, offset)
+  charBottomCanvas.value = castShadowFromSilhouette(bottomSilhouette)
 
   // --- Верхний слой: персонаж × brushCanvas (на весь холст) ---
-  const topC = document.createElement('canvas')
-  topC.width = fullSize; topC.height = fullSize
-  const ttx = topC.getContext('2d')
+  const topSilhouette = document.createElement('canvas')
+  topSilhouette.width = fullSize; topSilhouette.height = fullSize
+  const ttx = topSilhouette.getContext('2d')
   // Персонаж в полных координатах (charDrawX/Y уже включают frameOffset)
   renderCharWithFilters(ttx, charDrawX.value, charDrawY.value, charW.value, charH.value)
 
@@ -229,7 +243,8 @@ function renderOffscreen() {
   ttx.globalCompositeOperation = 'destination-in'
   ttx.drawImage(brushCanvas, 0, 0)
   ttx.globalCompositeOperation = 'source-over'
-  charTopCanvas.value = topC
+  // Тень верхнего слоя — от его видимого силуэта (вылезающая часть над рамкой).
+  charTopCanvas.value = castShadowFromSilhouette(topSilhouette)
 }
 
 function renderOverlay() {

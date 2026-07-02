@@ -193,9 +193,14 @@ function drawToken(ctx, size) {
 
   ctx.drawImage(store.frameImage, tokenX, tokenY, tokenSize, tokenSize)
 
+  // brushCanvas — весь unbounded-холст; вырезаем только клетку рамки (frameOffset..+canvasSize)
   const scaledBrush = document.createElement('canvas')
   scaledBrush.width = tokenSize; scaledBrush.height = tokenSize
-  scaledBrush.getContext('2d').drawImage(brushCanvas, 0, 0, tokenSize, tokenSize)
+  scaledBrush.getContext('2d').drawImage(
+    brushCanvas,
+    store.frameOffset, store.frameOffset, store.canvasSize, store.canvasSize,
+    0, 0, tokenSize, tokenSize,
+  )
   drawMasked((tc) => {
     drawCharWithFilters(tc, charImg, charX - tokenX, charY - tokenY, charW, charH)
   }, scaledBrush, tokenX, tokenY)

@@ -1,9 +1,16 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
+export const GRID_CELLS = 5
+
 export const useEditorStore = defineStore('editor', () => {
-  // Размер холста
+  // Размер одной клетки = размер рамки
   const canvasSize = ref(500)
+
+  // Полный рабочий холст (5×5 клеток)
+  const fullCanvasSize = computed(() => canvasSize.value * GRID_CELLS)
+  // Смещение центральной клетки (рамки) от края холста
+  const frameOffset = computed(() => canvasSize.value * Math.floor(GRID_CELLS / 2))
 
   // Персонаж
   const charImage = ref(null)      // HTMLImageElement
@@ -130,7 +137,7 @@ export const useEditorStore = defineStore('editor', () => {
   function closeExportModal() { exportModalOpen.value = false }
 
   function setCharPosition(x, y) { charX.value = x; charY.value = y }
-  function setCharScale(scale) { charScale.value = scale }
+  function setCharScale(scale) { charScale.value = Math.min(10, Math.max(0.05, scale)) }
 
   function loadCharImage(img, url = null) {
     charImage.value = img
@@ -170,7 +177,8 @@ export const useEditorStore = defineStore('editor', () => {
   }
 
   return {
-    canvasSize, charImage, charX, charY, charScale,
+    GRID_CELLS, canvasSize, fullCanvasSize, frameOffset,
+    charImage, charX, charY, charScale,
     frameImage, frameFileName, maskImage, useCustomMask, maskVersion,
     charPreviewUrl, framePreviewUrl, bgPreviewUrl,
     overflowY, overflowSoft,

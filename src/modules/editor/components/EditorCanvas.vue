@@ -10,7 +10,7 @@ import ZoomNavigator from '@/shared/components/ZoomNavigator.vue'
 
 const store = useEditorStore()
 const { generateMask } = useAutoMask()
-const { brushCanvas, paint, setRedraw } = useBrushMask()
+const { brushCanvas, paint, setRedraw, bumpBrushVersion } = useBrushMask()
 const { generateBackground } = useAutoBackground()
 const history = useHistory()
 const bridge = useEditorBridge()
@@ -31,18 +31,34 @@ const viewX = ref(0)
 const viewY = ref(0)
 const viewZoom = ref(1)
 
+// Показывает весь 5×5 холст целиком
 function centerView() {
   const padding = 40
-  const scaleX = (containerW.value - padding * 2) / store.canvasSize
-  const scaleY = (containerH.value - padding * 2) / store.canvasSize
+  const scaleX = (containerW.value - padding * 2) / store.fullCanvasSize
+  const scaleY = (containerH.value - padding * 2) / store.fullCanvasSize
   viewZoom.value = Math.min(scaleX, scaleY)
-  viewX.value = (containerW.value - store.canvasSize * viewZoom.value) / 2
-  viewY.value = (containerH.value - store.canvasSize * viewZoom.value) / 2
+  viewX.value = (containerW.value - store.fullCanvasSize * viewZoom.value) / 2
+  viewY.value = (containerH.value - store.fullCanvasSize * viewZoom.value) / 2
+}
+
+// Начальный вид: рамка + 1 клетка вокруг (видно 3×3 клетки)
+function centerViewOnFrame() {
+  if (!containerW.value || !containerH.value) return
+  const padding = 40
+  const visibleSize = store.canvasSize * 3
+  const scale = Math.min(
+    (containerW.value - padding * 2) / visibleSize,
+    (containerH.value - padding * 2) / visibleSize,
+  )
+  viewZoom.value = scale
+  const frameCenter = store.frameOffset + store.canvasSize / 2
+  viewX.value = containerW.value / 2 - frameCenter * scale
+  viewY.value = containerH.value / 2 - frameCenter * scale
 }
 
 const stageConfig = computed(() => ({
-  width: containerW.value || store.canvasSize,
-  height: containerH.value || store.canvasSize,
+  width: containerW.value || store.fullCanvasSize,
+  height: containerH.value || store.fullCanvasSize,
   scaleX: viewZoom.value,
   scaleY: viewZoom.value,
   x: viewX.value,
@@ -55,8 +71,13 @@ const charW = computed(() =>
 const charH = computed(() =>
   store.charImage ? store.charImage.height * store.charScale : 0
 )
-const charDrawX = computed(() => store.canvasSize / 2 + store.charX - charW.value / 2)
-const charDrawY = computed(() => store.canvasSize / 2 + store.charY - charH.value / 2)
+// Координаты персонажа в пространстве полного холста
+const charDrawX = computed(() =>
+  store.frameOffset + store.canvasSize / 2 + store.charX - charW.value / 2
+)
+const charDrawY = computed(() =>
+  store.frameOffset + store.canvasSize / 2 + store.charY - charH.value / 2
+)
 
 const bgCanvas = ref(null)
 const charBottomCanvas = ref(null)
@@ -93,37 +114,45 @@ function getAutoBg(size) {
 }
 
 function renderBg() {
-  const size = store.canvasSize
+  const fullSize = store.fullCanvasSize
+  const frameSize = store.canvasSize
+  const offset = store.frameOffset
+
   if (store.bgType === 'none') { bgCanvas.value = null; return }
 
+  // Рендерим фон в размере рамки
   const bgC = document.createElement('canvas')
-  bgC.width = size; bgC.height = size
+  bgC.width = frameSize; bgC.height = frameSize
   const btx = bgC.getContext('2d')
 
   if (store.bgType === 'color') {
     btx.fillStyle = store.bgColor
-    btx.fillRect(0, 0, size, size)
+    btx.fillRect(0, 0, frameSize, frameSize)
   } else if (store.bgType === 'image' && store.bgImage) {
     const img = store.bgImage
-    const scale = Math.max(size / img.width, size / img.height)
+    const scale = Math.max(frameSize / img.width, frameSize / img.height)
     const sw = img.width * scale
     const sh = img.height * scale
-    const sx = (size - sw) / 2
-    const sy = (size - sh) / 2
+    const sx = (frameSize - sw) / 2
+    const sy = (frameSize - sh) / 2
     btx.drawImage(img, sx, sy, sw, sh)
   } else if (store.bgType === 'auto') {
-    btx.drawImage(getAutoBg(size), 0, 0)
+    btx.drawImage(getAutoBg(frameSize), 0, 0)
   }
 
   // Обрезаем маской формы рамки
-  const mask = store.maskImage || (store.frameImage ? generateMask(store.frameImage, size) : null)
+  const mask = store.maskImage || (store.frameImage ? generateMask(store.frameImage, frameSize) : null)
   if (mask) {
     btx.globalCompositeOperation = 'destination-in'
-    btx.drawImage(mask, 0, 0, size, size)
+    btx.drawImage(mask, 0, 0, frameSize, frameSize)
     btx.globalCompositeOperation = 'source-over'
   }
 
-  bgCanvas.value = bgC
+  // Помещаем на полный холст со смещением центральной клетки
+  const bgFull = document.createElement('canvas')
+  bgFull.width = fullSize; bgFull.height = fullSize
+  bgFull.getContext('2d').drawImage(bgC, offset, offset)
+  bgCanvas.value = bgFull
 }
 
 // Собирает CSS-строку фильтра персонажа из параметров стора
@@ -165,60 +194,75 @@ function renderCharWithFilters(targetCtx, x, y, w, h) {
 function renderOffscreen() {
   renderBg()
 
-  const size = store.canvasSize
+  const fullSize = store.fullCanvasSize
+  const frameSize = store.canvasSize
+  const offset = store.frameOffset
 
-  // Нижний слой: персонаж обрезанный по маске формы рамки
-  const bottomC = document.createElement('canvas')
-  bottomC.width = size; bottomC.height = size
-  const btx = bottomC.getContext('2d')
-  renderCharWithFilters(btx, charDrawX.value, charDrawY.value, charW.value, charH.value)
+  // --- Нижний слой: персонаж × маска1 (только в области рамки) ---
+  const maskedChar = document.createElement('canvas')
+  maskedChar.width = frameSize; maskedChar.height = frameSize
+  const mc = maskedChar.getContext('2d')
+  // Рисуем относительно рамки (вычитаем frameOffset)
+  renderCharWithFilters(mc, charDrawX.value - offset, charDrawY.value - offset, charW.value, charH.value)
 
-  const mask = store.maskImage || (store.frameImage ? generateMask(store.frameImage, size) : null)
+  const mask = store.maskImage || (store.frameImage ? generateMask(store.frameImage, frameSize) : null)
   if (mask) {
-    btx.globalCompositeOperation = 'destination-in'
-    btx.drawImage(mask, 0, 0, size, size)
-    btx.globalCompositeOperation = 'source-over'
+    mc.globalCompositeOperation = 'destination-in'
+    mc.drawImage(mask, 0, 0, frameSize, frameSize)
+    mc.globalCompositeOperation = 'source-over'
   }
 
+  const bottomC = document.createElement('canvas')
+  bottomC.width = fullSize; bottomC.height = fullSize
+  bottomC.getContext('2d').drawImage(maskedChar, offset, offset)
   charBottomCanvas.value = bottomC
 
-  // Верхний слой: персонаж обрезанный по кисти маски вылезания
+  // --- Верхний слой: персонаж × brushCanvas (на весь холст) ---
   const topC = document.createElement('canvas')
-  topC.width = size; topC.height = size
+  topC.width = fullSize; topC.height = fullSize
   const ttx = topC.getContext('2d')
+  // Персонаж в полных координатах (charDrawX/Y уже включают frameOffset)
   renderCharWithFilters(ttx, charDrawX.value, charDrawY.value, charW.value, charH.value)
+
+  // brushCanvas уже размером с весь холст (fullSize) — рисуем как есть
   ttx.globalCompositeOperation = 'destination-in'
   ttx.drawImage(brushCanvas, 0, 0)
   ttx.globalCompositeOperation = 'source-over'
-
   charTopCanvas.value = topC
 }
 
 function renderOverlay() {
-  const size = store.canvasSize
+  const fullSize = store.fullCanvasSize
+
   const oc = document.createElement('canvas')
-  oc.width = size; oc.height = size
+  oc.width = fullSize; oc.height = fullSize
   const octx = oc.getContext('2d')
 
   if (store.showMaskOverlay) {
-    // Инвертированный оверлей: янтарный там где маска прозрачная (скрытая область)
+    // Янтарный оверлей на весь холст: скрытые области кисти
     octx.fillStyle = 'rgba(196, 149, 74, 0.45)'
-    octx.fillRect(0, 0, size, size)
+    octx.fillRect(0, 0, fullSize, fullSize)
     octx.globalCompositeOperation = 'destination-out'
     octx.drawImage(brushCanvas, 0, 0)
     octx.globalCompositeOperation = 'source-over'
   } else if (store.showFrontOnly) {
-    // Шахматный фон
-    for (let y = 0; y < size; y += 16) {
-      for (let x = 0; x < size; x += 16) {
-        octx.fillStyle = ((x + y) / 16) % 2 === 0 ? '#2b2b36' : '#21212a'
-        octx.fillRect(x, y, 16, 16)
-      }
-    }
-    // Затемняем всё кроме верхнего слоя
+    // Шахматный фон через паттерн
+    const tile = document.createElement('canvas')
+    tile.width = 32; tile.height = 32
+    const tc = tile.getContext('2d')
+    tc.fillStyle = '#2b2b36'
+    tc.fillRect(0, 0, 16, 16)
+    tc.fillRect(16, 16, 16, 16)
+    tc.fillStyle = '#21212a'
+    tc.fillRect(16, 0, 16, 16)
+    tc.fillRect(0, 16, 16, 16)
+    const pattern = octx.createPattern(tile, 'repeat')
+    octx.fillStyle = pattern
+    octx.fillRect(0, 0, fullSize, fullSize)
+
     octx.fillStyle = 'rgba(0,0,0,0.75)'
-    octx.fillRect(0, 0, size, size)
-    // Рисуем только верхний слой (что вылезает над рамкой)
+    octx.fillRect(0, 0, fullSize, fullSize)
+
     if (charTopCanvas.value) {
       octx.globalCompositeOperation = 'source-over'
       octx.drawImage(charTopCanvas.value, 0, 0)
@@ -243,7 +287,7 @@ setRedraw(() => redrawAll())
 
 // --- История действий ---
 function takeSnapshot() {
-  const size = store.canvasSize
+  const size = store.fullCanvasSize
   const snap = document.createElement('canvas')
   snap.width = size; snap.height = size
   snap.getContext('2d').drawImage(brushCanvas, 0, 0)
@@ -276,10 +320,11 @@ function applySnapshot(snapshot) {
   store.bgGrain = snapshot.bgGrain
   store.setBgNoiseType(snapshot.bgNoiseType)
 
-  const size = store.canvasSize
+  const size = store.fullCanvasSize
   const bctx = brushCanvas.getContext('2d')
   bctx.clearRect(0, 0, size, size)
   bctx.drawImage(snapshot.brushSnapshot, 0, 0)
+  bumpBrushVersion()
 }
 
 function recordHistory() {
@@ -308,7 +353,7 @@ function performRedo() {
 }
 
 bridge.setHandlers({
-  centerView: () => centerView(),
+  centerView: () => centerViewOnFrame(),
   recordHistory,
   performUndo,
   performRedo,
@@ -318,6 +363,11 @@ watch(
   [() => store.showMaskOverlay, () => store.showFrontOnly],
   () => renderOverlay(),
 )
+
+// При загрузке рамки — возвращаемся к виду рамки
+watch(() => store.frameImage, (img) => {
+  if (img) nextTick(() => centerViewOnFrame())
+})
 
 // Смена инструмента — запускаем/останавливаем визуализацию курсора кисти.
 // Размер/жёсткость читаются из store прямо в анимационном loop, отдельный watch не нужен.
@@ -384,30 +434,57 @@ watchEffect(() => {
 const charBottomConfig = computed(() => ({
   image: charBottomCanvas.value,
   x: 0, y: 0,
-  width: store.canvasSize,
-  height: store.canvasSize,
+  width: store.fullCanvasSize,
+  height: store.fullCanvasSize,
   listening: false,
 }))
 
 const charTopConfig = computed(() => ({
   image: charTopCanvas.value,
   x: 0, y: 0,
-  width: store.canvasSize,
-  height: store.canvasSize,
+  width: store.fullCanvasSize,
+  height: store.fullCanvasSize,
   listening: false,
 }))
 
 const frameConfig = computed(() => ({
   image: store.frameImage,
-  x: 0, y: 0,
+  x: store.frameOffset,
+  y: store.frameOffset,
   width: store.canvasSize,
   height: store.canvasSize,
 }))
 
-const gridLines = computed(() => {
-  const count = Math.floor(store.canvasSize / 50)
-  return Array.from({ length: count - 1 }, (_, i) => i + 1)
+// Сетка 5×5 клеток
+const gridLinesH = computed(() => {
+  const lines = []
+  const full = store.fullCanvasSize
+  const cell = store.canvasSize
+  for (let i = 0; i <= store.GRID_CELLS; i++) {
+    lines.push({ points: [0, i * cell, full, i * cell] })
+  }
+  return lines
 })
+const gridLinesV = computed(() => {
+  const lines = []
+  const full = store.fullCanvasSize
+  const cell = store.canvasSize
+  for (let i = 0; i <= store.GRID_CELLS; i++) {
+    lines.push({ points: [i * cell, 0, i * cell, full] })
+  }
+  return lines
+})
+// Подсветка центральной клетки (рамки)
+const centerCellConfig = computed(() => ({
+  x: store.frameOffset,
+  y: store.frameOffset,
+  width: store.canvasSize,
+  height: store.canvasSize,
+  fill: 'rgba(196, 149, 74, 0.08)',
+  stroke: 'rgba(196, 149, 74, 0.5)',
+  strokeWidth: 1,
+  listening: false,
+}))
 
 function setCursor(cursor) {
   if (!containerRef.value) return
@@ -521,12 +598,12 @@ onMounted(() => {
     const { width, height } = entries[0].contentRect
     containerW.value = width
     containerH.value = height
-    centerView()
+    centerViewOnFrame()
   })
   ro.observe(containerRef.value)
   containerW.value = containerRef.value.offsetWidth
   containerH.value = containerRef.value.offsetHeight
-  centerView()
+  centerViewOnFrame()
 
   containerRef.value.setAttribute('tabindex', '0')
   containerRef.value.addEventListener('keydown', (e) => {
@@ -608,6 +685,7 @@ onMounted(() => {
     } else if ((tool === 'erase' || tool === 'restore') && store.isReady) {
       recordHistory()
       isPainting = true
+      // brushCanvas теперь занимает весь холст — координаты передаём как есть
       paint(canvasPos.x, canvasPos.y, store.brushSize, store.brushHardness, tool === 'erase')
       redrawAll()
     }
@@ -689,8 +767,8 @@ onMounted(() => {
       viewZoom.value = newZoom
     } else if (tool === 'move') {
       // Колёсико без модификаторов в move — zoom персонажа
-      const delta = e.evt.deltaY > 0 ? -0.05 : 0.05
-      const newScale = Math.min(3, Math.max(0.1, store.charScale + delta))
+      const delta = e.evt.deltaY > 0 ? -0.1 : 0.1
+      const newScale = Math.min(10, Math.max(0.05, store.charScale + delta))
       store.setCharScale(Math.round(newScale * 100) / 100)
     }
   })
@@ -720,7 +798,7 @@ onUnmounted(() => {
       <v-layer ref="bgLayer">
         <v-image
           v-if="bgCanvas"
-          :config="{ image: bgCanvas, x: 0, y: 0, width: store.canvasSize, height: store.canvasSize, listening: false }"
+          :config="{ image: bgCanvas, x: 0, y: 0, width: store.fullCanvasSize, height: store.fullCanvasSize, listening: false }"
         />
       </v-layer>
 
@@ -739,15 +817,17 @@ onUnmounted(() => {
           :config="frameConfig"
         />
         <template v-if="store.showGrid">
+          <!-- Подсветка центральной клетки -->
+          <v-rect :config="centerCellConfig" />
+          <!-- Горизонтальные линии -->
           <v-line
-            v-for="i in gridLines"
-            :key="'h' + i"
-            :config="{ points: [0, i*50, store.canvasSize, i*50], stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }"
+            v-for="(line, i) in gridLinesH" :key="'h' + i"
+            :config="{ ...line, stroke: 'rgba(255,255,255,0.08)', strokeWidth: 0.5 }"
           />
+          <!-- Вертикальные линии -->
           <v-line
-            v-for="i in gridLines"
-            :key="'v' + i"
-            :config="{ points: [i*50, 0, i*50, store.canvasSize], stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }"
+            v-for="(line, i) in gridLinesV" :key="'v' + i"
+            :config="{ ...line, stroke: 'rgba(255,255,255,0.08)', strokeWidth: 0.5 }"
           />
         </template>
       </v-layer>
@@ -764,7 +844,7 @@ onUnmounted(() => {
       <v-layer ref="overlayLayer">
         <v-image
           v-if="overlayCanvas && (store.showMaskOverlay || store.showFrontOnly)"
-          :config="{ image: overlayCanvas, x: 0, y: 0, width: store.canvasSize, height: store.canvasSize, listening: false }"
+          :config="{ image: overlayCanvas, x: 0, y: 0, width: store.fullCanvasSize, height: store.fullCanvasSize, listening: false }"
         />
       </v-layer>
 

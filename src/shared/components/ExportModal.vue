@@ -1,17 +1,23 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { X, Download } from 'lucide-vue-next'
 import { useEditorStore } from '@/modules/editor/store'
 import { useExport } from '@/modules/editor/composables/useExport'
 import { useBrushMask } from '@/modules/editor/composables/useBrushMask'
 
 const store = useEditorStore()
-const { exportToken, downloadCanvas } = useExport()
-const { brushCanvas } = useBrushMask()
+const { exportToken, downloadCanvas, calcExportSize } = useExport()
+const { brushCanvas, brushVersion } = useBrushMask()
 
 const sizes = [256, 512, 1024, 2048]
 const exportSize = ref(512)
 const isExporting = ref(false)
+
+const exportInfo = computed(() => {
+  if (!store.isReady) return null
+  const pixelSize = calcExportSize(store, exportSize.value, brushCanvas, brushVersion.value)
+  return { pixelSize }
+})
 
 async function doExport(mode, format = 'png') {
   if (isExporting.value) return
@@ -20,6 +26,7 @@ async function doExport(mode, format = 'png') {
     const canvas = await exportToken(store, brushCanvas, {
       size: exportSize.value,
       mode,
+      brushVersion: brushVersion.value,
     })
     const suffix = mode === 'char-only' ? 'char' : 'token'
     downloadCanvas(canvas, `${suffix}_${exportSize.value}`, format)
@@ -81,8 +88,12 @@ async function doExport(mode, format = 'png') {
             </div>
           </div>
 
+          <p v-if="exportInfo" class="modal__hint modal__export-info">
+            Размер экспорта: {{ exportInfo.pixelSize }}×{{ exportInfo.pixelSize }}px
+          </p>
+
           <p v-if="isExporting" class="modal__status">
-            Генерация {{ exportSize }}×{{ exportSize }}px…
+            Генерация…
           </p>
         </div>
       </div>

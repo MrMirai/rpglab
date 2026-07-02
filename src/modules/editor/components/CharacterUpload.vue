@@ -1,19 +1,14 @@
 <script setup>
-import { ref } from 'vue'
 import { Upload, X } from 'lucide-vue-next'
 import { useEditorStore } from '../store'
 import { useImageLoader } from '../composables/useImageLoader'
+import ImageDropzone from '@/shared/components/ImageDropzone.vue'
 
 const store = useEditorStore()
 const { loadFromFile } = useImageLoader()
 
-const fileInput = ref(null)
-const isDragOver = ref(false)
-
-function triggerFileInput() { fileInput.value.click() }
-
 async function loadFile(file) {
-  if (!file || !file.type.startsWith('image/')) return
+  if (!file.type.startsWith('image/')) return
   const img = await loadFromFile(file)
   const url = URL.createObjectURL(file)
   store.loadCharImage(img, url)
@@ -23,83 +18,45 @@ async function loadFile(file) {
   store.setCharPosition(0, 0)
 }
 
-async function onFileChange(e) { await loadFile(e.target.files[0]) }
-async function onDrop(e) {
-  isDragOver.value = false
-  await loadFile(e.dataTransfer.files[0])
-}
-
 function onRemove() {
   store.removeChar()
-  fileInput.value.value = '' // сброс, чтобы повторный выбор того же файла сработал
 }
 </script>
 
 <template>
   <div class="character-upload">
-    <div
-      v-if="!store.hasChar"
-      class="drop-zone"
-      :class="{ 'drop-zone--active': isDragOver }"
-      @click="triggerFileInput"
-      @dragover.prevent="isDragOver = true"
-      @dragleave="isDragOver = false"
-      @drop.prevent="onDrop"
-    >
-      <Upload :size="24" />
-      <span>Загрузить персонажа</span>
-      <span class="drop-zone__hint">PNG, JPG или перетащи файл</span>
-    </div>
-
-    <div v-else class="char-preview">
-      <div class="char-preview__thumb">
-        <img :src="store.charPreviewUrl" alt="Персонаж" />
-      </div>
-      <button class="char-preview__remove" @click="onRemove">
-        <X :size="14" /> Удалить
-      </button>
-    </div>
-
-    <input
-      ref="fileInput"
-      type="file"
+    <ImageDropzone
+      :filled="store.hasChar"
       accept="image/png,image/jpeg,image/webp"
-      style="display: none"
-      @change="onFileChange"
-    />
+      label="Загрузить персонажа"
+      hint="PNG, JPG или перетащи файл"
+      @select="loadFile"
+    >
+      <template #icon>
+        <Upload :size="24" />
+      </template>
+
+      <template #filled>
+        <div class="char-preview">
+          <div class="char-preview__thumb">
+            <img :src="store.charPreviewUrl" alt="Персонаж" />
+          </div>
+          <button class="char-preview__remove" @click="onRemove">
+            <X :size="14" /> Удалить
+          </button>
+        </div>
+      </template>
+    </ImageDropzone>
   </div>
 </template>
 
 <style lang="scss" scoped>
 .character-upload {
   padding: var(--space-3) var(--space-4);
-}
 
-.drop-zone {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  padding: var(--space-6) var(--space-4);
-  border: 1px dashed var(--color-border-strong);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  color: var(--color-text-2);
-  font-size: var(--text-sm);
-  transition:
-    border-color var(--transition-fast),
-    color var(--transition-fast);
-
-  &:hover,
-  &--active {
-    border-color: var(--color-accent);
-    color: var(--color-accent);
-  }
-
-  &__hint {
-    font-size: var(--text-xs);
-    color: var(--color-text-3);
+  // У персонажа зона крупнее фреймовой
+  :deep(.drop-zone) {
+    padding: var(--space-6) var(--space-4);
   }
 }
 

@@ -1,3 +1,2 @@
 // Публичный API модуля frames
-// export { ... } from './components/...'
-// export { ... } from './store'
+export { default as FrameUpload } from './components/FrameUpload.vue'

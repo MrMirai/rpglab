@@ -1,16 +1,15 @@
 <script setup>
-import { ref } from 'vue'
-import { ImagePlus, Pipette } from 'lucide-vue-next'
+import { ImagePlus, Pipette, X } from 'lucide-vue-next'
 import { useEditorStore } from '../store'
 import { useImageLoader } from '../composables/useImageLoader'
 import { useAutoBackground } from '../composables/useAutoBackground'
 import SliderControl from './SliderControl.vue'
 import ColorButton from '@/shared/components/ColorButton.vue'
+import ImageDropzone from '@/shared/components/ImageDropzone.vue'
 
 const store = useEditorStore()
 const { loadFromFile } = useImageLoader()
 const { extractColor } = useAutoBackground()
-const fileInput = ref(null)
 
 const typeOptions = [
   { value: 'none',  label: 'Нет' },
@@ -42,11 +41,7 @@ const swatches = [
   '#f0ede6', '#e8d5b7', '#d4c5a9',
 ]
 
-function triggerFileInput() { fileInput.value.click() }
-
-async function onFileChange(e) {
-  const file = e.target.files[0]
-  if (!file) return
+async function loadFile(file) {
   const img = await loadFromFile(file)
   const url = URL.createObjectURL(file)
   store.loadBgImage(img, url)
@@ -86,20 +81,28 @@ async function onFileChange(e) {
     </div>
 
     <div v-else-if="store.bgType === 'image'" class="bg-controls__image">
-      <button class="upload-btn" @click="triggerFileInput">
-        <ImagePlus :size="16" />
-        {{ store.bgImage ? 'Заменить фон' : 'Загрузить фон' }}
-      </button>
-      <div v-if="store.bgImage" class="bg-preview">
-        <img :src="store.bgPreviewUrl" alt="Фон" />
-      </div>
-      <input
-        ref="fileInput"
-        type="file"
+      <ImageDropzone
+        :filled="!!store.bgImage"
         accept="image/*"
-        style="display: none"
-        @change="onFileChange"
-      />
+        label="Загрузить фон"
+        hint="PNG, JPG или перетащи файл"
+        @select="loadFile"
+      >
+        <template #icon>
+          <ImagePlus :size="24" />
+        </template>
+
+        <template #filled>
+          <div class="bg-preview">
+            <div class="bg-preview__thumb">
+              <img :src="store.bgPreviewUrl" alt="Фон" />
+            </div>
+            <button class="bg-preview__remove" @click="store.removeBgImage()">
+              <X :size="14" /> Удалить
+            </button>
+          </div>
+        </template>
+      </ImageDropzone>
     </div>
 
     <div v-else-if="store.bgType === 'auto'" class="bg-controls__auto">
@@ -247,38 +250,46 @@ async function onFileChange(e) {
   &.active { outline: 2px solid var(--color-accent); outline-offset: 1px; }
 }
 
-.upload-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  width: 100%;
-  padding: var(--space-2);
-  border: 1px dashed var(--color-border-strong);
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--color-text-2);
-  font-size: var(--text-sm);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-
-  &:hover {
-    border-color: var(--color-accent);
-    color: var(--color-accent);
-  }
-}
-
 .bg-preview {
-  width: 100%;
-  aspect-ratio: 1;
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 
-  img {
+  &__thumb {
     width: 100%;
-    height: 100%;
-    object-fit: cover;
+    aspect-ratio: 1;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-1);
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+
+  &__remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1);
+    padding: var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--color-text-2);
+    font-size: var(--text-xs);
+    cursor: pointer;
+    transition:
+      border-color var(--transition-fast),
+      color var(--transition-fast);
+
+    &:hover {
+      border-color: var(--color-danger);
+      color: var(--color-danger);
+    }
   }
 }
 </style>

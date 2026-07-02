@@ -170,6 +170,13 @@ export const useEditorStore = defineStore('editor', () => {
     maskVersion.value++
   }
 
+  function removeBgImage() {
+    if (bgPreviewUrl.value) URL.revokeObjectURL(bgPreviewUrl.value)
+    bgImage.value = null
+    bgPreviewUrl.value = null
+    // Остаёмся в режиме «Картинка», чтобы снова показалась зона загрузки
+  }
+
   function resetMask() {
     maskImage.value = null
     useCustomMask.value = false
@@ -187,7 +194,7 @@ export const useEditorStore = defineStore('editor', () => {
     charShadowEnabled, charShadowColor, charShadowBlur,
     charShadowOffsetX, charShadowOffsetY, charShadowOpacity,
     resetCharFilters,
-    bgType, bgColor, bgImage, setBgType, setBgColor, loadBgImage,
+    bgType, bgColor, bgImage, setBgType, setBgColor, loadBgImage, removeBgImage,
     bgAutoColor, bgCenterLight, bgEdgeLight, bgNoiseStrength, bgGrain, bgNoiseType,
     setBgAutoColor, setBgNoiseType,
     showGrid, previewMode, showMaskOverlay, showFrontOnly,

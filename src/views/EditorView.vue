@@ -1,12 +1,27 @@
 <script setup>
 import AppLayout from '@/shared/components/layout/AppLayout.vue'
-import ExportModal from '@/shared/components/ExportModal.vue'
-import PreviewWindow from '@/modules/editor/components/PreviewWindow.vue'
-import { EditorCanvas } from '@/modules/editor'
+import {
+  EditorCanvas,
+  EditorToolbar,
+  EditorHeaderActions,
+  EditorProperties,
+  ExportModal,
+  PreviewWindow,
+} from '@/modules/editor'
 </script>
 
 <template>
   <AppLayout>
+    <template #header-toolbar>
+      <EditorToolbar />
+    </template>
+    <template #header-actions>
+      <EditorHeaderActions />
+    </template>
+    <template #properties>
+      <EditorProperties />
+    </template>
+
     <EditorCanvas />
   </AppLayout>
   <ExportModal />

@@ -1,17 +1,27 @@
 <script setup>
+import { useSlots } from 'vue'
 import AppHeader from './AppHeader.vue'
 import AppSidebar from './AppSidebar.vue'
 import AppPropertiesPanel from './AppPropertiesPanel.vue'
+
+const slots = useSlots()
 </script>
 
 <template>
   <div class="app-layout">
-    <AppHeader class="layout-header" />
+    <AppHeader class="layout-header">
+      <!-- logo пробрасываем только если вид его задал, иначе остаётся дефолт в AppHeader -->
+      <template v-if="slots['header-logo']" #logo><slot name="header-logo" /></template>
+      <template #toolbar><slot name="header-toolbar" /></template>
+      <template #actions><slot name="header-actions" /></template>
+    </AppHeader>
     <AppSidebar class="layout-sidebar" />
     <main class="layout-canvas">
       <slot />
     </main>
-    <AppPropertiesPanel class="layout-properties" />
+    <AppPropertiesPanel class="layout-properties">
+      <slot name="properties" />
+    </AppPropertiesPanel>
   </div>
 </template>
 

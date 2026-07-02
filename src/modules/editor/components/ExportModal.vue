@@ -1,9 +1,9 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { X, Download, AlertTriangle } from 'lucide-vue-next'
-import { useEditorStore } from '@/modules/editor/store'
-import { useExport } from '@/modules/editor/composables/useExport'
-import { useBrushMask } from '@/modules/editor/composables/useBrushMask'
+import { useEditorStore } from '../store'
+import { useExport } from '../composables/useExport'
+import { useBrushMask } from '../composables/useBrushMask'
 
 const store = useEditorStore()
 const { exportToken, downloadCanvas, calcExportSize } = useExport()

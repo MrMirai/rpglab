@@ -1,106 +1,29 @@
 <script setup>
 import { RouterLink } from 'vue-router'
-import { Save, FolderOpen, MousePointer2, Eraser, Paintbrush, Hand, Undo2, Redo2, Grid3x3, Eye, Layers, Square, Download } from 'lucide-vue-next'
-import { useEditorStore } from '@/modules/editor'
-import { useEditorBridge } from '@/modules/editor/composables/useEditorBridge'
+import { Save, FolderOpen } from 'lucide-vue-next'
 
-const store = useEditorStore()
-const bridge = useEditorBridge()
+// Общий каркас шапки: логотип + постоянные действия (Сохранить/Проекты).
+// Специфичный для редактора инструментарий и действия приходят через слоты,
+// чтобы шапку могли переиспользовать разные редакторы (токены, раздатки).
 </script>
 
 <template>
   <header class="app-header">
     <div class="logo">
-      <span class="logo-icon">◎</span>
-      <span class="logo-text">Tokenizer</span>
+      <!-- Слот под переключатель редакторов (планируется выпадающий список) -->
+      <slot name="logo">
+        <span class="logo-icon">◎</span>
+        <span class="logo-text">Tokenizer</span>
+      </slot>
     </div>
 
     <nav class="toolbar">
-      <div class="toolbar__group">
-        <button class="toolbar__btn" :class="{ active: store.activeTool === 'hand' }"
-          @click="store.setActiveTool('hand')">
-          <span class="icon">
-            <Hand :size="16" />
-          </span>
-          <span class="label">Рука</span>
-        </button>
-        <button class="toolbar__btn" :class="{ active: store.activeTool === 'move' }"
-          @click="store.setActiveTool('move')">
-          <span class="icon">
-            <MousePointer2 :size="16" />
-          </span>
-          <span class="label">Двигать</span>
-        </button>
-        <button class="toolbar__btn" :class="{ active: store.activeTool === 'erase' }"
-          @click="store.setActiveTool('erase')">
-          <span class="icon">
-            <Eraser :size="16" />
-          </span>
-          <span class="label">Стереть</span>
-        </button>
-        <button class="toolbar__btn" :class="{ active: store.activeTool === 'restore' }"
-          @click="store.setActiveTool('restore')">
-          <span class="icon">
-            <Paintbrush :size="16" />
-          </span>
-          <span class="label">Восстановить</span>
-        </button>
-      </div>
-
-      <div class="toolbar__divider" />
-
-      <div class="toolbar__group">
-        <button class="toolbar__btn" :disabled="!store.canUndo" @click="bridge.performUndo()">
-          <span class="icon">
-            <Undo2 :size="16" />
-          </span>
-          <span class="label">Отменить</span>
-        </button>
-        <button class="toolbar__btn" :disabled="!store.canRedo" @click="bridge.performRedo()">
-          <span class="icon">
-            <Redo2 :size="16" />
-          </span>
-          <span class="label">Повторить</span>
-        </button>
-      </div>
-
-      <div class="toolbar__divider" />
-
-      <div class="toolbar__group">
-        <button class="toolbar__btn" :class="{ active: store.showGrid }" @click="store.toggleGrid()">
-          <span class="icon">
-            <Grid3x3 :size="16" />
-          </span>
-          <span class="label">Сетка</span>
-        </button>
-        <button class="toolbar__btn" :class="{ active: store.previewMode }" @click="store.togglePreview()">
-          <span class="icon">
-            <Eye :size="16" />
-          </span>
-          <span class="label">Превью</span>
-        </button>
-        <button class="toolbar__btn" :class="{ active: store.showMaskOverlay }" @click="store.toggleMaskOverlay()"
-          title="Показать маску">
-          <span class="icon">
-            <Layers :size="16" />
-          </span>
-          <span class="label">Маска</span>
-        </button>
-        <button class="toolbar__btn" :class="{ active: store.showFrontOnly }" @click="store.toggleFrontOnly()"
-          title="Передний план">
-          <span class="icon">
-            <Square :size="16" />
-          </span>
-          <span class="label">Передний</span>
-        </button>
-      </div>
+      <slot name="toolbar" />
     </nav>
 
     <div class="actions">
-      <button class="header-btn accent-outline" :disabled="!store.isReady" @click="store.openExportModal()">
-        <Download :size="16" />
-        <span>Экспорт</span>
-      </button>
+      <!-- Действия конкретного редактора (например, Экспорт) -->
+      <slot name="actions" />
       <button class="btn-save">
         <Save :size="16" />
         <span>Сохранить</span>
@@ -144,67 +67,13 @@ const bridge = useEditorBridge()
   }
 }
 
+// Контейнер под инструментарий редактора (наполняется через слот toolbar)
 .toolbar {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0;
-
-  &__group {
-    display: flex;
-    align-items: center;
-    gap: var(--space-1);
-  }
-
-  &__divider {
-    width: 1px;
-    height: 24px;
-    background-color: var(--color-border-strong);
-    margin: 0 var(--space-3);
-    flex-shrink: 0;
-  }
-
-  &__btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-    padding: var(--space-1) var(--space-2);
-    border-radius: var(--radius-md);
-    border: none;
-    background: transparent;
-    color: var(--color-text-2);
-    cursor: pointer;
-    font-size: var(--text-xs);
-    transition: background var(--transition-fast), color var(--transition-fast);
-
-    &:hover {
-      background: var(--color-bg-3);
-      color: var(--color-text-1);
-    }
-
-    &.active {
-      background: var(--color-accent-muted);
-      color: var(--color-accent);
-    }
-
-    &:disabled {
-      opacity: 0.35;
-      cursor: not-allowed;
-      pointer-events: none;
-    }
-
-    .icon {
-      line-height: 1;
-    }
-
-    .label {
-      font-size: var(--text-xs);
-      color: inherit;
-      white-space: nowrap;
-    }
-  }
 }
 
 .actions {
@@ -212,33 +81,6 @@ const bridge = useEditorBridge()
   align-items: center;
   gap: var(--space-4);
   flex-shrink: 0;
-}
-
-.header-btn {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 6px var(--space-3);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-
-  &.accent-outline {
-    background: transparent;
-    border: 1px solid var(--color-accent);
-    color: var(--color-accent);
-
-    &:hover:not(:disabled) {
-      background: var(--color-accent-muted);
-    }
-  }
-
-  &:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-  }
 }
 
 .btn-save {

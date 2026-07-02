@@ -7,6 +7,7 @@ import { useAutoBackground } from '../composables/useAutoBackground'
 import { useHistory } from '../composables/useHistory'
 import { useEditorBridge } from '../composables/useEditorBridge'
 import ZoomNavigator from '@/shared/components/ZoomNavigator.vue'
+import HotkeyHelp from './HotkeyHelp.vue'
 
 const store = useEditorStore()
 const { generateMask } = useAutoMask()
@@ -758,6 +759,13 @@ onMounted(() => {
         viewY.value = pos.y - (pos.y - viewY.value) * (newZoom / viewZoom.value)
         viewZoom.value = newZoom
       }
+    } else if (e.evt.shiftKey && (tool === 'erase' || tool === 'restore')) {
+      // Shift+колёсико в режиме кисти — меняем жёсткость кисти.
+      // При зажатом Shift браузер может отдавать скролл в deltaX вместо deltaY.
+      const delta = e.evt.deltaY || e.evt.deltaX
+      const dir = delta > 0 ? -1 : 1
+      store.brushHardness = Math.min(100, Math.max(0, store.brushHardness + dir * 5))
+      drawBrushCursor(cursorX, cursorY)
     } else if (isSpaceDown || tool === 'hand') {
       // Пробел+колёсико или hand tool — zoom вьюпорта
       const zoomFactor = e.evt.deltaY > 0 ? 0.9 : 1.1
@@ -865,6 +873,8 @@ onUnmounted(() => {
       @zoom-in="zoomIn"
       @zoom-out="zoomOut"
     />
+
+    <HotkeyHelp :tool="store.activeTool" />
   </div>
 </template>
 

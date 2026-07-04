@@ -11,7 +11,7 @@ import HotkeyHelp from './HotkeyHelp.vue'
 
 const store = useEditorStore()
 const { generateMask } = useAutoMask()
-const { brushCanvas, paint, setRedraw, bumpBrushVersion } = useBrushMask()
+const { brushCanvas, paint, fillPath, setRedraw, bumpBrushVersion } = useBrushMask()
 const { generateBackground } = useAutoBackground()
 const history = useHistory()
 const bridge = useEditorBridge()
@@ -261,28 +261,32 @@ function renderOverlay() {
     octx.globalCompositeOperation = 'destination-out'
     octx.drawImage(brushCanvas, 0, 0)
     octx.globalCompositeOperation = 'source-over'
-  } else if (store.showFrontOnly) {
-    // Шахматный фон через паттерн
-    const tile = document.createElement('canvas')
-    tile.width = 32; tile.height = 32
-    const tc = tile.getContext('2d')
-    tc.fillStyle = '#2b2b36'
-    tc.fillRect(0, 0, 16, 16)
-    tc.fillRect(16, 16, 16, 16)
-    tc.fillStyle = '#21212a'
-    tc.fillRect(16, 0, 16, 16)
-    tc.fillRect(0, 16, 16, 16)
-    const pattern = octx.createPattern(tile, 'repeat')
-    octx.fillStyle = pattern
-    octx.fillRect(0, 0, fullSize, fullSize)
+  } else if (store.showHidden && store.charImage) {
+    // Режим «Скрытое» — призрак частей персонажа, скрытых масками (для навигации).
+    // Скрытое = полный силуэт персонажа МИНУС видимое (нижний ∪ верхний слои).
 
-    octx.fillStyle = 'rgba(0,0,0,0.75)'
-    octx.fillRect(0, 0, fullSize, fullSize)
+    // 1. Полный персонаж (с фильтрами, без тени) на весь холст.
+    const full = document.createElement('canvas')
+    full.width = fullSize; full.height = fullSize
+    const fctx = full.getContext('2d')
+    renderCharWithFilters(fctx, charDrawX.value, charDrawY.value, charW.value, charH.value)
 
-    if (charTopCanvas.value) {
-      octx.globalCompositeOperation = 'source-over'
-      octx.drawImage(charTopCanvas.value, 0, 0)
-    }
+    // 2. Вычитаем видимые области (то, что уже показано слоями).
+    fctx.globalCompositeOperation = 'destination-out'
+    if (charBottomCanvas.value) fctx.drawImage(charBottomCanvas.value, 0, 0)
+    if (charTopCanvas.value) fctx.drawImage(charTopCanvas.value, 0, 0)
+    fctx.globalCompositeOperation = 'source-over'
+
+    // 3. Рисуем призрак полупрозрачно.
+    octx.globalAlpha = 0.28
+    octx.drawImage(full, 0, 0)
+    octx.globalAlpha = 1
+
+    // 4. Лёгкая синяя подкраска скрытых зон — чтобы отличать от обычного вида.
+    octx.globalCompositeOperation = 'source-atop'
+    octx.fillStyle = 'rgba(90, 150, 220, 0.35)'
+    octx.fillRect(0, 0, fullSize, fullSize)
+    octx.globalCompositeOperation = 'source-over'
   }
 
   overlayCanvas.value = oc
@@ -296,6 +300,7 @@ function redrawAll() {
     bgLayer.value?.getNode()?.batchDraw()
     charBottomLayer.value?.getNode()?.batchDraw()
     charTopLayer.value?.getNode()?.batchDraw()
+    overlayLayer.value?.getNode()?.batchDraw()
   })
 }
 
@@ -376,7 +381,7 @@ bridge.setHandlers({
 })
 
 watch(
-  [() => store.showMaskOverlay, () => store.showFrontOnly],
+  [() => store.showMaskOverlay, () => store.showHidden],
   () => renderOverlay(),
 )
 
@@ -517,6 +522,278 @@ function setCursor(cursor) {
   containerRef.value.style.cursor = cursor
 }
 
+// --- Лассо (безье-контур) ---
+// Узел пути: точка p + безье-ручки hIn/hOut (смещения относительно p, в координатах
+// холста). Прямые сегменты — когда ручки нулевые. Всё состояние UI-путь держим локально,
+// в стор идёт только activeTool='lasso' и режим add/subtract.
+const lassoCanvasRef = ref(null)
+let lassoNodes = []            // [{ p:{x,y}, hIn:{x,y}, hOut:{x,y} }]
+let lassoClosed = false        // контур замкнут
+let lassoHoverFirst = false    // курсор над первой точкой (подсказка замыкания)
+let lassoMouse = { x: 0, y: 0 } // текущая позиция мыши в координатах холста (для «резинки»)
+// Перетаскивание при построении/редактировании
+let lassoDragging = null       // { kind:'handle'|'node', index, ... } либо null
+let lassoDashOffset = 0
+let lassoAnimFrame = null
+// Ручное определение двойного клика (Konva dblclick коалесит клики и «съедает» узел,
+// поэтому детектим сами по времени+позиции между mousedown).
+let lassoLastDown = { t: 0, x: 0, y: 0 }
+let lassoAltDown = false        // зажат Alt — инвертировать режим (для превью и применения)
+
+// Эффективный режим с учётом Alt: true = subtract (скрыть).
+function lassoEffectiveSubtract() {
+  return (store.lassoMode === 'subtract') !== lassoAltDown
+}
+
+const NODE_HIT_R = 8           // радиус захвата узла (экранные px)
+const HANDLE_HIT_R = 7
+const DBLCLICK_MS = 350        // окно двойного клика
+const DBLCLICK_DIST = 6        // макс. смещение между кликами пары (экранные px)
+
+function lassoReset() {
+  lassoNodes = []
+  lassoClosed = false
+  lassoHoverFirst = false
+  lassoDragging = null
+  lassoLastDown = { t: 0, x: 0, y: 0 }
+  drawLasso()
+}
+
+// Строит Path2D контура в координатах холста (для заливки и для отрисовки).
+function buildLassoPath() {
+  if (lassoNodes.length < 2) return null
+  const path = new Path2D()
+  const n = lassoNodes
+  path.moveTo(n[0].p.x, n[0].p.y)
+  const segCount = lassoClosed ? n.length : n.length - 1
+  for (let i = 0; i < segCount; i++) {
+    const a = n[i]
+    const b = n[(i + 1) % n.length]
+    const c1x = a.p.x + a.hOut.x, c1y = a.p.y + a.hOut.y
+    const c2x = b.p.x + b.hIn.x,  c2y = b.p.y + b.hIn.y
+    path.bezierCurveTo(c1x, c1y, c2x, c2y, b.p.x, b.p.y)
+  }
+  if (lassoClosed) path.closePath()
+  return path
+}
+
+// Переводит координату холста в экранную (с учётом pan/zoom вьюпорта).
+function canvasToScreen(cx, cy) {
+  return { x: cx * viewZoom.value + viewX.value, y: cy * viewZoom.value + viewY.value }
+}
+
+function drawLasso() {
+  const canvas = lassoCanvasRef.value
+  if (!canvas) return
+  const ctx = canvas.getContext('2d')
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+  if (store.activeTool !== 'lasso' || lassoNodes.length === 0) return
+
+  // Цвет отражает эффективный режим с учётом Alt: янтарный — показать, красный — скрыть.
+  const subtract = lassoEffectiveSubtract()
+  const col = subtract ? 'rgba(192, 84, 74, 1)' : 'rgba(196, 149, 74, 1)'
+  const fill = subtract ? 'rgba(192, 84, 74, 0.18)' : 'rgba(196, 149, 74, 0.18)'
+
+  // Кривая пути в экранных координатах: строим Path2D заново от canvasToScreen
+  const path = new Path2D()
+  const n = lassoNodes
+  const s0 = canvasToScreen(n[0].p.x, n[0].p.y)
+  path.moveTo(s0.x, s0.y)
+  const segCount = lassoClosed ? n.length : n.length - 1
+  for (let i = 0; i < segCount; i++) {
+    const a = n[i], b = n[(i + 1) % n.length]
+    const c1 = canvasToScreen(a.p.x + a.hOut.x, a.p.y + a.hOut.y)
+    const c2 = canvasToScreen(b.p.x + b.hIn.x, b.p.y + b.hIn.y)
+    const e = canvasToScreen(b.p.x, b.p.y)
+    path.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, e.x, e.y)
+  }
+
+  // «Резинка» до курсора, пока контур не замкнут
+  if (!lassoClosed && n.length >= 1) {
+    const last = n[n.length - 1]
+    const c1 = canvasToScreen(last.p.x + last.hOut.x, last.p.y + last.hOut.y)
+    const m = canvasToScreen(lassoMouse.x, lassoMouse.y)
+    ctx.beginPath()
+    const ls = canvasToScreen(last.p.x, last.p.y)
+    ctx.moveTo(ls.x, ls.y)
+    ctx.quadraticCurveTo(c1.x, c1.y, m.x, m.y)
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)'
+    ctx.lineWidth = 1
+    ctx.setLineDash([3, 3])
+    ctx.stroke()
+    ctx.setLineDash([])
+  }
+
+  if (lassoClosed) {
+    ctx.fillStyle = fill
+    ctx.fill(path)
+  }
+
+  // Сам контур — анимированный пунктир
+  ctx.strokeStyle = col
+  ctx.lineWidth = 1.5
+  ctx.setLineDash([5, 4])
+  ctx.lineDashOffset = -lassoDashOffset
+  ctx.stroke(path)
+  ctx.setLineDash([])
+
+  // Ручки безье
+  for (const node of n) {
+    for (const h of [node.hIn, node.hOut]) {
+      if (h.x === 0 && h.y === 0) continue
+      const p = canvasToScreen(node.p.x, node.p.y)
+      const hp = canvasToScreen(node.p.x + h.x, node.p.y + h.y)
+      ctx.beginPath()
+      ctx.moveTo(p.x, p.y); ctx.lineTo(hp.x, hp.y)
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)'
+      ctx.lineWidth = 1
+      ctx.stroke()
+      ctx.beginPath()
+      ctx.arc(hp.x, hp.y, 3.5, 0, Math.PI * 2)
+      ctx.fillStyle = '#fff'
+      ctx.fill()
+    }
+  }
+
+  // Узлы — квадраты; первый выделен (для замыкания)
+  n.forEach((node, i) => {
+    const p = canvasToScreen(node.p.x, node.p.y)
+    const size = i === 0 ? 5 : 4
+    ctx.beginPath()
+    ctx.rect(p.x - size, p.y - size, size * 2, size * 2)
+    ctx.fillStyle = (i === 0 && lassoHoverFirst && !lassoClosed) ? col : '#fff'
+    ctx.fill()
+    ctx.strokeStyle = col
+    ctx.lineWidth = 1.5
+    ctx.stroke()
+  })
+}
+
+function startLassoAnim() {
+  if (lassoAnimFrame) return
+  function tick() {
+    lassoDashOffset = (lassoDashOffset + 0.3) % 18
+    drawLasso()
+    lassoAnimFrame = requestAnimationFrame(tick)
+  }
+  lassoAnimFrame = requestAnimationFrame(tick)
+}
+function stopLassoAnim() {
+  if (lassoAnimFrame) { cancelAnimationFrame(lassoAnimFrame); lassoAnimFrame = null }
+  const canvas = lassoCanvasRef.value
+  if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height)
+}
+
+// Применяет замкнутый контур к маске вылезания и сбрасывает путь.
+// Режим (показать/скрыть) берём из lassoEffectiveSubtract() — с учётом Alt.
+function applyLasso() {
+  if (!lassoClosed || lassoNodes.length < 2) return
+  const path = buildLassoPath()
+  if (!path) return
+  recordHistory()
+  fillPath(path, lassoEffectiveSubtract())
+  redrawAll()
+  lassoReset()
+}
+
+// hit-test: возвращает { kind, index } под экранной точкой (sx,sy) или null
+function lassoHitTest(sx, sy) {
+  for (let i = 0; i < lassoNodes.length; i++) {
+    const node = lassoNodes[i]
+    for (const key of ['hOut', 'hIn']) {
+      const h = node[key]
+      if (h.x === 0 && h.y === 0) continue
+      const hp = canvasToScreen(node.p.x + h.x, node.p.y + h.y)
+      if (Math.hypot(hp.x - sx, hp.y - sy) <= HANDLE_HIT_R)
+        return { kind: 'handle', index: i, key }
+    }
+  }
+  for (let i = 0; i < lassoNodes.length; i++) {
+    const p = canvasToScreen(lassoNodes[i].p.x, lassoNodes[i].p.y)
+    if (Math.hypot(p.x - sx, p.y - sy) <= NODE_HIT_R)
+      return { kind: 'node', index: i }
+  }
+  return null
+}
+
+// canvasPos — координаты холста; screenPos — экранные (для hit-теста).
+function onLassoMouseDown(canvasPos, screenPos) {
+  lassoMouse = { ...canvasPos }
+
+  // Уже замкнут — режим редактирования: тащим узел/ручку под курсором.
+  if (lassoClosed) {
+    const hit = lassoHitTest(screenPos.x, screenPos.y)
+    if (hit) lassoDragging = hit
+    return
+  }
+
+  // Ручной детект двойного клика: два mousedown подряд рядом по времени и месту.
+  const now = performance.now()
+  const isDbl =
+    now - lassoLastDown.t <= DBLCLICK_MS &&
+    Math.hypot(screenPos.x - lassoLastDown.x, screenPos.y - lassoLastDown.y) <= DBLCLICK_DIST
+  lassoLastDown = { t: now, x: screenPos.x, y: screenPos.y }
+
+  // Двойной клик — замкнуть контур (первый клик пары уже добавил узел, убираем его).
+  if (isDbl && lassoNodes.length >= 3) {
+    lassoNodes.pop()
+    lassoClosed = true
+    lassoDragging = null
+    drawLasso()
+    return
+  }
+
+  // Клик рядом с первой точкой (и есть ≥2 узлов) — замыкаем контур.
+  if (lassoNodes.length >= 2) {
+    const first = canvasToScreen(lassoNodes[0].p.x, lassoNodes[0].p.y)
+    if (Math.hypot(first.x - screenPos.x, first.y - screenPos.y) <= NODE_HIT_R) {
+      lassoClosed = true
+      lassoDragging = null
+      drawLasso()
+      return
+    }
+  }
+
+  // Иначе — добавляем новый узел; последующий drag тянет его безье-ручку.
+  const node = { p: { ...canvasPos }, hIn: { x: 0, y: 0 }, hOut: { x: 0, y: 0 } }
+  lassoNodes.push(node)
+  lassoDragging = { kind: 'newHandle', index: lassoNodes.length - 1 }
+  drawLasso()
+}
+
+function onLassoMouseMove(canvasPos, screenPos) {
+  lassoMouse = { ...canvasPos }
+
+  if (lassoDragging) {
+    const node = lassoNodes[lassoDragging.index]
+    if (lassoDragging.kind === 'newHandle') {
+      // Тянем симметричные ручки от только что поставленного узла.
+      node.hOut = { x: canvasPos.x - node.p.x, y: canvasPos.y - node.p.y }
+      node.hIn = { x: -node.hOut.x, y: -node.hOut.y }
+    } else if (lassoDragging.kind === 'handle') {
+      const h = { x: canvasPos.x - node.p.x, y: canvasPos.y - node.p.y }
+      node[lassoDragging.key] = h
+      // Зеркалим противоположную ручку — гладкий узел.
+      const other = lassoDragging.key === 'hOut' ? 'hIn' : 'hOut'
+      node[other] = { x: -h.x, y: -h.y }
+    } else if (lassoDragging.kind === 'node') {
+      node.p = { ...canvasPos }
+    }
+    drawLasso()
+    return
+  }
+
+  // Без перетаскивания: подсветка первой точки для замыкания + «резинка».
+  if (!lassoClosed && lassoNodes.length >= 2) {
+    const first = canvasToScreen(lassoNodes[0].p.x, lassoNodes[0].p.y)
+    lassoHoverFirst = Math.hypot(first.x - screenPos.x, first.y - screenPos.y) <= NODE_HIT_R
+  } else {
+    lassoHoverFirst = false
+  }
+  setCursor(lassoHoverFirst ? 'pointer' : 'crosshair')
+  drawLasso()
+}
+
 // --- Визуализация курсора кисти (обычный HTML canvas поверх Konva) ---
 const cursorCanvasRef = ref(null)
 let cursorX = 0
@@ -623,6 +900,11 @@ onMounted(() => {
 
   containerRef.value.setAttribute('tabindex', '0')
   containerRef.value.addEventListener('keydown', (e) => {
+    // Alt в режиме лассо инвертирует режим — обновляем превью-цвет контура на лету.
+    if (store.activeTool === 'lasso' && e.altKey && !lassoAltDown) {
+      lassoAltDown = true
+      drawLasso()
+    }
     if (e.code === 'Space') {
       e.preventDefault()
       isSpaceDown = true
@@ -637,12 +919,28 @@ onMounted(() => {
       e.preventDefault()
       performRedo()
     }
+    // Лассо: Enter — применить, Esc — отменить/сбросить путь
+    if (store.activeTool === 'lasso' && lassoNodes.length > 0) {
+      if (e.code === 'Enter') {
+        e.preventDefault()
+        lassoAltDown = e.altKey
+        if (!lassoClosed && lassoNodes.length >= 3) lassoClosed = true
+        applyLasso()
+      } else if (e.code === 'Escape') {
+        e.preventDefault()
+        lassoReset()
+      }
+    }
   })
   containerRef.value.addEventListener('keyup', (e) => {
     if (e.code === 'Space') {
       isSpaceDown = false
       isPanning = false
       setCursor(store.activeTool === 'move' ? 'grab' : 'crosshair')
+    }
+    if (!e.altKey && lassoAltDown) {
+      lassoAltDown = false
+      if (store.activeTool === 'lasso') drawLasso()
     }
   })
   containerRef.value.addEventListener('mousemove', (e) => {
@@ -658,6 +956,8 @@ onMounted(() => {
     if (tool === 'erase' || tool === 'restore') {
       startCursorAnim()
       containerRef.value.style.cursor = 'none'
+    } else if (tool === 'lasso') {
+      startLassoAnim()
     }
   })
 
@@ -692,6 +992,11 @@ onMounted(() => {
 
     const canvasPos = getCanvasPos(stage)
 
+    if (tool === 'lasso' && store.isReady) {
+      onLassoMouseDown(canvasPos, pos)
+      return
+    }
+
     if (tool === 'move') {
       recordHistory()
       isDragging = true
@@ -719,6 +1024,11 @@ onMounted(() => {
 
     const canvasPos = getCanvasPos(stage)
 
+    if (tool === 'lasso') {
+      onLassoMouseMove(canvasPos, pos)
+      return
+    }
+
     if (tool === 'hand') {
       setCursor('grab')
       return
@@ -741,6 +1051,7 @@ onMounted(() => {
     isPanning = false
     isPainting = false
     isDragging = false
+    lassoDragging = null
     if (isSpaceDown) { setCursor('grab'); return }
     if (tool === 'hand') setCursor('grab')
     else if (tool === 'move') setCursor('grab')
@@ -751,6 +1062,7 @@ onMounted(() => {
     isPanning = false
     isPainting = false
     isDragging = false
+    lassoDragging = null
     setCursor('default')
   })
 
@@ -807,9 +1119,21 @@ function onZoomSlider(val) {
 function zoomIn() { onZoomSlider(Math.min(8, viewZoom.value * 1.2)) }
 function zoomOut() { onZoomSlider(Math.max(0.1, viewZoom.value / 1.2)) }
 
+// Смена инструмента: сбрасываем незавершённый контур лассо и запускаем/останавливаем
+// анимацию пунктира. Незамкнутый путь при уходе с инструмента просто отбрасываем.
+watch(() => store.activeTool, (tool) => {
+  if (tool === 'lasso') {
+    if (isCursorVisible) startLassoAnim()
+  } else {
+    lassoReset()
+    stopLassoAnim()
+  }
+})
+
 onUnmounted(() => {
   ro?.disconnect()
   stopCursorAnim()
+  stopLassoAnim()
 })
 </script>
 
@@ -866,7 +1190,7 @@ onUnmounted(() => {
       <!-- Слой 4: оверлей режимов отображения -->
       <v-layer ref="overlayLayer">
         <v-image
-          v-if="overlayCanvas && (store.showMaskOverlay || store.showFrontOnly)"
+          v-if="overlayCanvas && (store.showMaskOverlay || store.showHidden)"
           :config="{ image: overlayCanvas, x: 0, y: 0, width: store.fullCanvasSize, height: store.fullCanvasSize, listening: false }"
         />
       </v-layer>
@@ -875,6 +1199,14 @@ onUnmounted(() => {
 
     <canvas
       ref="cursorCanvasRef"
+      class="cursor-canvas"
+      :width="containerW || 500"
+      :height="containerH || 500"
+    />
+
+    <!-- Оверлей лассо (безье-контур) поверх Konva -->
+    <canvas
+      ref="lassoCanvasRef"
       class="cursor-canvas"
       :width="containerW || 500"
       :height="containerH || 500"

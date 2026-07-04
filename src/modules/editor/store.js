@@ -37,11 +37,16 @@ export const useEditorStore = defineStore('editor', () => {
   const overflowSoft = ref(20)     // px, мягкость перехода
 
   // Активный инструмент
-  const activeTool = ref('move')   // 'move' | 'erase' | 'restore' | 'hand'
+  const activeTool = ref('move')   // 'move' | 'erase' | 'restore' | 'hand' | 'lasso'
 
   // Кисть
   const brushSize = ref(30)
   const brushHardness = ref(50)
+
+  // Лассо (безье-контур): 'add' — заливает область в маску (как «Восстановить»),
+  // 'subtract' — вырезает (как «Стереть»)
+  const lassoMode = ref('add')     // 'add' | 'subtract'
+  function setLassoMode(mode) { lassoMode.value = mode }
 
   // Фильтры персонажа
   const charHue = ref(0)              // -180..180 градусов
@@ -90,7 +95,7 @@ export const useEditorStore = defineStore('editor', () => {
 
   // Режимы отображения
   const showMaskOverlay = ref(false)
-  const showFrontOnly = ref(false)
+  const showHidden = ref(false)     // призрак скрытых масками частей персонажа
 
   // История действий (флаги для кнопок тулбара)
   const canUndo = ref(false)
@@ -111,11 +116,11 @@ export const useEditorStore = defineStore('editor', () => {
 
   function toggleMaskOverlay() {
     showMaskOverlay.value = !showMaskOverlay.value
-    if (showMaskOverlay.value) showFrontOnly.value = false
+    if (showMaskOverlay.value) showHidden.value = false
   }
-  function toggleFrontOnly() {
-    showFrontOnly.value = !showFrontOnly.value
-    if (showFrontOnly.value) showMaskOverlay.value = false
+  function toggleHidden() {
+    showHidden.value = !showHidden.value
+    if (showHidden.value) showMaskOverlay.value = false
   }
 
   function setBgType(type) { bgType.value = type }
@@ -189,7 +194,7 @@ export const useEditorStore = defineStore('editor', () => {
     frameImage, frameFileName, maskImage, useCustomMask, maskVersion,
     charPreviewUrl, framePreviewUrl, bgPreviewUrl,
     overflowY, overflowSoft,
-    activeTool, brushSize, brushHardness,
+    activeTool, brushSize, brushHardness, lassoMode, setLassoMode,
     charHue, charSaturation, charBrightness, charContrast, charLuminosity,
     charShadowEnabled, charShadowColor, charShadowBlur,
     charShadowOffsetX, charShadowOffsetY, charShadowOpacity,
@@ -197,11 +202,11 @@ export const useEditorStore = defineStore('editor', () => {
     bgType, bgColor, bgImage, setBgType, setBgColor, loadBgImage, removeBgImage,
     bgAutoColor, bgCenterLight, bgEdgeLight, bgNoiseStrength, bgGrain, bgNoiseType,
     setBgAutoColor, setBgNoiseType,
-    showGrid, previewMode, showMaskOverlay, showFrontOnly,
+    showGrid, previewMode, showMaskOverlay, showHidden,
     canUndo, canRedo, setUndoRedo,
     exportModalOpen, openExportModal, closeExportModal,
     hasChar, hasFrame, isReady,
-    setActiveTool, toggleGrid, togglePreview, toggleMaskOverlay, toggleFrontOnly,
+    setActiveTool, toggleGrid, togglePreview, toggleMaskOverlay, toggleHidden,
     setCharPosition, setCharScale,
     loadCharImage, loadFrameImage, loadMaskImage, resetMask,
     removeChar, removeFrame,

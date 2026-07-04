@@ -15,6 +15,7 @@ const toolLabel = computed(() => {
     case 'erase': return 'Стереть'
     case 'restore': return 'Восстановить'
     case 'hand': return 'Рука'
+    case 'lasso': return 'Лассо'
     default: return ''
   }
 })
@@ -45,6 +46,14 @@ const toolHints = computed(() => {
       return [
         { tokens: [DRAG], desc: 'панорама холста' },
         { tokens: [WHEEL], desc: 'зум вьюпорта' },
+      ]
+    case 'lasso':
+      return [
+        { tokens: [DRAG], desc: 'точка + сгладить дугу' },
+        { tokens: [key('2×клик')], desc: 'замкнуть контур' },
+        { tokens: [key('Alt')], desc: 'инвертировать режим' },
+        { tokens: [key('Enter')], desc: 'замкнуть и применить' },
+        { tokens: [key('Esc')], desc: 'отменить' },
       ]
     default:
       return []

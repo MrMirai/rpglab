@@ -1,5 +1,5 @@
 <script setup>
-import { MousePointer2, Eraser, Paintbrush, Hand, Undo2, Redo2, Grid3x3, Eye, Layers, Square } from 'lucide-vue-next'
+import { MousePointer2, Eraser, Paintbrush, Hand, Undo2, Redo2, Grid3x3, Eye, Layers, Ghost, Spline } from 'lucide-vue-next'
 import { useEditorStore } from '../store'
 import { useEditorBridge } from '../composables/useEditorBridge'
 
@@ -37,6 +37,13 @@ const bridge = useEditorBridge()
           <Paintbrush :size="16" />
         </span>
         <span class="label">Восстановить</span>
+      </button>
+      <button class="editor-toolbar__btn" :class="{ active: store.activeTool === 'lasso' }"
+        @click="store.setActiveTool('lasso')">
+        <span class="icon">
+          <Spline :size="16" />
+        </span>
+        <span class="label">Лассо</span>
       </button>
     </div>
 
@@ -79,12 +86,12 @@ const bridge = useEditorBridge()
         </span>
         <span class="label">Маска</span>
       </button>
-      <button class="editor-toolbar__btn" :class="{ active: store.showFrontOnly }" @click="store.toggleFrontOnly()"
-        title="Передний план">
+      <button class="editor-toolbar__btn" :class="{ active: store.showHidden }" @click="store.toggleHidden()"
+        title="Показать скрытые масками области персонажа">
         <span class="icon">
-          <Square :size="16" />
+          <Ghost :size="16" />
         </span>
-        <span class="label">Передний</span>
+        <span class="label">Скрытое</span>
       </button>
     </div>
   </div>

@@ -13,7 +13,7 @@ import { Save, FolderOpen } from 'lucide-vue-next'
       <!-- Слот под переключатель редакторов (планируется выпадающий список) -->
       <slot name="logo">
         <span class="logo-icon">◎</span>
-        <span class="logo-text">Tokenizer</span>
+        <span class="logo-text">RPGLab</span>
       </slot>
     </div>
 

@@ -1,6 +1,6 @@
 <template>
   <main class="home">
-    <h1>Tokenizer</h1>
+    <h1>RPGLab</h1>
   </main>
 </template>
 

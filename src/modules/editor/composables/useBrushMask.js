@@ -82,6 +82,26 @@ export function useBrushMask() {
     _brushVersion.value++
   }
 
+  // Заливает замкнутый Path2D (в координатах полного холста) в brushCanvas.
+  // erase=false — добавляет область (белым, «Восстановить»),
+  // erase=true — вырезает (destination-out, «Стереть»).
+  // ВАЖНО: при destination-out стирается там, где у источника альфа>0, поэтому
+  // fillStyle обязан быть непрозрачным (как у кисти-стирания grad с rgba(0,0,0,1)).
+  // Без явного fillStyle наследуется прозрачный из прошлого вызова → не стирает.
+  function fillPath(path, erase = false) {
+    brushCtx.save()
+    if (!erase) {
+      brushCtx.fillStyle = 'rgba(255,255,255,1)'
+      brushCtx.globalCompositeOperation = 'source-over'
+    } else {
+      brushCtx.fillStyle = 'rgba(0,0,0,1)'
+      brushCtx.globalCompositeOperation = 'destination-out'
+    }
+    brushCtx.fill(path)
+    brushCtx.restore()
+    _brushVersion.value++
+  }
+
   function clear() {
     brushCtx.clearRect(0, 0, SIZE, SIZE)
     _brushVersion.value++
@@ -92,7 +112,7 @@ export function useBrushMask() {
   function bumpBrushVersion() { _brushVersion.value++ }
 
   return {
-    brushCanvas, paint, fillTop, fillBottom, fillAll, clear, setRedraw, redraw,
+    brushCanvas, paint, fillPath, fillTop, fillBottom, fillAll, clear, setRedraw, redraw,
     brushVersion: _brushVersion, bumpBrushVersion,
   }
 }

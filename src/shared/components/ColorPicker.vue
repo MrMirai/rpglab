@@ -1,6 +1,5 @@
 <template>
   <div class="color-picker" ref="pickerRef">
-
     <!-- SV поле (насыщенность × яркость) -->
     <div
       class="color-picker__sv"
@@ -25,26 +24,23 @@
 
     <!-- Hue слайдер -->
     <div class="color-picker__hue" ref="hueRef" @mousedown="onHueMousedown">
-      <div
-        class="color-picker__hue-thumb"
-        :style="{ left: hsv.h / 360 * 100 + '%' }"
-      />
+      <div class="color-picker__hue-thumb" :style="{ left: (hsv.h / 360) * 100 + '%' }" />
     </div>
 
     <!-- Превью + инпуты -->
     <div class="color-picker__inputs">
-      <div
-        class="color-picker__preview"
-        :style="{ background: currentHex }"
-      />
+      <div class="color-picker__preview" :style="{ background: currentHex }" />
       <div class="color-picker__fields">
         <!-- Переключатель HEX/RGB -->
         <div class="color-picker__mode">
           <button
-            v-for="m in ['HEX','RGB']" :key="m"
+            v-for="m in ['HEX', 'RGB']"
+            :key="m"
             :class="['mode-btn', { active: mode === m }]"
             @click="mode = m"
-          >{{ m }}</button>
+          >
+            {{ m }}
+          </button>
         </div>
 
         <!-- HEX -->
@@ -61,19 +57,33 @@
 
         <!-- RGB -->
         <div v-else class="color-picker__rgb">
-          <input class="color-picker__input color-picker__input--small"
-            type="number" :value="rgb.r" min="0" max="255"
-            @change="onRgbInput('r', $event.target.value)" />
-          <input class="color-picker__input color-picker__input--small"
-            type="number" :value="rgb.g" min="0" max="255"
-            @change="onRgbInput('g', $event.target.value)" />
-          <input class="color-picker__input color-picker__input--small"
-            type="number" :value="rgb.b" min="0" max="255"
-            @change="onRgbInput('b', $event.target.value)" />
+          <input
+            class="color-picker__input color-picker__input--small"
+            type="number"
+            :value="rgb.r"
+            min="0"
+            max="255"
+            @change="onRgbInput('r', $event.target.value)"
+          />
+          <input
+            class="color-picker__input color-picker__input--small"
+            type="number"
+            :value="rgb.g"
+            min="0"
+            max="255"
+            @change="onRgbInput('g', $event.target.value)"
+          />
+          <input
+            class="color-picker__input color-picker__input--small"
+            type="number"
+            :value="rgb.b"
+            min="0"
+            max="255"
+            @change="onRgbInput('b', $event.target.value)"
+          />
         </div>
       </div>
     </div>
-
   </div>
 </template>
 
@@ -90,21 +100,31 @@ const emit = defineEmits(['update:modelValue'])
 function hexToRgb(hex) {
   const h = hex.replace('#', '')
   return {
-    r: parseInt(h.substring(0,2), 16),
-    g: parseInt(h.substring(2,4), 16),
-    b: parseInt(h.substring(4,6), 16),
+    r: parseInt(h.substring(0, 2), 16),
+    g: parseInt(h.substring(2, 4), 16),
+    b: parseInt(h.substring(4, 6), 16),
   }
 }
 
 function rgbToHex({ r, g, b }) {
-  return '#' + [r,g,b].map(v =>
-    Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2,'0')
-  ).join('')
+  return (
+    '#' +
+    [r, g, b]
+      .map((v) =>
+        Math.round(Math.max(0, Math.min(255, v)))
+          .toString(16)
+          .padStart(2, '0'),
+      )
+      .join('')
+  )
 }
 
 function rgbToHsv({ r, g, b }) {
-  r /= 255; g /= 255; b /= 255
-  const max = Math.max(r,g,b), min = Math.min(r,g,b)
+  r /= 255
+  g /= 255
+  b /= 255
+  const max = Math.max(r, g, b),
+    min = Math.min(r, g, b)
   const d = max - min
   let h = 0
   if (d !== 0) {
@@ -113,18 +133,18 @@ function rgbToHsv({ r, g, b }) {
     else h = (r - g) / d + 4
     h *= 60
   }
-  return { h, s: max === 0 ? 0 : d/max, v: max }
+  return { h, s: max === 0 ? 0 : d / max, v: max }
 }
 
 function hsvToRgb({ h, s, v }) {
   const f = (n) => {
-    const k = (n + h/60) % 6
-    return v - v*s*Math.max(0, Math.min(k, 4-k, 1))
+    const k = (n + h / 60) % 6
+    return v - v * s * Math.max(0, Math.min(k, 4 - k, 1))
   }
   return {
-    r: Math.round(f(5)*255),
-    g: Math.round(f(3)*255),
-    b: Math.round(f(1)*255),
+    r: Math.round(f(5) * 255),
+    g: Math.round(f(3) * 255),
+    b: Math.round(f(1) * 255),
   }
 }
 
@@ -144,12 +164,15 @@ watch(currentHex, (val) => {
 })
 
 // Синхронизация если modelValue меняется снаружи
-watch(() => props.modelValue, (val) => {
-  if (val !== currentHex.value) {
-    hsv.value = rgbToHsv(hexToRgb(val))
-    hexInput.value = val
-  }
-})
+watch(
+  () => props.modelValue,
+  (val) => {
+    if (val !== currentHex.value) {
+      hsv.value = rgbToHsv(hexToRgb(val))
+      hexInput.value = val
+    }
+  },
+)
 
 // --- SV поле ---
 const svRef = ref(null)
@@ -250,21 +273,26 @@ function onRgbInput(channel, val) {
   }
 
   &__sv-white {
-    position: absolute; inset: 0;
+    position: absolute;
+    inset: 0;
     background: linear-gradient(to right, #fff, transparent);
   }
 
   &__sv-black {
-    position: absolute; inset: 0;
+    position: absolute;
+    inset: 0;
     background: linear-gradient(to top, #000, transparent);
   }
 
   &__sv-thumb {
     position: absolute;
-    width: 14px; height: 14px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
     border: 2px solid #fff;
-    box-shadow: 0 0 0 1px rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.5);
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.4),
+      0 2px 4px rgba(0, 0, 0, 0.5);
     transform: translate(-50%, -50%);
     pointer-events: none;
   }
@@ -274,19 +302,18 @@ function onRgbInput(channel, val) {
     position: relative;
     height: 12px;
     border-radius: 6px;
-    background: linear-gradient(to right,
-      #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00
-    );
+    background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
     cursor: pointer;
   }
 
   &__hue-thumb {
     position: absolute;
     top: 50%;
-    width: 14px; height: 14px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
     border: 2px solid #fff;
-    box-shadow: 0 0 0 1px rgba(0,0,0,0.4);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
     transform: translate(-50%, -50%);
     pointer-events: none;
     background: transparent;
@@ -300,7 +327,8 @@ function onRgbInput(channel, val) {
   }
 
   &__preview {
-    width: 28px; height: 28px;
+    width: 28px;
+    height: 28px;
     border-radius: var(--radius-sm);
     border: 1px solid var(--color-border);
     flex-shrink: 0;
@@ -318,7 +346,8 @@ function onRgbInput(channel, val) {
     gap: 2px;
   }
 
-  &__hex, &__rgb {
+  &__hex,
+  &__rgb {
     display: flex;
     gap: var(--space-1);
   }
@@ -335,7 +364,9 @@ function onRgbInput(channel, val) {
     outline: none;
     font-family: var(--font-mono);
 
-    &:focus { border-color: var(--color-accent); }
+    &:focus {
+      border-color: var(--color-accent);
+    }
 
     &--small {
       width: 40px;
@@ -344,7 +375,9 @@ function onRgbInput(channel, val) {
       // убираем стрелки
       -moz-appearance: textfield;
       &::-webkit-inner-spin-button,
-      &::-webkit-outer-spin-button { display: none; }
+      &::-webkit-outer-spin-button {
+        display: none;
+      }
     }
   }
 }

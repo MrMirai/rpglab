@@ -24,19 +24,12 @@ const bridge = useEditorBridge()
         </span>
         <span class="label">Двигать</span>
       </button>
-      <button class="editor-toolbar__btn" :class="{ active: store.activeTool === 'erase' }"
-        @click="store.setActiveTool('erase')">
-        <span class="icon">
-          <Eraser :size="16" />
-        </span>
-        <span class="label">Стереть</span>
-      </button>
-      <button class="editor-toolbar__btn" :class="{ active: store.activeTool === 'restore' }"
-        @click="store.setActiveTool('restore')">
+      <button class="editor-toolbar__btn" :class="{ active: store.activeTool === 'brush' }"
+        @click="store.setActiveTool('brush')">
         <span class="icon">
           <Paintbrush :size="16" />
         </span>
-        <span class="label">Восстановить</span>
+        <span class="label">Кисть</span>
       </button>
       <button class="editor-toolbar__btn" :class="{ active: store.activeTool === 'lasso' }"
         @click="store.setActiveTool('lasso')">

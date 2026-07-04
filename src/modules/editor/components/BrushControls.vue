@@ -7,8 +7,36 @@ const store = useEditorStore()
 
 <template>
   <div class="brush-controls">
+    <!-- Режим кисти: стереть или восстановить -->
+    <template v-if="store.activeTool === 'brush'">
+      <label class="brush-controls__label">Режим</label>
+      <div class="brush-controls__modes">
+        <button
+          :class="['mode-btn', { active: store.brushMode === 'restore' }]"
+          @click="store.setBrushMode('restore')"
+        >Восстановить</button>
+        <button
+          :class="['mode-btn', { active: store.brushMode === 'erase' }]"
+          @click="store.setBrushMode('erase')"
+        >Стереть</button>
+      </div>
+      <SliderControl
+        style="margin-top: 1rem"
+        label="Размер"
+        :model-value="store.brushSize"
+        :min="5" :max="200" :step="1" suffix="px"
+        @update:model-value="store.brushSize = $event"
+      />
+      <SliderControl
+        label="Жёсткость"
+        :model-value="store.brushHardness"
+        :min="0" :max="100" :step="1" suffix="%"
+        @update:model-value="store.brushHardness = $event"
+      />
+    </template>
+
     <!-- Режим лассо: заливать (add) или вырезать (subtract) область в маске -->
-    <template v-if="store.activeTool === 'lasso'">
+    <template v-else-if="store.activeTool === 'lasso'">
       <label class="brush-controls__label">Режим лассо</label>
       <div class="brush-controls__modes">
         <button
@@ -22,24 +50,8 @@ const store = useEditorStore()
       </div>
       <p class="brush-controls__hint">
         Клик — точка, перетаскивание — сгладить дугу. Клик в первую точку или двойной клик — замкнуть.
-        Enter — замкнуть и применить, Esc — отменить. Зажатый Alt инвертирует режим.
+        Enter — замкнуть и применить, Esc — отменить. Alt нажатием переключает режим.
       </p>
-    </template>
-
-    <!-- Настройки круглой кисти -->
-    <template v-else>
-      <SliderControl
-        label="Размер"
-        :model-value="store.brushSize"
-        :min="5" :max="200" :step="1" suffix="px"
-        @update:model-value="store.brushSize = $event"
-      />
-      <SliderControl
-        label="Жёсткость"
-        :model-value="store.brushHardness"
-        :min="0" :max="100" :step="1" suffix="%"
-        @update:model-value="store.brushHardness = $event"
-      />
     </template>
   </div>
 </template>

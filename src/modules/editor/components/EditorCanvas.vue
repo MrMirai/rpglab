@@ -393,7 +393,7 @@ watch(() => store.frameImage, (img) => {
 // Смена инструмента — запускаем/останавливаем визуализацию курсора кисти.
 // Размер/жёсткость читаются из store прямо в анимационном loop, отдельный watch не нужен.
 watch(() => store.activeTool, (tool) => {
-  if (tool === 'erase' || tool === 'restore') {
+  if (tool === 'brush') {
     if (isCursorVisible) {
       startCursorAnim()
       if (containerRef.value) containerRef.value.style.cursor = 'none'
@@ -511,7 +511,7 @@ function setCursor(cursor) {
   if (!containerRef.value) return
   const tool = store.activeTool
   // В режиме кисти системный курсор скрыт — рисуем свой
-  if (tool === 'erase' || tool === 'restore') {
+  if (tool === 'brush') {
     containerRef.value.style.cursor = 'none'
     return
   }
@@ -538,11 +538,9 @@ let lassoAnimFrame = null
 // Ручное определение двойного клика (Konva dblclick коалесит клики и «съедает» узел,
 // поэтому детектим сами по времени+позиции между mousedown).
 let lassoLastDown = { t: 0, x: 0, y: 0 }
-let lassoAltDown = false        // зажат Alt — инвертировать режим (для превью и применения)
-
-// Эффективный режим с учётом Alt: true = subtract (скрыть).
+// Эффективный режим: true = subtract (скрыть).
 function lassoEffectiveSubtract() {
-  return (store.lassoMode === 'subtract') !== lassoAltDown
+  return store.lassoMode === 'subtract'
 }
 
 const NODE_HIT_R = 8           // радиус захвата узла (экранные px)
@@ -809,8 +807,7 @@ function drawBrushCursor(x, y) {
   ctx.clearRect(0, 0, canvas.width, canvas.height)
 
   if (!isCursorVisible) return
-  const tool = store.activeTool
-  if (tool !== 'erase' && tool !== 'restore') return
+  if (store.activeTool !== 'brush') return
 
   // Радиус кисти в экранных координатах (с учётом zoom вьюпорта)
   const screenR = (store.brushSize / 2) * viewZoom.value
@@ -820,7 +817,7 @@ function drawBrushCursor(x, y) {
   // Градиентное ядро — зона жёсткости
   if (coreR > 1) {
     const grad = ctx.createRadialGradient(x, y, 0, x, y, screenR)
-    if (tool === 'restore') {
+    if (store.brushMode === 'restore') {
       grad.addColorStop(0, 'rgba(196, 149, 74, 0.35)')
       grad.addColorStop(hard, 'rgba(196, 149, 74, 0.35)')
       grad.addColorStop(1, 'rgba(196, 149, 74, 0)')
@@ -838,7 +835,7 @@ function drawBrushCursor(x, y) {
   // Пунктирная граница — полный радиус кисти
   ctx.beginPath()
   ctx.arc(x, y, screenR, 0, Math.PI * 2)
-  ctx.strokeStyle = tool === 'restore'
+  ctx.strokeStyle = store.brushMode === 'restore'
     ? 'rgba(196, 149, 74, 0.9)'
     : 'rgba(192, 84, 74, 0.9)'
   ctx.lineWidth = 1
@@ -900,10 +897,15 @@ onMounted(() => {
 
   containerRef.value.setAttribute('tabindex', '0')
   containerRef.value.addEventListener('keydown', (e) => {
-    // Alt в режиме лассо инвертирует режим — обновляем превью-цвет контура на лету.
-    if (store.activeTool === 'lasso' && e.altKey && !lassoAltDown) {
-      lassoAltDown = true
-      drawLasso()
+    // Alt переключает режим инструмента
+    if (e.code === 'AltLeft') {
+      e.preventDefault()
+      if (store.activeTool === 'brush') {
+        store.setBrushMode(store.brushMode === 'restore' ? 'erase' : 'restore')
+      } else if (store.activeTool === 'lasso') {
+        store.setLassoMode(store.lassoMode === 'add' ? 'subtract' : 'add')
+        drawLasso()
+      }
     }
     if (e.code === 'Space') {
       e.preventDefault()
@@ -923,7 +925,6 @@ onMounted(() => {
     if (store.activeTool === 'lasso' && lassoNodes.length > 0) {
       if (e.code === 'Enter') {
         e.preventDefault()
-        lassoAltDown = e.altKey
         if (!lassoClosed && lassoNodes.length >= 3) lassoClosed = true
         applyLasso()
       } else if (e.code === 'Escape') {
@@ -938,10 +939,6 @@ onMounted(() => {
       isPanning = false
       setCursor(store.activeTool === 'move' ? 'grab' : 'crosshair')
     }
-    if (!e.altKey && lassoAltDown) {
-      lassoAltDown = false
-      if (store.activeTool === 'lasso') drawLasso()
-    }
   })
   containerRef.value.addEventListener('mousemove', (e) => {
     const rect = containerRef.value.getBoundingClientRect()
@@ -953,7 +950,7 @@ onMounted(() => {
     containerRef.value.focus({ preventScroll: true })
     isCursorVisible = true
     const tool = store.activeTool
-    if (tool === 'erase' || tool === 'restore') {
+    if (tool === 'brush') {
       startCursorAnim()
       containerRef.value.style.cursor = 'none'
     } else if (tool === 'lasso') {
@@ -1003,11 +1000,11 @@ onMounted(() => {
       dragStart = canvasPos
       dragStartChar = { x: store.charX, y: store.charY }
       setCursor('grabbing')
-    } else if ((tool === 'erase' || tool === 'restore') && store.isReady) {
+    } else if ((tool === 'brush') && store.isReady) {
       recordHistory()
       isPainting = true
       // brushCanvas теперь занимает весь холст — координаты передаём как есть
-      paint(canvasPos.x, canvasPos.y, store.brushSize, store.brushHardness, tool === 'erase')
+      paint(canvasPos.x, canvasPos.y, store.brushSize, store.brushHardness, store.brushMode === 'erase')
       redrawAll()
     }
   })
@@ -1040,8 +1037,8 @@ onMounted(() => {
         Math.round(dragStartChar.x + (canvasPos.x - dragStart.x)),
         Math.round(dragStartChar.y + (canvasPos.y - dragStart.y)),
       )
-    } else if ((tool === 'erase' || tool === 'restore') && isPainting) {
-      paint(canvasPos.x, canvasPos.y, store.brushSize, store.brushHardness, tool === 'erase')
+    } else if ((tool === 'brush') && isPainting) {
+      paint(canvasPos.x, canvasPos.y, store.brushSize, store.brushHardness, store.brushMode === 'erase')
       redrawAll()
     }
   })
@@ -1072,7 +1069,7 @@ onMounted(() => {
     const tool = store.activeTool
 
     if (e.evt.ctrlKey || e.evt.metaKey) {
-      if (tool === 'erase' || tool === 'restore') {
+      if (tool === 'brush') {
         // Ctrl+колёсико в режиме кисти — меняем размер кисти
         const dir = e.evt.deltaY > 0 ? -1 : 1
         const step = Math.max(1, Math.round(store.brushSize * 0.08))
@@ -1086,7 +1083,7 @@ onMounted(() => {
         viewY.value = pos.y - (pos.y - viewY.value) * (newZoom / viewZoom.value)
         viewZoom.value = newZoom
       }
-    } else if (e.evt.shiftKey && (tool === 'erase' || tool === 'restore')) {
+    } else if (e.evt.shiftKey && (tool === 'brush')) {
       // Shift+колёсико в режиме кисти — меняем жёсткость кисти.
       // При зажатом Shift браузер может отдавать скролл в deltaX вместо deltaY.
       const delta = e.evt.deltaY || e.evt.deltaX

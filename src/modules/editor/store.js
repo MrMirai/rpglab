@@ -37,11 +37,13 @@ export const useEditorStore = defineStore('editor', () => {
   const overflowSoft = ref(20)     // px, мягкость перехода
 
   // Активный инструмент
-  const activeTool = ref('move')   // 'move' | 'erase' | 'restore' | 'hand' | 'lasso'
+  const activeTool = ref('move')   // 'move' | 'brush' | 'hand' | 'lasso'
 
-  // Кисть
+  // Кисть (стереть/восстановить)
   const brushSize = ref(30)
   const brushHardness = ref(50)
+  const brushMode = ref('restore')  // 'restore' | 'erase'
+  function setBrushMode(mode) { brushMode.value = mode }
 
   // Лассо (безье-контур): 'add' — заливает область в маску (как «Восстановить»),
   // 'subtract' — вырезает (как «Стереть»)
@@ -194,7 +196,7 @@ export const useEditorStore = defineStore('editor', () => {
     frameImage, frameFileName, maskImage, useCustomMask, maskVersion,
     charPreviewUrl, framePreviewUrl, bgPreviewUrl,
     overflowY, overflowSoft,
-    activeTool, brushSize, brushHardness, lassoMode, setLassoMode,
+    activeTool, brushSize, brushHardness, brushMode, setBrushMode, lassoMode, setLassoMode,
     charHue, charSaturation, charBrightness, charContrast, charLuminosity,
     charShadowEnabled, charShadowColor, charShadowBlur,
     charShadowOffsetX, charShadowOffsetY, charShadowOpacity,

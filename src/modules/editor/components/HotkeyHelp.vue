@@ -12,8 +12,7 @@ const open = ref(false)
 const toolLabel = computed(() => {
   switch (props.tool) {
     case 'move': return 'Двигать'
-    case 'erase': return 'Стереть'
-    case 'restore': return 'Восстановить'
+    case 'brush': return 'Кисть'
     case 'hand': return 'Рука'
     case 'lasso': return 'Лассо'
     default: return ''
@@ -35,10 +34,10 @@ const toolHints = computed(() => {
         { tokens: [WHEEL], desc: 'масштаб персонажа' },
         { tokens: [key('Ctrl'), WHEEL], desc: 'зум вьюпорта' },
       ]
-    case 'erase':
-    case 'restore':
+    case 'brush':
       return [
         { tokens: [DRAG], desc: 'рисовать кистью' },
+        { tokens: [key('Alt')], desc: 'переключить режим' },
         { tokens: [key('Ctrl'), WHEEL], desc: 'размер кисти' },
         { tokens: [key('Shift'), WHEEL], desc: 'жёсткость кисти' },
       ]
@@ -51,7 +50,7 @@ const toolHints = computed(() => {
       return [
         { tokens: [DRAG], desc: 'точка + сгладить дугу' },
         { tokens: [key('2×клик')], desc: 'замкнуть контур' },
-        { tokens: [key('Alt')], desc: 'инвертировать режим' },
+        { tokens: [key('Alt')], desc: 'переключить режим' },
         { tokens: [key('Enter')], desc: 'замкнуть и применить' },
         { tokens: [key('Esc')], desc: 'отменить' },
       ]

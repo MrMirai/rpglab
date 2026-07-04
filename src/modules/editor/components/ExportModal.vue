@@ -11,6 +11,7 @@ const { brushCanvas, brushVersion } = useBrushMask()
 
 const sizes = [256, 512, 1024, 2048]
 const exportSize = ref(512)
+const tokenName = ref('token')
 const isExporting = ref(false)
 
 const exportInfo = computed(() => {
@@ -31,7 +32,8 @@ async function doExport(mode, format = 'png') {
       brushVersion: brushVersion.value,
     })
     const suffix = mode === 'char-only' ? 'char' : 'token'
-    downloadCanvas(canvas, `${suffix}_${exportSize.value}`, format)
+    const filename = tokenName.value || 'token'
+    downloadCanvas(canvas, `${filename}_${suffix}_${exportSize.value}`, format)
   } finally {
     isExporting.value = false
   }
@@ -50,6 +52,18 @@ async function doExport(mode, format = 'png') {
         </div>
 
         <div class="modal__body">
+          <!-- Название токена -->
+          <div class="modal__section">
+            <label class="modal__label">Название</label>
+            <input
+              v-model="tokenName"
+              type="text"
+              class="token-name-input"
+              placeholder="Введите название токена"
+              @keydown.enter.prevent
+            />
+          </div>
+
           <!-- Размер -->
           <div class="modal__section">
             <div class="modal__label">Размер</div>
@@ -293,6 +307,27 @@ async function doExport(mode, format = 'png') {
   &:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+  }
+}
+
+.token-name-input {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-1);
+  color: var(--color-text-1);
+  font-family: inherit;
+  transition: all var(--transition-fast);
+
+  &::placeholder {
+    color: var(--color-text-3);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 2px var(--color-accent-muted);
   }
 }
 </style>

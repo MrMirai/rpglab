@@ -1,20 +1,11 @@
 <template>
   <div class="color-button" ref="buttonRef">
-    <button
-      class="color-button__swatch"
-      :style="{ background: modelValue }"
-      @click="toggle"
-    />
+    <button class="color-button__swatch" :style="{ background: modelValue }" @click="toggle" />
     <span class="color-button__value">{{ modelValue }}</span>
 
     <!-- Попап с пикером -->
     <Teleport to="body">
-      <div
-        v-if="isOpen"
-        class="color-button__popup"
-        :style="popupStyle"
-        ref="popupRef"
-      >
+      <div v-if="isOpen" class="color-button__popup" :style="popupStyle" ref="popupRef">
         <ColorPicker
           :model-value="modelValue"
           @update:model-value="$emit('update:modelValue', $event)"
@@ -89,13 +80,16 @@ onUnmounted(() => document.removeEventListener('mousedown', onClickOutside))
   gap: var(--space-2);
 
   &__swatch {
-    width: 24px; height: 24px;
+    width: 24px;
+    height: 24px;
     border-radius: var(--radius-sm);
     border: 1px solid var(--color-border-strong);
     cursor: pointer;
     transition: transform var(--transition-fast);
     flex-shrink: 0;
-    &:hover { transform: scale(1.1); }
+    &:hover {
+      transform: scale(1.1);
+    }
   }
 
   &__value {

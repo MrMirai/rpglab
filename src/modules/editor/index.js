@@ -11,6 +11,7 @@ export { useImageLoader } from './composables/useImageLoader.js'
 export { useExport } from './composables/useExport.js'
 export { useBrushMask } from './composables/useBrushMask.js'
 export { useAutoMask } from './composables/useAutoMask.js'
+export { useEditorSnapshot } from './composables/useEditorSnapshot.js'
 
 // Компоненты
 export { default as EditorCanvas } from './components/EditorCanvas.vue'

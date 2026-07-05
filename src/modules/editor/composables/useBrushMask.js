@@ -107,12 +107,20 @@ export function useBrushMask() {
     _brushVersion.value++
   }
 
+  // Восстанавливает содержимое brushCanvas из готового изображения (десериализация
+  // сохранённого проекта) — заменяет текущую маску целиком, не накладывает поверх.
+  function loadFromImage(img) {
+    brushCtx.clearRect(0, 0, SIZE, SIZE)
+    brushCtx.drawImage(img, 0, 0, SIZE, SIZE)
+    _brushVersion.value++
+  }
+
   function setRedraw(fn) { _redrawCallback = fn }
   function redraw() { _redrawCallback?.() }
   function bumpBrushVersion() { _brushVersion.value++ }
 
   return {
-    brushCanvas, paint, fillPath, fillTop, fillBottom, fillAll, clear, setRedraw, redraw,
-    brushVersion: _brushVersion, bumpBrushVersion,
+    brushCanvas, paint, fillPath, fillTop, fillBottom, fillAll, clear, loadFromImage,
+    setRedraw, redraw, brushVersion: _brushVersion, bumpBrushVersion,
   }
 }

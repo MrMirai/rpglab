@@ -4,12 +4,18 @@
       <div class="preview-window__header">
         <span class="preview-window__title">Превью</span>
         <div class="preview-window__maps">
-          <button v-for="map in mapStyles" :key="map.id" :class="['map-btn', { active: activeMap === map.id }]"
-            @click="activeMap = map.id; invalidateMapCache(); renderPreview()">{{ map.label }}</button>
+          <BaseButton
+            v-for="map in mapStyles"
+            :key="map.id"
+            variant="ghost"
+            size="sm"
+            :active="activeMap === map.id"
+            @click="activeMap = map.id; invalidateMapCache(); renderPreview()"
+          >{{ map.label }}</BaseButton>
         </div>
-        <button class="preview-window__close" @click="store.togglePreview()">
+        <BaseButton variant="ghost" size="sm" square danger-hover @click="store.togglePreview()">
           <X :size="14" />
-        </button>
+        </BaseButton>
       </div>
       <div class="preview-window__canvas-wrap">
         <canvas ref="previewCanvasRef" />
@@ -24,6 +30,7 @@ import { X } from 'lucide-vue-next'
 import { useEditorStore } from '../store'
 import { useAutoMask } from '../composables/useAutoMask'
 import { useBrushMask } from '../composables/useBrushMask'
+import BaseButton from '@/shared/components/BaseButton.vue'
 import forestUrl from '@/shared/assets/maps/ForestBack.webp'
 import tileUrl from '@/shared/assets/maps/TIleBack.webp'
 
@@ -293,25 +300,6 @@ watch(
     flex: 1;
   }
 
-  &__close {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 20px;
-    height: 20px;
-    border: none;
-    background: transparent;
-    color: var(--color-text-3);
-    cursor: pointer;
-    border-radius: var(--radius-sm);
-    flex-shrink: 0;
-    transition: color var(--transition-fast);
-
-    &:hover {
-      color: var(--color-danger);
-    }
-  }
-
   &__canvas-wrap {
     background: #111;
 
@@ -320,28 +308,6 @@ watch(
       width: 100%;
       height: auto;
     }
-  }
-}
-
-.map-btn {
-  padding: 2px 4px;
-  font-size: 10px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-3);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  white-space: nowrap;
-
-  &:hover {
-    color: var(--color-text-1);
-  }
-
-  &.active {
-    background: var(--color-accent-muted);
-    border-color: var(--color-accent);
-    color: var(--color-accent);
   }
 }
 </style>

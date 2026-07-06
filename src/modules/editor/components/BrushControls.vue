@@ -1,6 +1,7 @@
 <script setup>
 import { useEditorStore } from '../store'
 import SliderControl from './SliderControl.vue'
+import BaseButton from '@/shared/components/BaseButton.vue'
 
 const store = useEditorStore()
 </script>
@@ -11,14 +12,12 @@ const store = useEditorStore()
     <template v-if="store.activeTool === 'brush'">
       <label class="brush-controls__label">Режим</label>
       <div class="brush-controls__modes">
-        <button
-          :class="['mode-btn', { active: store.brushMode === 'restore' }]"
-          @click="store.setBrushMode('restore')"
-        >Восстановить</button>
-        <button
-          :class="['mode-btn', { active: store.brushMode === 'erase' }]"
-          @click="store.setBrushMode('erase')"
-        >Стереть</button>
+        <BaseButton size="sm" full-width :active="store.brushMode === 'restore'" @click="store.setBrushMode('restore')">
+          Восстановить
+        </BaseButton>
+        <BaseButton size="sm" full-width :active="store.brushMode === 'erase'" @click="store.setBrushMode('erase')">
+          Стереть
+        </BaseButton>
       </div>
       <SliderControl
         style="margin-top: 1rem"
@@ -39,14 +38,12 @@ const store = useEditorStore()
     <template v-else-if="store.activeTool === 'lasso'">
       <label class="brush-controls__label">Режим лассо</label>
       <div class="brush-controls__modes">
-        <button
-          :class="['mode-btn', { active: store.lassoMode === 'add' }]"
-          @click="store.setLassoMode('add')"
-        >Восстановить</button>
-        <button
-          :class="['mode-btn', { active: store.lassoMode === 'subtract' }]"
-          @click="store.setLassoMode('subtract')"
-        >Стереть</button>
+        <BaseButton size="sm" full-width :active="store.lassoMode === 'add'" @click="store.setLassoMode('add')">
+          Восстановить
+        </BaseButton>
+        <BaseButton size="sm" full-width :active="store.lassoMode === 'subtract'" @click="store.setLassoMode('subtract')">
+          Стереть
+        </BaseButton>
       </div>
       <p class="brush-controls__hint">
         Клик — точка, перетаскивание — сгладить дугу. Клик в первую точку или двойной клик — замкнуть.
@@ -77,29 +74,6 @@ const store = useEditorStore()
     font-size: var(--text-xs);
     color: var(--color-text-3);
     line-height: 1.5;
-  }
-}
-
-.mode-btn {
-  flex: 1;
-  padding: var(--space-1) var(--space-2);
-  font-size: var(--text-xs);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-2);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-
-  &.active {
-    background: var(--color-accent-muted);
-    border-color: var(--color-accent);
-    color: var(--color-accent);
-  }
-
-  &:hover:not(.active) {
-    border-color: var(--color-border-strong);
-    color: var(--color-text-1);
   }
 }
 </style>

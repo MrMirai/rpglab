@@ -1,8 +1,10 @@
 <script setup>
-import { RouterLink, useRouter, useRoute } from 'vue-router'
-import { Save, FolderOpen } from 'lucide-vue-next'
+import { useRouter, useRoute } from 'vue-router'
+import { Save } from 'lucide-vue-next'
+import BaseButton from '@/shared/components/BaseButton.vue'
 
-// Общий каркас шапки: логотип + постоянные действия (Сохранить/Проекты).
+// Общий каркас шапки: логотип + постоянное действие «Сохранить».
+// «Проекты» переехали в дропдаун аватара (UserMenu, слот user).
 // Специфичный для редактора инструментарий и действия приходят через слоты,
 // чтобы шапку могли переиспользовать разные редакторы (токены, раздатки).
 // Флаг авторизации приходит пропом (а не импортом модуля auth), чтобы
@@ -42,18 +44,16 @@ function onSave() {
     <div class="actions">
       <!-- Действия конкретного редактора (например, Экспорт) -->
       <slot name="actions" />
-      <button
-        class="btn-save"
+      <BaseButton
+        variant="accent"
+        size="sm"
+        class="header-btn"
         :title="isAuthenticated ? 'Сохранить проект' : 'Войдите, чтобы сохранять проекты'"
         @click="onSave"
       >
         <Save :size="16" />
         <span>Сохранить</span>
-      </button>
-      <RouterLink to="/projects" class="btn-projects">
-        <FolderOpen :size="16" />
-        <span>Проекты</span>
-      </RouterLink>
+      </BaseButton>
       <!-- Блок пользователя (модуль auth даёт содержимое через слот) -->
       <slot name="user" />
     </div>
@@ -107,42 +107,8 @@ function onSave() {
   flex-shrink: 0;
 }
 
-.btn-save {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 6px var(--space-3);
-  background-color: var(--color-accent);
-  color: var(--color-bg-1);
-  border: none;
-  border-radius: var(--radius-sm);
+// Компактная высота (size=sm), но читаемый текст шапки — крупнее чем в панелях свойств
+.header-btn {
   font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
-
-  &:hover {
-    background-color: var(--color-accent-hover);
-  }
-}
-
-.btn-projects {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 6px var(--space-3);
-  background: transparent;
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-2);
-  font-size: var(--text-sm);
-  transition:
-    border-color var(--transition-fast),
-    color var(--transition-fast);
-
-  &:hover {
-    border-color: var(--color-accent);
-    color: var(--color-accent);
-  }
 }
 </style>

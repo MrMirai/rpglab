@@ -33,14 +33,16 @@
       <div class="color-picker__fields">
         <!-- Переключатель HEX/RGB -->
         <div class="color-picker__mode">
-          <button
+          <BaseButton
             v-for="m in ['HEX', 'RGB']"
             :key="m"
-            :class="['mode-btn', { active: mode === m }]"
+            size="sm"
+            full-width
+            :active="mode === m"
             @click="mode = m"
           >
             {{ m }}
-          </button>
+          </BaseButton>
         </div>
 
         <!-- HEX -->
@@ -89,6 +91,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import BaseButton from './BaseButton.vue'
 
 const props = defineProps({
   modelValue: { type: String, default: '#c4954a' },
@@ -382,21 +385,4 @@ function onRgbInput(channel, val) {
   }
 }
 
-.mode-btn {
-  flex: 1;
-  padding: 2px 4px;
-  font-size: 10px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-3);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-
-  &.active {
-    background: var(--color-accent-muted);
-    border-color: var(--color-accent);
-    color: var(--color-accent);
-  }
-}
 </style>

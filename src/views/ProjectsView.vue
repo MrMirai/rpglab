@@ -1,5 +1,6 @@
 <script setup>
 import { RouterLink } from 'vue-router'
+import BaseButton from '@/shared/components/BaseButton.vue'
 
 const projects = Array.from({ length: 4 }, (_, i) => ({
   id: i + 1,
@@ -24,8 +25,8 @@ const projects = Array.from({ length: 4 }, (_, i) => ({
             <p class="card-date">{{ project.date }}</p>
           </div>
           <div class="card-actions">
-            <button class="btn btn-primary">Открыть</button>
-            <button class="btn btn-danger">Удалить</button>
+            <BaseButton size="sm" full-width active>Открыть</BaseButton>
+            <BaseButton size="sm" full-width variant="ghost" danger-hover>Удалить</BaseButton>
           </div>
         </div>
       </div>
@@ -113,38 +114,5 @@ const projects = Array.from({ length: 4 }, (_, i) => ({
   display: flex;
   gap: var(--space-2);
   padding: 0 var(--space-3) var(--space-3);
-}
-
-.btn {
-  flex: 1;
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-xs);
-  cursor: pointer;
-  transition:
-    border-color var(--transition-fast),
-    color var(--transition-fast),
-    background-color var(--transition-fast);
-
-  &-primary {
-    color: var(--color-accent);
-    border-color: var(--color-accent);
-    background: none;
-
-    &:hover {
-      background-color: var(--color-accent-muted);
-    }
-  }
-
-  &-danger {
-    color: var(--color-text-3);
-    background: none;
-
-    &:hover {
-      color: var(--color-danger);
-      border-color: var(--color-danger);
-    }
-  }
 }
 </style>

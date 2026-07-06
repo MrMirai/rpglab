@@ -32,9 +32,9 @@
 
         <p v-if="error" class="auth-form__error">{{ error }}</p>
 
-        <button type="submit" class="auth-form__submit" :disabled="loading || retryIn > 0">
+        <BaseButton type="submit" variant="accent" full-width :disabled="loading || retryIn > 0">
           {{ submitLabel }}
-        </button>
+        </BaseButton>
       </form>
 
       <p class="auth-card__footer">
@@ -49,6 +49,7 @@
 import { ref, computed, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/modules/auth'
+import BaseButton from '@/shared/components/BaseButton.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -197,24 +198,5 @@ async function handleSubmit() {
     border: 1px solid rgba(192, 84, 74, 0.3);
   }
 
-  &__submit {
-    padding: var(--space-3);
-    background: var(--color-accent);
-    border: none;
-    border-radius: var(--radius-md);
-    color: var(--color-bg-1);
-    font-size: var(--text-md);
-    font-weight: var(--weight-semibold);
-    cursor: pointer;
-    transition: opacity var(--transition-fast);
-
-    &:hover:not(:disabled) {
-      opacity: 0.9;
-    }
-    &:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-  }
 }
 </style>

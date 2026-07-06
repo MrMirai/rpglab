@@ -76,6 +76,30 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = await res.json()
   }
 
+  // Загрузка ассета (type=avatar_image, query-параметр — бэк биндит его
+  // через @RequestParam, а не как поле multipart-формы) + привязка к профилю.
+  async function uploadAvatar(file) {
+    const form = new FormData()
+    form.append('file', file)
+    const assetRes = await api.post('/api/assets?type=avatar_image', form)
+    const assetData = await assetRes.json().catch(() => ({}))
+    if (!assetRes.ok) throw new Error(assetData.message || 'Не удалось загрузить файл')
+
+    const res = await api.put('/api/auth/me/avatar', { assetId: assetData.id })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.message || 'Не удалось установить аватар')
+    user.value = data
+  }
+
+  async function removeAvatar() {
+    const res = await api.delete('/api/auth/me/avatar')
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.message || 'Не удалось убрать аватар')
+    }
+    if (user.value) user.value = { ...user.value, avatarUrl: null }
+  }
+
   // Восстановление сессии при перезагрузке: по refreshToken из localStorage
   // получаем новый accessToken и подтягиваем профиль.
   async function restoreSession() {
@@ -107,5 +131,7 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     fetchMe,
     restoreSession,
+    uploadAvatar,
+    removeAvatar,
   }
 })

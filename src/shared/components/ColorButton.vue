@@ -5,7 +5,7 @@
 
     <!-- Попап с пикером -->
     <Teleport to="body">
-      <div v-if="isOpen" class="color-button__popup" :style="popupStyle" ref="popupRef">
+      <div v-if="isOpen" ref="popupRef" class="color-button__popup" :style="popupStyle">
         <ColorPicker
           :model-value="modelValue"
           @update:model-value="$emit('update:modelValue', $event)"
@@ -78,6 +78,12 @@ onUnmounted(() => document.removeEventListener('mousedown', onClickOutside))
   display: flex;
   align-items: center;
   gap: var(--space-2);
+
+  &__popup {
+    // Фон/рамку/радиус задаёт сам ColorPicker — здесь только тень попапа
+    box-shadow: var(--shadow-popup);
+    border-radius: var(--radius-lg);
+  }
 
   &__swatch {
     width: 24px;

@@ -5,6 +5,7 @@ import { useEditorStore } from '../store'
 import { useImageLoader } from '../composables/useImageLoader'
 import { useBrushMask } from '../composables/useBrushMask'
 import { useEditorBridge } from '../composables/useEditorBridge'
+import BaseButton from '@/shared/components/BaseButton.vue'
 
 const store = useEditorStore()
 const { loadFromFile } = useImageLoader()
@@ -36,14 +37,12 @@ function runPreset(type) {
 <template>
   <div class="mask-controls">
     <div class="mask-controls__toggle">
-      <button
-        :class="['toggle-btn', { active: !store.useCustomMask }]"
-        @click="store.resetMask()"
-      >Авто</button>
-      <button
-        :class="['toggle-btn', { active: store.useCustomMask }]"
-        @click="triggerMaskUpload"
-      >Загрузить</button>
+      <BaseButton size="sm" full-width :active="!store.useCustomMask" @click="store.resetMask()">
+        Авто
+      </BaseButton>
+      <BaseButton size="sm" full-width :active="store.useCustomMask" @click="triggerMaskUpload">
+        Загрузить
+      </BaseButton>
     </div>
 
     <p class="mask-controls__hint">
@@ -53,18 +52,18 @@ function runPreset(type) {
 
     <div class="mask-controls__section-label">Быстрый старт</div>
     <div class="mask-controls__presets">
-      <button class="preset-btn" @click="runPreset('top')">
+      <BaseButton size="sm" @click="runPreset('top')">
         <ArrowUp :size="14" /> Верх
-      </button>
-      <button class="preset-btn" @click="runPreset('bottom')">
+      </BaseButton>
+      <BaseButton size="sm" @click="runPreset('bottom')">
         <ArrowDown :size="14" /> Низ
-      </button>
-      <button class="preset-btn" @click="runPreset('all')">
+      </BaseButton>
+      <BaseButton size="sm" @click="runPreset('all')">
         <Maximize2 :size="14" /> Всё
-      </button>
-      <button class="preset-btn danger" @click="runPreset('clear')">
+      </BaseButton>
+      <BaseButton size="sm" danger-hover @click="runPreset('clear')">
         <X :size="14" /> Очистить
-      </button>
+      </BaseButton>
     </div>
 
     <input
@@ -106,54 +105,6 @@ function runPreset(type) {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: var(--space-1);
-  }
-}
-
-.toggle-btn {
-  flex: 1;
-  padding: var(--space-1) var(--space-2);
-  font-size: var(--text-xs);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-2);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-
-  &.active {
-    background: var(--color-accent-muted);
-    border-color: var(--color-accent);
-    color: var(--color-accent);
-  }
-
-  &:hover:not(.active) {
-    border-color: var(--color-border-strong);
-    color: var(--color-text-1);
-  }
-}
-
-.preset-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-1);
-  padding: var(--space-2);
-  font-size: var(--text-xs);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-2);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-
-  &:hover {
-    border-color: var(--color-border-strong);
-    color: var(--color-text-1);
-  }
-
-  &.danger:hover {
-    border-color: var(--color-danger);
-    color: var(--color-danger);
   }
 }
 </style>

@@ -6,6 +6,7 @@ import { useAutoBackground } from '../composables/useAutoBackground'
 import SliderControl from './SliderControl.vue'
 import ColorButton from '@/shared/components/ColorButton.vue'
 import ImageDropzone from '@/shared/components/ImageDropzone.vue'
+import BaseButton from '@/shared/components/BaseButton.vue'
 
 const store = useEditorStore()
 const { loadFromFile } = useImageLoader()
@@ -52,12 +53,14 @@ async function loadFile(file) {
   <div class="bg-controls">
 
     <div class="bg-controls__types">
-      <button
+      <BaseButton
         v-for="opt in typeOptions"
         :key="opt.value"
-        :class="['type-btn', { active: store.bgType === opt.value }]"
+        size="sm"
+        full-width
+        :active="store.bgType === opt.value"
         @click="selectType(opt.value)"
-      >{{ opt.label }}</button>
+      >{{ opt.label }}</BaseButton>
     </div>
 
     <div v-if="store.bgType === 'color'" class="bg-controls__color">
@@ -97,9 +100,9 @@ async function loadFile(file) {
             <div class="bg-preview__thumb">
               <img :src="store.bgPreviewUrl" alt="Фон" />
             </div>
-            <button class="bg-preview__remove" @click="store.removeBgImage()">
+            <BaseButton size="sm" full-width danger-hover @click="store.removeBgImage()">
               <X :size="14" /> Удалить
-            </button>
+            </BaseButton>
           </div>
         </template>
       </ImageDropzone>
@@ -112,9 +115,9 @@ async function loadFile(file) {
           :model-value="store.bgAutoColor"
           @update:model-value="store.setBgAutoColor($event)"
         />
-        <button class="repick-btn" @click="repickColor" title="Подобрать из рамки">
+        <BaseButton square @click="repickColor" title="Подобрать из рамки">
           <Pipette :size="14" />
-        </button>
+        </BaseButton>
       </div>
 
       <SliderControl
@@ -138,14 +141,12 @@ async function loadFile(file) {
 
       <label class="bg-controls__label">Тип шума</label>
       <div class="bg-controls__types" style="margin-bottom: var(--space-3)">
-        <button
-          :class="['type-btn', { active: store.bgNoiseType === 'random' }]"
-          @click="store.setBgNoiseType('random')"
-        >Случайный</button>
-        <button
-          :class="['type-btn', { active: store.bgNoiseType === 'perlin' }]"
-          @click="store.setBgNoiseType('perlin')"
-        >Перлин</button>
+        <BaseButton size="sm" full-width :active="store.bgNoiseType === 'random'" @click="store.setBgNoiseType('random')">
+          Случайный
+        </BaseButton>
+        <BaseButton size="sm" full-width :active="store.bgNoiseType === 'perlin'" @click="store.setBgNoiseType('perlin')">
+          Перлин
+        </BaseButton>
       </div>
 
       <SliderControl
@@ -196,48 +197,6 @@ async function loadFile(file) {
   }
 }
 
-.type-btn {
-  flex: 1;
-  padding: var(--space-1) var(--space-2);
-  font-size: var(--text-xs);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-2);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-
-  &.active {
-    background: var(--color-accent-muted);
-    border-color: var(--color-accent);
-    color: var(--color-accent);
-  }
-
-  &:hover:not(.active) {
-    border-color: var(--color-border-strong);
-    color: var(--color-text-1);
-  }
-}
-
-.repick-btn {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-2);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-
-  &:hover {
-    border-color: var(--color-accent);
-    color: var(--color-accent);
-  }
-}
-
 .swatch {
   width: 20px;
   height: 20px;
@@ -267,28 +226,6 @@ async function loadFile(file) {
       width: 100%;
       height: 100%;
       object-fit: cover;
-    }
-  }
-
-  &__remove {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-1);
-    padding: var(--space-2);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    background: transparent;
-    color: var(--color-text-2);
-    font-size: var(--text-xs);
-    cursor: pointer;
-    transition:
-      border-color var(--transition-fast),
-      color var(--transition-fast);
-
-    &:hover {
-      border-color: var(--color-danger);
-      color: var(--color-danger);
     }
   }
 }

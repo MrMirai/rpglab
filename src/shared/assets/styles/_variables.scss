@@ -90,3 +90,10 @@ $border: #35353f;
   --transition-normal: 200ms ease;
   --transition-slow: 350ms ease;
 }
+
+// ─── Тени ─────────────────────────────────────────────────────────────────────
+
+:root {
+  // Единая тень для всплывающих Teleport-попапов (ColorButton, UserMenu и т.п.)
+  --shadow-popup: 0 8px 24px rgba(0, 0, 0, 0.24);
+}

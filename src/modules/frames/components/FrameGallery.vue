@@ -5,11 +5,14 @@ import { Save, Trash2 } from 'lucide-vue-next'
 import { useEditorStore, useImageLoader } from '@/modules/editor'
 import { useAuthStore } from '@/modules/auth'
 import ConfirmDialog from '@/shared/components/ConfirmDialog.vue'
+import BaseButton from '@/shared/components/BaseButton.vue'
+import FrameSaveModal from './FrameSaveModal.vue'
 import { useFramesStore } from '../store.js'
 
 // Галерея сохранённых пресетов рамок.
 // Выбор пресета — подгружает его ассеты (рамка + фон) в редактор.
-// «Сохранить рамку» — сохраняет текущие ассеты редактора (рамка + фон, если задан) как новый пресет.
+// «Сохранить рамку» — сохраняет текущие ассеты редактора (рамка + фон, если задан) как новый пресет,
+// с названием и тегами через FrameSaveModal.
 const framesStore = useFramesStore()
 const editorStore = useEditorStore()
 const auth = useAuthStore()
@@ -17,9 +20,35 @@ const { loadFromUrl } = useImageLoader()
 
 const selectedFrameId = ref(null)
 
-// Форма сохранения пресета
-const showSaveForm = ref(false)
+// Фильтр по тегам галереи — мультивыбор бейджей над списком.
+// tags в GET /api/frames — массив ИМЁН (не id), фильтруем по имени напрямую.
+const activeTagFilters = ref([])
+
+function toggleTagFilter(name) {
+  const i = activeTagFilters.value.indexOf(name)
+  if (i === -1) activeTagFilters.value.push(name)
+  else activeTagFilters.value.splice(i, 1)
+}
+
+// Теги, реально встречающиеся среди загруженных рамок (не весь справочник —
+// нет смысла показывать фильтр по тегу, которым ничего не помечено).
+const availableFilterTags = computed(() => {
+  const names = new Set()
+  framesStore.frames.forEach((f) => (f.tags || []).forEach((t) => names.add(t)))
+  return [...names].sort()
+})
+
+const filteredFrames = computed(() => {
+  if (!activeTagFilters.value.length) return framesStore.frames
+  return framesStore.frames.filter((f) =>
+    activeTagFilters.value.every((tag) => (f.tags || []).includes(tag)),
+  )
+})
+
+// Форма сохранения пресета (модалка)
+const showSaveModal = ref(false)
 const presetName = ref('')
+const selectedTagIds = ref([])
 const saveError = ref('')
 
 // Удаление рамки — подтверждение через ConfirmDialog. Кнопка удаления видна
@@ -66,7 +95,10 @@ const duplicate = computed(() => {
   return framesStore.frames.find((f) => f.name.trim().toLowerCase() === name) || null
 })
 
-onMounted(() => framesStore.fetchFrames())
+onMounted(() => {
+  framesStore.fetchFrames()
+  framesStore.fetchTags()
+})
 
 // Выбор пресета из галереи: грузим рамку и фон-компаньон (если есть) в редактор.
 async function selectFrame(frame) {
@@ -86,16 +118,23 @@ async function selectFrame(frame) {
   }
 }
 
-// Открыть форму сохранения, подставив имя по имени файла рамки
-function openSaveForm() {
+// Открыть модалку сохранения, подставив имя по имени файла рамки
+function openSaveModal() {
   presetName.value = editorStore.frameFileName.replace(/\.[^./\\]+$/, '') || 'Рамка'
+  selectedTagIds.value = []
   saveError.value = ''
-  showSaveForm.value = true
+  showSaveModal.value = true
 }
 
 function cancelSave() {
-  showSaveForm.value = false
+  showSaveModal.value = false
   saveError.value = ''
+}
+
+function toggleSaveTag(id) {
+  const i = selectedTagIds.value.indexOf(id)
+  if (i === -1) selectedTagIds.value.push(id)
+  else selectedTagIds.value.splice(i, 1)
 }
 
 // Достаём исходный файл ассета из его preview-URL (object URL или presigned)
@@ -127,8 +166,8 @@ async function saveFrame() {
       await framesStore.deleteFrame(existing.id)
     }
 
-    await framesStore.createFrame({ name, frameFile, backgroundFile })
-    showSaveForm.value = false
+    await framesStore.createFrame({ name, frameFile, backgroundFile, tagIds: selectedTagIds.value })
+    showSaveModal.value = false
     if (selectedFrameId.value === existing?.id) selectedFrameId.value = null
   } catch (e) {
     // Рейт-лимитер бэка (429, Retry-After) уже переживается ретраями
@@ -152,79 +191,83 @@ async function saveFrame() {
       {{ framesStore.error }}
     </p>
 
-    <div v-else class="frames-grid">
-      <div v-for="frame in framesStore.frames" :key="frame.id" class="frame-card-wrap">
+    <template v-else>
+      <!-- Фильтр по тегам — мультивыбор, сужает список ниже -->
+      <div v-if="availableFilterTags.length" class="tag-filter">
         <button
-          class="frame-card"
-          :class="{ active: selectedFrameId === frame.id }"
-          :title="frame.name"
-          @click="selectFrame(frame)"
+          v-for="tag in availableFilterTags"
+          :key="tag"
+          type="button"
+          class="tag-filter__badge"
+          :class="{ active: activeTagFilters.includes(tag) }"
+          @click="toggleTagFilter(tag)"
         >
-          <img :src="frame.frameAssetUrl" :alt="frame.name" class="frame-card__img" />
-        </button>
-        <button
-          v-if="frame.ownerId === auth.user?.id"
-          class="frame-card__delete"
-          title="Удалить рамку"
-          @click.stop="askDelete(frame)"
-        >
-          <Trash2 :size="14" />
+          {{ tag }}
         </button>
       </div>
-    </div>
+
+      <div class="frames-grid">
+        <div v-for="frame in filteredFrames" :key="frame.id" class="frame-card-wrap">
+          <button
+            class="frame-card"
+            :class="{ active: selectedFrameId === frame.id }"
+            :title="frame.name"
+            @click="selectFrame(frame)"
+          >
+            <img :src="frame.frameAssetUrl" :alt="frame.name" class="frame-card__img" />
+          </button>
+          <p class="frame-card__name">{{ frame.name }}</p>
+          <BaseButton
+            v-if="frame.ownerId === auth.user?.id"
+            square
+            danger-hover
+            class="frame-card__delete"
+            title="Удалить рамку"
+            @click.stop="askDelete(frame)"
+          >
+            <Trash2 :size="14" />
+          </BaseButton>
+        </div>
+
+        <p v-if="!filteredFrames.length" class="sidebar-empty">Нет рамок с выбранными тегами</p>
+      </div>
+    </template>
 
     <div class="sidebar-footer">
       <!-- Сохранение пресета доступно только авторизованным -->
       <template v-if="auth.isAuthenticated">
-        <!-- Форма ввода имени пресета -->
-        <div v-if="showSaveForm" class="save-form">
-          <input
-            v-model="presetName"
-            type="text"
-            class="save-form__input"
-            placeholder="Название рамки"
-            maxlength="64"
-            @keyup.enter="saveFrame"
-            @keyup.esc="cancelSave"
-          />
-          <p v-if="duplicate && !framesStore.saving" class="save-form__warning">
-            Рамка «{{ duplicate.name }}» уже существует — сохранение заменит её
-          </p>
-          <p v-if="saveError" class="save-form__error">{{ saveError }}</p>
-          <div class="save-form__actions">
-            <button
-              class="save-form__btn save-form__btn--accent"
-              :disabled="framesStore.saving || !presetName.trim()"
-              @click="saveFrame"
-            >
-              {{ framesStore.saving ? 'Сохранение...' : duplicate ? 'Заменить' : 'Сохранить' }}
-            </button>
-            <button class="save-form__btn" :disabled="framesStore.saving" @click="cancelSave">
-              Отмена
-            </button>
-          </div>
-        </div>
-
-        <!-- Кнопка открытия формы: активна только когда в редакторе есть рамка -->
-        <button
-          v-else
-          class="save-btn"
+        <BaseButton
+          full-width
           :disabled="!editorStore.hasFrame"
           :title="
             editorStore.hasFrame
               ? 'Сохранить текущую рамку как пресет'
               : 'Сначала загрузите рамку в редактор'
           "
-          @click="openSaveForm"
+          @click="openSaveModal"
         >
           <Save :size="14" /> Сохранить рамку
-        </button>
+        </BaseButton>
       </template>
 
       <p v-else class="upload-hint">
         <RouterLink to="/login">Войдите</RouterLink>, чтобы сохранять свои рамки
       </p>
     </div>
+
+    <FrameSaveModal
+      :open="showSaveModal"
+      :name="presetName"
+      :tags="framesStore.tags"
+      :selected-tag-ids="selectedTagIds"
+      :duplicate-name="duplicate?.name || ''"
+      :saving="framesStore.saving"
+      :error="saveError"
+      @update:name="presetName = $event"
+      @toggle-tag="toggleSaveTag"
+      @confirm="saveFrame"
+      @cancel="cancelSave"
+    />
 
     <ConfirmDialog
       :open="!!frameToDelete"
@@ -261,7 +304,8 @@ async function saveFrame() {
 }
 
 .sidebar-loading,
-.sidebar-error {
+.sidebar-error,
+.sidebar-empty {
   padding: var(--space-4);
   font-size: var(--text-sm);
   color: var(--color-text-3);
@@ -271,14 +315,50 @@ async function saveFrame() {
   color: var(--color-danger);
 }
 
+.tag-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-3) 0;
+  flex-shrink: 0;
+
+  &__badge {
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--text-xs);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: transparent;
+    color: var(--color-text-2);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+
+    &:hover:not(.active) {
+      border-color: var(--color-accent);
+      color: var(--color-accent);
+    }
+
+    &.active {
+      background: var(--color-accent-muted);
+      border-color: var(--color-accent);
+      color: var(--color-accent);
+    }
+  }
+}
+
 .frames-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--space-2);
+  gap: var(--space-3) var(--space-2);
   padding: var(--space-3);
   align-content: start;
   flex: 1;
   overflow-y: auto;
+}
+
+.sidebar-empty {
+  grid-column: 1 / -1;
+  padding: var(--space-4) 0;
+  text-align: center;
 }
 
 .frame-card-wrap {
@@ -317,31 +397,23 @@ async function saveFrame() {
     object-fit: contain;
   }
 
+  &__name {
+    margin-top: var(--space-1);
+    font-size: var(--text-xs);
+    color: var(--color-text-2);
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   &__delete {
     position: absolute;
     top: var(--space-1);
     right: var(--space-1);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-    padding: 0;
     background: var(--color-bg-1);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    color: var(--color-text-2);
-    cursor: pointer;
     opacity: 0;
-    transition:
-      opacity var(--transition-fast),
-      border-color var(--transition-fast),
-      color var(--transition-fast);
-
-    &:hover {
-      border-color: var(--color-danger);
-      color: var(--color-danger);
-    }
+    transition: opacity var(--transition-fast);
   }
 }
 
@@ -349,106 +421,6 @@ async function saveFrame() {
   padding: var(--space-3);
   border-top: 1px solid var(--color-border);
   flex-shrink: 0;
-}
-
-.save-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-1);
-  width: 100%;
-  padding: var(--space-2) var(--space-3);
-  background: none;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text-2);
-  font-size: var(--text-sm);
-  cursor: pointer;
-  transition:
-    border-color var(--transition-fast),
-    color var(--transition-fast);
-
-  &:hover:not(:disabled) {
-    border-color: var(--color-accent);
-    color: var(--color-accent);
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-}
-
-.save-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-
-  &__input {
-    width: 100%;
-    padding: var(--space-2);
-    background: var(--color-bg-1);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    color: var(--color-text-1);
-    font-size: var(--text-sm);
-    outline: none;
-    transition: border-color var(--transition-fast);
-
-    &:focus {
-      border-color: var(--color-accent);
-    }
-  }
-
-  &__error {
-    font-size: var(--text-xs);
-    color: var(--color-danger);
-  }
-
-  &__warning {
-    font-size: var(--text-xs);
-    color: var(--color-accent);
-    line-height: var(--leading-normal);
-  }
-
-  &__actions {
-    display: flex;
-    gap: var(--space-2);
-  }
-
-  &__btn {
-    flex: 1;
-    padding: var(--space-1) var(--space-2);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: none;
-    color: var(--color-text-2);
-    font-size: var(--text-xs);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-
-    &:hover:not(:disabled) {
-      border-color: var(--color-accent);
-      color: var(--color-accent);
-    }
-
-    &:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    &--accent {
-      background: var(--color-accent);
-      border-color: var(--color-accent);
-      color: var(--color-bg-1);
-      font-weight: var(--weight-medium);
-
-      &:hover:not(:disabled) {
-        opacity: 0.9;
-        color: var(--color-bg-1);
-      }
-    }
-  }
 }
 
 .upload-hint {

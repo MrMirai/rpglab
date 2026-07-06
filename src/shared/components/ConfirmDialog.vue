@@ -1,5 +1,6 @@
 <script setup>
 import { X, AlertTriangle } from 'lucide-vue-next'
+import BaseButton from './BaseButton.vue'
 
 // Универсальная модалка подтверждения — без бизнес-логики, только UI и события.
 // Политику (что делать при confirm, как обрабатывать ошибку) задаёт родитель.
@@ -22,9 +23,9 @@ defineEmits(['confirm', 'cancel'])
       <div class="modal">
         <div class="modal__header">
           <span class="modal__title">{{ title }}</span>
-          <button class="modal__close" @click="$emit('cancel')">
+          <BaseButton square danger-hover @click="$emit('cancel')">
             <X :size="18" />
-          </button>
+          </BaseButton>
         </div>
 
         <div class="modal__body">
@@ -36,16 +37,17 @@ defineEmits(['confirm', 'cancel'])
           </div>
 
           <div class="modal__actions">
-            <button
-              :class="['confirm-btn', { danger }]"
+            <BaseButton
+              full-width
+              :variant="danger ? 'danger' : 'outline'"
               :disabled="pending"
               @click="$emit('confirm')"
             >
               {{ pending ? 'Удаление...' : confirmLabel }}
-            </button>
-            <button class="cancel-btn" :disabled="pending" @click="$emit('cancel')">
+            </BaseButton>
+            <BaseButton full-width variant="outline" :disabled="pending" @click="$emit('cancel')">
               Отмена
-            </button>
+            </BaseButton>
           </div>
         </div>
       </div>
@@ -87,25 +89,6 @@ defineEmits(['confirm', 'cancel'])
     color: var(--color-text-1);
   }
 
-  &__close {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--color-text-2);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-
-    &:hover {
-      border-color: var(--color-danger);
-      color: var(--color-danger);
-    }
-  }
-
   &__body {
     padding: var(--space-4) var(--space-5);
     display: flex;
@@ -140,41 +123,6 @@ defineEmits(['confirm', 'cancel'])
   &__warning-icon {
     flex-shrink: 0;
     margin-top: 1px;
-  }
-}
-
-.confirm-btn,
-.cancel-btn {
-  flex: 1;
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--color-text-1);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-
-  &:hover:not(:disabled) {
-    background: var(--color-bg-3);
-    border-color: var(--color-border-strong);
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-}
-
-.confirm-btn.danger {
-  background: var(--color-danger);
-  border-color: var(--color-danger);
-  color: var(--color-bg-1);
-
-  &:hover:not(:disabled) {
-    opacity: 0.9;
-    background: var(--color-danger);
   }
 }
 </style>

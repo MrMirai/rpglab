@@ -7,10 +7,16 @@ export const useFramesStore = defineStore('frames', () => {
   // frameAssetUrl/backgroundAssetUrl — presigned-ссылки (живут 15 мин, долгосрочно не кешировать).
   // ownerId — владелец шаблона; у встроенных (системных) рамок — фиксированный UUID
   // системного пользователя, который никогда не совпадёт с id текущего юзера.
+  // ВАЖНО: tags в ответе GET /api/frames — массив ИМЁН тегов (["fantasy"]), а не id;
+  // при создании (POST /api/frames) наоборот отправляются id из справочника tags ниже.
   const frames = ref([])
   const loading = ref(false)
   const error = ref(null)
   const saving = ref(false)
+
+  // Справочник тегов — [{ id, name }], создаются только администратором.
+  const tags = ref([])
+  const tagsLoading = ref(false)
 
   async function fetchFrames() {
     loading.value = true
@@ -28,14 +34,27 @@ export const useFramesStore = defineStore('frames', () => {
     }
   }
 
+  // GET /api/tags — публичный, для бейджей выбора тегов в форме сохранения и фильтра галереи.
+  async function fetchTags() {
+    tagsLoading.value = true
+    try {
+      const res = await api.get('/api/tags')
+      if (!res.ok) return
+      tags.value = await res.json()
+    } finally {
+      tagsLoading.value = false
+    }
+  }
+
   // Универсальная загрузка файла в хранилище. type — строка бэка в snake_case
-  // (frame_image / background_image / character_image / brush_mask). Возвращает { id, url, type }.
-  // Дедупликация на бэке: повторная заливка того же файла вернёт существующий id.
+  // (frame_image / background_image / character_image / brush_mask), передаётся
+  // query-параметром (бэк биндит его через @RequestParam, а не полем формы).
+  // Возвращает { id, url, type }. Дедупликация на бэке: повторная заливка того же
+  // файла вернёт существующий id.
   async function uploadAsset(file, type) {
     const form = new FormData()
     form.append('file', file)
-    form.append('type', type)
-    const res = await api.post('/api/assets', form)
+    const res = await api.post(`/api/assets?type=${encodeURIComponent(type)}`, form)
     if (!res.ok) {
       const data = await res.json().catch(() => ({}))
       throw new Error(data.message || 'Не удалось загрузить файл')
@@ -45,7 +64,8 @@ export const useFramesStore = defineStore('frames', () => {
 
   // Сохранение пресета рамки: грузим ассеты, затем создаём рамку по их id.
   // backgroundFile — опционален (фон-компаньон рамки).
-  async function createFrame({ name, frameFile, backgroundFile }) {
+  // tagIds — id тегов из справочника (целые числа), необязательно.
+  async function createFrame({ name, frameFile, backgroundFile, tagIds = [] }) {
     saving.value = true
     error.value = null
     try {
@@ -59,7 +79,7 @@ export const useFramesStore = defineStore('frames', () => {
         name,
         frameAssetId: frameAsset.id,
         backgroundAssetId,
-        tags: [],
+        tags: tagIds,
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
@@ -82,5 +102,16 @@ export const useFramesStore = defineStore('frames', () => {
     frames.value = frames.value.filter((f) => f.id !== id)
   }
 
-  return { frames, loading, error, saving, fetchFrames, createFrame, deleteFrame }
+  return {
+    frames,
+    loading,
+    error,
+    saving,
+    tags,
+    tagsLoading,
+    fetchFrames,
+    fetchTags,
+    createFrame,
+    deleteFrame,
+  }
 })

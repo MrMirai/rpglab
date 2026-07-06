@@ -1,5 +1,6 @@
 <script setup>
 import { Plus, Minus } from 'lucide-vue-next'
+import BaseButton from './BaseButton.vue'
 
 defineProps({
   zoom: { type: Number, default: 1 },
@@ -11,9 +12,9 @@ defineEmits(['update:zoom', 'zoom-in', 'zoom-out'])
 
 <template>
   <div class="zoom-nav">
-    <button class="zoom-nav__btn" @click="$emit('zoom-in')">
+    <BaseButton size="sm" square @click="$emit('zoom-in')">
       <Plus :size="14" />
-    </button>
+    </BaseButton>
     <div class="zoom-nav__slider-wrap">
       <input
         type="range"
@@ -26,9 +27,9 @@ defineEmits(['update:zoom', 'zoom-in', 'zoom-out'])
         @input="$emit('update:zoom', Number($event.target.value))"
       />
     </div>
-    <button class="zoom-nav__btn" @click="$emit('zoom-out')">
+    <BaseButton size="sm" square @click="$emit('zoom-out')">
       <Minus :size="14" />
-    </button>
+    </BaseButton>
     <span class="zoom-nav__label">{{ Math.round(zoom * 100) }}%</span>
   </div>
 </template>
@@ -48,26 +49,6 @@ defineEmits(['update:zoom', 'zoom-in', 'zoom-out'])
   padding: var(--space-2);
   z-index: 10;
   user-select: none;
-
-  &__btn {
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--color-text-2);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    flex-shrink: 0;
-
-    &:hover {
-      border-color: var(--color-accent);
-      color: var(--color-accent);
-    }
-  }
 
   &__slider-wrap {
     height: 80px;

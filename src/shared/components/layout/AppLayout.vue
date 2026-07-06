@@ -4,18 +4,27 @@ import AppHeader from './AppHeader.vue'
 import AppSidebar from './AppSidebar.vue'
 import AppPropertiesPanel from './AppPropertiesPanel.vue'
 
+// Флаг авторизации пробрасывается в шапку пропом, чтобы shared-оболочка
+// не зависела от модуля auth (значение даёт вид через useAuthStore).
+defineProps({
+  isAuthenticated: { type: Boolean, default: false },
+})
+
 const slots = useSlots()
 </script>
 
 <template>
   <div class="app-layout">
-    <AppHeader class="layout-header">
+    <AppHeader class="layout-header" :is-authenticated="isAuthenticated">
       <!-- logo пробрасываем только если вид его задал, иначе остаётся дефолт в AppHeader -->
       <template v-if="slots['header-logo']" #logo><slot name="header-logo" /></template>
       <template #toolbar><slot name="header-toolbar" /></template>
       <template #actions><slot name="header-actions" /></template>
+      <template v-if="slots['header-user']" #user><slot name="header-user" /></template>
     </AppHeader>
-    <AppSidebar class="layout-sidebar" />
+    <AppSidebar class="layout-sidebar">
+      <slot name="sidebar" />
+    </AppSidebar>
     <main class="layout-canvas">
       <slot />
     </main>

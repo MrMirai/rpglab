@@ -1,10 +1,28 @@
 <script setup>
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter, useRoute } from 'vue-router'
 import { Save, FolderOpen } from 'lucide-vue-next'
 
 // Общий каркас шапки: логотип + постоянные действия (Сохранить/Проекты).
 // Специфичный для редактора инструментарий и действия приходят через слоты,
 // чтобы шапку могли переиспользовать разные редакторы (токены, раздатки).
+// Флаг авторизации приходит пропом (а не импортом модуля auth), чтобы
+// shared-оболочка оставалась листом графа зависимостей.
+const props = defineProps({
+  isAuthenticated: { type: Boolean, default: false },
+})
+
+const router = useRouter()
+const route = useRoute()
+
+// Сохранение проектов требует аккаунта: гостя ведём на логин,
+// запомнив текущую страницу для возврата после входа.
+function onSave() {
+  if (!props.isAuthenticated) {
+    router.push({ path: '/login', query: { redirect: route.fullPath } })
+    return
+  }
+  // TODO: сохранение проекта (появится с интеграцией модуля projects)
+}
 </script>
 
 <template>
@@ -24,7 +42,11 @@ import { Save, FolderOpen } from 'lucide-vue-next'
     <div class="actions">
       <!-- Действия конкретного редактора (например, Экспорт) -->
       <slot name="actions" />
-      <button class="btn-save">
+      <button
+        class="btn-save"
+        :title="isAuthenticated ? 'Сохранить проект' : 'Войдите, чтобы сохранять проекты'"
+        @click="onSave"
+      >
         <Save :size="16" />
         <span>Сохранить</span>
       </button>
@@ -32,6 +54,8 @@ import { Save, FolderOpen } from 'lucide-vue-next'
         <FolderOpen :size="16" />
         <span>Проекты</span>
       </RouterLink>
+      <!-- Блок пользователя (модуль auth даёт содержимое через слот) -->
+      <slot name="user" />
     </div>
   </header>
 </template>

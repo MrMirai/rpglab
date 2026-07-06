@@ -8,15 +8,25 @@ import {
   ExportModal,
   PreviewWindow,
 } from '@/modules/editor'
+import { FrameGallery } from '@/modules/frames'
+import { UserMenu, useAuthStore } from '@/modules/auth'
+
+const auth = useAuthStore()
 </script>
 
 <template>
-  <AppLayout>
+  <AppLayout :is-authenticated="auth.isAuthenticated">
     <template #header-toolbar>
       <EditorToolbar />
     </template>
     <template #header-actions>
       <EditorHeaderActions />
+    </template>
+    <template #header-user>
+      <UserMenu />
+    </template>
+    <template #sidebar>
+      <FrameGallery />
     </template>
     <template #properties>
       <EditorProperties />

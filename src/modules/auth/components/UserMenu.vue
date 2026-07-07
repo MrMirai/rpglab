@@ -1,13 +1,13 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { RouterLink, useRouter, useRoute } from 'vue-router'
-import { User, FolderOpen, Settings, LogOut } from 'lucide-vue-next'
+import { User, FolderOpen, Settings, ShieldCheck, LogOut } from 'lucide-vue-next'
 import { useAuthStore } from '../store.js'
 
 // Блок пользователя в шапке. Два состояния:
 // гость — кнопки «Войти»/«Регистрация»;
 // авторизован — кружок с аватаром/плейсхолдером, по клику дропдаун
-// (Профиль / Проекты / Настройки / Выход).
+// (Профиль / Проекты / Настройки / [Администрирование, если admin] / Выход).
 // Живёт в модуле auth и вставляется в editor-агностичную шапку через слот.
 const auth = useAuthStore()
 const router = useRouter()
@@ -97,6 +97,9 @@ async function handleLogout() {
           </RouterLink>
           <RouterLink to="/settings" class="user-menu__item" @click="close">
             <Settings :size="15" /> Настройки
+          </RouterLink>
+          <RouterLink v-if="auth.isAdmin" to="/admin" class="user-menu__item" @click="close">
+            <ShieldCheck :size="15" /> Администрирование
           </RouterLink>
           <button class="user-menu__item user-menu__item--danger" @click="handleLogout">
             <LogOut :size="15" /> Выход

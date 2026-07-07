@@ -25,6 +25,14 @@ const router = createRouter({
       component: () => import('@/views/SettingsView.vue'),
       meta: { requiresAuth: true },
     },
+    // Административная секция — доступна только user.admin === true.
+    // Задел на рост: следующие разделы (теги, тарифы) добавятся как новые
+    // маршруты /admin/... с тем же requiresAdmin, внутри общего AdminView.
+    {
+      path: '/admin',
+      component: () => import('@/views/AdminView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true },
+    },
     {
       path: '/login',
       component: () => import('@/views/LoginView.vue'),
@@ -43,6 +51,10 @@ router.beforeEach((to) => {
   // Защищённые страницы — на логин, запомнив куда шёл пользователь
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
     return { path: '/login', query: { redirect: to.fullPath } }
+  }
+  // Админ-раздел — не-админа (или роль отозвали) отправляем на главную
+  if (to.meta.requiresAdmin && !auth.isAdmin) {
+    return '/'
   }
   // Авторизованного не пускаем обратно на login/register
   if ((to.path === '/login' || to.path === '/register') && auth.isAuthenticated) {

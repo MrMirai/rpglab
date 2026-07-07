@@ -1,6 +1,8 @@
 <script setup>
+import { computed } from 'vue'
 import { X } from 'lucide-vue-next'
 import BaseButton from '@/shared/components/BaseButton.vue'
+import TagBadgeList from '@/shared/components/TagBadgeList.vue'
 
 // Модальное окно сохранения пресета рамки: название + выбор тегов-бейджей
 // (только из справочника, создавать свои нельзя). Без бизнес-логики сохранения —
@@ -16,6 +18,8 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:name', 'toggle-tag', 'confirm', 'cancel'])
+
+const tagBadges = computed(() => props.tags.map((t) => ({ id: t.id, label: t.name })))
 
 function toggleTag(id) {
   if (props.saving) return
@@ -54,18 +58,12 @@ function toggleTag(id) {
 
           <div class="modal__section">
             <label class="modal__label">Теги</label>
-            <div v-if="tags.length" class="tag-badges">
-              <button
-                v-for="tag in tags"
-                :key="tag.id"
-                type="button"
-                class="tag-badge"
-                :class="{ active: selectedTagIds.includes(tag.id) }"
-                @click="toggleTag(tag.id)"
-              >
-                {{ tag.name }}
-              </button>
-            </div>
+            <TagBadgeList
+              v-if="tags.length"
+              :tags="tagBadges"
+              :active-ids="selectedTagIds"
+              @toggle="toggleTag"
+            />
             <p v-else class="modal__hint">Справочник тегов пуст</p>
           </div>
 
@@ -182,34 +180,6 @@ function toggleTag(id) {
   &:focus {
     border-color: var(--color-accent);
     box-shadow: 0 0 0 2px var(--color-accent-muted);
-  }
-}
-
-.tag-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-}
-
-.tag-badge {
-  padding: var(--space-1) var(--space-2);
-  font-size: var(--text-xs);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: transparent;
-  color: var(--color-text-2);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-
-  &:hover:not(.active) {
-    border-color: var(--color-accent);
-    color: var(--color-accent);
-  }
-
-  &.active {
-    background: var(--color-accent-muted);
-    border-color: var(--color-accent);
-    color: var(--color-accent);
   }
 }
 </style>

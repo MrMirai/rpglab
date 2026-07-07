@@ -2,6 +2,11 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api } from '@/shared/composables/useApi'
 
+// Фиксированный ownerId системных (встроенных) рамок — никогда не совпадёт
+// с id реального пользователя. Используется и в галерее (скрыть кнопку
+// удаления чужой/системной рамки), и в админке (отфильтровать системные).
+export const SYSTEM_OWNER_ID = '00000000-0000-0000-0000-000000000000'
+
 export const useFramesStore = defineStore('frames', () => {
   // [{ id, ownerId, name, frameAssetId, frameAssetUrl, backgroundAssetId, backgroundAssetUrl|null, tags, createdAt }]
   // frameAssetUrl/backgroundAssetUrl — presigned-ссылки (живут 15 мин, долгосрочно не кешировать).

@@ -117,8 +117,6 @@ export function useExport() {
   }
 
   // Применяет только цветовые фильтры персонажа (без тени) перед отрисовкой.
-  // Тень намеренно не здесь: её нужно отбрасывать от уже обрезанного маской
-  // силуэта (см. castShadowInto), иначе она режется той же маской.
   function applyCharFilters(ctx, store, drawFn) {
     ctx.save()
     const filters = []
@@ -131,42 +129,57 @@ export function useExport() {
     ctx.restore()
   }
 
-  // Рисует силуэт (уже обрезанный маской canvas) на ctx, добавляя тень от его
-  // альфы. scale — множитель экспорта (тень задана в пикселях холста 500).
-  function castShadowInto(ctx, store, silhouette, scale, offsetX = 0, offsetY = 0) {
-    if (store.charShadowEnabled) {
-      ctx.save()
-      const sc = store.charShadowColor
-      const sr = parseInt(sc.slice(1, 3), 16)
-      const sg = parseInt(sc.slice(3, 5), 16)
-      const sb = parseInt(sc.slice(5, 7), 16)
-      ctx.shadowColor = `rgba(${sr},${sg},${sb},${store.charShadowOpacity / 100})`
-      ctx.shadowBlur = store.charShadowBlur * scale
-      ctx.shadowOffsetX = store.charShadowOffsetX * scale
-      ctx.shadowOffsetY = store.charShadowOffsetY * scale
-      ctx.drawImage(silhouette, offsetX, offsetY)
-      ctx.restore()
-    } else {
-      ctx.drawImage(silhouette, offsetX, offsetY)
-    }
-  }
-
-  // Рисует drawFn на временном canvas размером size×size, маскирует и blit'ает на ctx.
-  // castShadow — отбросить тень от готового (обрезанного) силуэта; scale нужен для тени.
-  function drawMasked(ctx, size, drawFn, maskCanvas, offsetX = 0, offsetY = 0, castShadow = false, store = null, scale = 1) {
+  // Рисует drawFn на временном canvas размером size×size и обрезает маской.
+  // Возвращает обрезанный (не сдвинутый) силуэт — без тени.
+  function drawMaskedSilhouette(size, drawFn, maskCanvas, maskX = 0, maskY = 0, maskSize = size) {
     const tmp = document.createElement('canvas')
     tmp.width = size
     tmp.height = size
     const tc = tmp.getContext('2d')
     drawFn(tc)
     tc.globalCompositeOperation = 'destination-in'
-    tc.drawImage(maskCanvas, 0, 0, size, size)
+    tc.drawImage(maskCanvas, maskX, maskY, maskSize, maskSize)
     tc.globalCompositeOperation = 'source-over'
-    if (castShadow && store) {
-      castShadowInto(ctx, store, tmp, scale, offsetX, offsetY)
-    } else {
-      ctx.drawImage(tmp, offsetX, offsetY)
-    }
+    return tmp
+  }
+
+  // Строит canvas ТОЛЬКО с тенью (без самого силуэта) от переданной формы —
+  // тень персонажа целиком, до разрезания по маскам нижнего/верхнего слоя
+  // (см. тот же приём в EditorCanvas.vue: buildShadowLayer).
+  function buildShadowLayer(store, fullSilhouette, scale) {
+    const out = document.createElement('canvas')
+    out.width = fullSilhouette.width
+    out.height = fullSilhouette.height
+    const ctx = out.getContext('2d')
+
+    const sc = store.charShadowColor
+    const sr = parseInt(sc.slice(1, 3), 16)
+    const sg = parseInt(sc.slice(3, 5), 16)
+    const sb = parseInt(sc.slice(5, 7), 16)
+    ctx.shadowColor = `rgba(${sr},${sg},${sb},${store.charShadowOpacity / 100})`
+    ctx.shadowBlur = store.charShadowBlur * scale
+    ctx.shadowOffsetX = store.charShadowOffsetX * scale
+    ctx.shadowOffsetY = store.charShadowOffsetY * scale
+    ctx.drawImage(fullSilhouette, 0, 0)
+
+    ctx.shadowColor = 'transparent'
+    ctx.globalCompositeOperation = 'destination-out'
+    ctx.drawImage(fullSilhouette, 0, 0)
+    ctx.globalCompositeOperation = 'source-over'
+    return out
+  }
+
+  // Обрезает canvas маской (destination-in), возвращает новый canvas того же размера.
+  function clipCanvas(source, maskCanvas, maskX = 0, maskY = 0, maskW = source.width, maskH = source.height) {
+    const out = document.createElement('canvas')
+    out.width = source.width
+    out.height = source.height
+    const ctx = out.getContext('2d')
+    ctx.drawImage(source, 0, 0)
+    ctx.globalCompositeOperation = 'destination-in'
+    ctx.drawImage(maskCanvas, maskX, maskY, maskW, maskH)
+    ctx.globalCompositeOperation = 'source-over'
+    return out
   }
 
   // Вычисляет запас (в px, в масштабе рамки frameSize) с каждой стороны,
@@ -271,23 +284,57 @@ export function useExport() {
       0, 0, exportSize, exportSize,
     )
 
+    // Нижний силуэт (персонаж × маска1) — обрезан в размере baseSize, без сдвига.
+    const bottomSilhouette = drawMaskedSilhouette(baseSize, drawCharRelative, mask)
+    // Верхний силуэт (персонаж × brushCanvas) — сразу в размере exportSize.
+    const topSilhouette = drawMaskedSilhouette(exportSize, drawCharFull, scaledBrush)
+
+    let shadowBottom = null
+    let shadowTop = null
+    if (store.charShadowEnabled) {
+      // Объединяем оба силуэта в общих координатах exportSize и отбрасываем
+      // тень ОДИН раз от целой формы — иначе на границе масок получается
+      // разрыв/задвоение тени (см. тот же приём в EditorCanvas.vue).
+      const combined = document.createElement('canvas')
+      combined.width = exportSize; combined.height = exportSize
+      const cctx = combined.getContext('2d')
+      cctx.drawImage(bottomSilhouette, exportFrameOffset, exportFrameOffset)
+      cctx.drawImage(topSilhouette, 0, 0)
+
+      const fullShadow = buildShadowLayer(store, combined, scale)
+
+      // Нижняя часть тени — видна только в окне рамки (маска1), под рамкой.
+      const maskFullCanvas = document.createElement('canvas')
+      maskFullCanvas.width = exportSize; maskFullCanvas.height = exportSize
+      maskFullCanvas.getContext('2d').drawImage(mask, exportFrameOffset, exportFrameOffset, baseSize, baseSize)
+      shadowBottom = clipCanvas(fullShadow, maskFullCanvas)
+
+      // Верхняя часть тени — видна там же, где вылезающий персонаж (scaledBrush), над рамкой.
+      shadowTop = clipCanvas(fullShadow, scaledBrush)
+    }
+
     if (mode === 'full') {
       // 1. Фон × маска1 (только в области рамки) — без тени
       if (store.bgType !== 'none') {
         const bgFn = getBgDrawFn(store, baseSize)
-        if (bgFn) drawMasked(ctx, baseSize, bgFn, mask, exportFrameOffset, exportFrameOffset)
+        if (bgFn) {
+          const bgSilhouette = drawMaskedSilhouette(baseSize, bgFn, mask)
+          ctx.drawImage(bgSilhouette, exportFrameOffset, exportFrameOffset)
+        }
       }
-      // 2. Персонаж нижний × маска1 — тень от силуэта в окне, ложится под рамку
-      drawMasked(ctx, baseSize, drawCharRelative, mask, exportFrameOffset, exportFrameOffset, true, store, scale)
+      // 2. Тень нижнего слоя, затем сам нижний силуэт (без своей тени)
+      if (shadowBottom) ctx.drawImage(shadowBottom, 0, 0)
+      ctx.drawImage(bottomSilhouette, exportFrameOffset, exportFrameOffset)
       // 3. Рамка
       ctx.drawImage(store.frameImage, exportFrameOffset, exportFrameOffset, baseSize, baseSize)
-      // 4. Персонаж верхний × brushCanvas — тень от вылезающего силуэта, поверх рамки
-      drawMasked(ctx, exportSize, drawCharFull, scaledBrush, 0, 0, true, store, scale)
+      // 4. Тень верхнего слоя, затем сам верхний силуэт (без своей тени)
+      if (shadowTop) ctx.drawImage(shadowTop, 0, 0)
+      ctx.drawImage(topSilhouette, 0, 0)
     } else if (mode === 'char-only') {
-      // Нижний слой: персонаж × маска1 (с тенью)
-      drawMasked(ctx, baseSize, drawCharRelative, mask, exportFrameOffset, exportFrameOffset, true, store, scale)
-      // Вылезание: персонаж × brushCanvas (с тенью)
-      drawMasked(ctx, exportSize, drawCharFull, scaledBrush, 0, 0, true, store, scale)
+      if (shadowBottom) ctx.drawImage(shadowBottom, 0, 0)
+      ctx.drawImage(bottomSilhouette, exportFrameOffset, exportFrameOffset)
+      if (shadowTop) ctx.drawImage(shadowTop, 0, 0)
+      ctx.drawImage(topSilhouette, 0, 0)
     }
 
     return canvas

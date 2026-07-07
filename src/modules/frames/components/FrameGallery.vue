@@ -1,15 +1,19 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
-import { Save, Trash2 } from 'lucide-vue-next'
+import { Save } from 'lucide-vue-next'
 import { useEditorStore, useImageLoader } from '@/modules/editor'
 import { useAuthStore } from '@/modules/auth'
 import ConfirmDialog from '@/shared/components/ConfirmDialog.vue'
 import BaseButton from '@/shared/components/BaseButton.vue'
+import TagBadgeList from '@/shared/components/TagBadgeList.vue'
+import CollapsibleSection from '@/shared/components/CollapsibleSection.vue'
 import FrameSaveModal from './FrameSaveModal.vue'
-import { useFramesStore } from '../store.js'
+import FrameCard from './FrameCard.vue'
+import { useFramesStore, SYSTEM_OWNER_ID } from '../store.js'
 
-// Галерея сохранённых пресетов рамок.
+// Галерея сохранённых пресетов рамок, разделена на секции «Общедоступные»
+// (системные, ownerId === SYSTEM_OWNER_ID) и «Свои» (ownerId === текущий юзер).
 // Выбор пресета — подгружает его ассеты (рамка + фон) в редактор.
 // «Сохранить рамку» — сохраняет текущие ассеты редактора (рамка + фон, если задан) как новый пресет,
 // с названием и тегами через FrameSaveModal.
@@ -19,6 +23,7 @@ const auth = useAuthStore()
 const { loadFromUrl } = useImageLoader()
 
 const selectedFrameId = ref(null)
+const sectionsOpen = ref({ public: true, own: true })
 
 // Фильтр по тегам галереи — мультивыбор бейджей над списком.
 // tags в GET /api/frames — массив ИМЁН (не id), фильтруем по имени напрямую.
@@ -35,7 +40,7 @@ function toggleTagFilter(name) {
 const availableFilterTags = computed(() => {
   const names = new Set()
   framesStore.frames.forEach((f) => (f.tags || []).forEach((t) => names.add(t)))
-  return [...names].sort()
+  return [...names].sort().map((name) => ({ id: name, label: name }))
 })
 
 const filteredFrames = computed(() => {
@@ -44,6 +49,11 @@ const filteredFrames = computed(() => {
     activeTagFilters.value.every((tag) => (f.tags || []).includes(tag)),
   )
 })
+
+const publicFrames = computed(() => filteredFrames.value.filter((f) => f.ownerId === SYSTEM_OWNER_ID))
+const ownFrames = computed(() =>
+  filteredFrames.value.filter((f) => f.ownerId === auth.user?.id),
+)
 
 // Форма сохранения пресета (модалка)
 const showSaveModal = ref(false)
@@ -192,44 +202,50 @@ async function saveFrame() {
     </p>
 
     <template v-else>
-      <!-- Фильтр по тегам — мультивыбор, сужает список ниже -->
-      <div v-if="availableFilterTags.length" class="tag-filter">
-        <button
-          v-for="tag in availableFilterTags"
-          :key="tag"
-          type="button"
-          class="tag-filter__badge"
-          :class="{ active: activeTagFilters.includes(tag) }"
-          @click="toggleTagFilter(tag)"
+      <!-- Фильтр по тегам — мультивыбор, сужает списки в обеих секциях ниже -->
+      <TagBadgeList
+        v-if="availableFilterTags.length"
+        class="tag-filter"
+        :tags="availableFilterTags"
+        :active-ids="activeTagFilters"
+        @toggle="toggleTagFilter"
+      />
+
+      <div class="frame-sections">
+        <CollapsibleSection
+          v-model:open="sectionsOpen.public"
+          :label="`Общедоступные (${publicFrames.length})`"
         >
-          {{ tag }}
-        </button>
-      </div>
+          <div v-if="publicFrames.length" class="frames-grid">
+            <FrameCard
+              v-for="frame in publicFrames"
+              :key="frame.id"
+              :frame="frame"
+              :active="selectedFrameId === frame.id"
+              @select="selectFrame"
+            />
+          </div>
+          <p v-else class="sidebar-empty">Нет рамок с выбранными тегами</p>
+        </CollapsibleSection>
 
-      <div class="frames-grid">
-        <div v-for="frame in filteredFrames" :key="frame.id" class="frame-card-wrap">
-          <button
-            class="frame-card"
-            :class="{ active: selectedFrameId === frame.id }"
-            :title="frame.name"
-            @click="selectFrame(frame)"
-          >
-            <img :src="frame.frameAssetUrl" :alt="frame.name" class="frame-card__img" />
-          </button>
-          <p class="frame-card__name">{{ frame.name }}</p>
-          <BaseButton
-            v-if="frame.ownerId === auth.user?.id"
-            square
-            danger-hover
-            class="frame-card__delete"
-            title="Удалить рамку"
-            @click.stop="askDelete(frame)"
-          >
-            <Trash2 :size="14" />
-          </BaseButton>
-        </div>
-
-        <p v-if="!filteredFrames.length" class="sidebar-empty">Нет рамок с выбранными тегами</p>
+        <CollapsibleSection
+          v-if="auth.isAuthenticated"
+          v-model:open="sectionsOpen.own"
+          :label="`Свои (${ownFrames.length})`"
+        >
+          <div v-if="ownFrames.length" class="frames-grid">
+            <FrameCard
+              v-for="frame in ownFrames"
+              :key="frame.id"
+              :frame="frame"
+              deletable
+              :active="selectedFrameId === frame.id"
+              @select="selectFrame"
+              @delete="askDelete"
+            />
+          </div>
+          <p v-else class="sidebar-empty">Пока нет сохранённых рамок</p>
+        </CollapsibleSection>
       </div>
     </template>
 
@@ -304,8 +320,7 @@ async function saveFrame() {
 }
 
 .sidebar-loading,
-.sidebar-error,
-.sidebar-empty {
+.sidebar-error {
   padding: var(--space-4);
   font-size: var(--text-sm);
   color: var(--color-text-3);
@@ -316,105 +331,28 @@ async function saveFrame() {
 }
 
 .tag-filter {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
   padding: var(--space-3) var(--space-3) 0;
   flex-shrink: 0;
+}
 
-  &__badge {
-    padding: var(--space-1) var(--space-2);
-    font-size: var(--text-xs);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    background: transparent;
-    color: var(--color-text-2);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-
-    &:hover:not(.active) {
-      border-color: var(--color-accent);
-      color: var(--color-accent);
-    }
-
-    &.active {
-      background: var(--color-accent-muted);
-      border-color: var(--color-accent);
-      color: var(--color-accent);
-    }
-  }
+.frame-sections {
+  flex: 1;
+  overflow-y: auto;
 }
 
 .frames-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-3) var(--space-2);
-  padding: var(--space-3);
+  padding: 0 var(--space-3) var(--space-3);
   align-content: start;
-  flex: 1;
-  overflow-y: auto;
 }
 
 .sidebar-empty {
-  grid-column: 1 / -1;
-  padding: var(--space-4) 0;
+  padding: 0 var(--space-3) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-text-3);
   text-align: center;
-}
-
-.frame-card-wrap {
-  position: relative;
-
-  &:hover .frame-card__delete {
-    opacity: 1;
-  }
-}
-
-.frame-card {
-  aspect-ratio: 1 / 1;
-  width: 100%;
-  padding: 0;
-  background-color: var(--color-bg-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  overflow: hidden;
-  transition:
-    border-color var(--transition-fast),
-    background-color var(--transition-fast);
-
-  &:hover {
-    border-color: var(--color-accent);
-  }
-
-  &.active {
-    border-color: var(--color-accent);
-    background-color: var(--color-accent-muted);
-  }
-
-  &__img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-  }
-
-  &__name {
-    margin-top: var(--space-1);
-    font-size: var(--text-xs);
-    color: var(--color-text-2);
-    text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  &__delete {
-    position: absolute;
-    top: var(--space-1);
-    right: var(--space-1);
-    background: var(--color-bg-1);
-    opacity: 0;
-    transition: opacity var(--transition-fast);
-  }
 }
 
 .sidebar-footer {

@@ -18,12 +18,10 @@ const bridge = useEditorBridge()
 
 const containerRef = ref(null)
 const stageRef = ref(null)
-const bgLayer = ref(null)
-const charShadowBottomLayer = ref(null)
-const charBottomLayer = ref(null)
-const frameLayer = ref(null)
-const charShadowTopLayer = ref(null)
-const charTopLayer = ref(null)
+// Каждый Konva-слой — отдельный <canvas> в DOM (рекомендация Konva: ≤3-5 слоёв).
+// Весь статичный контент (фон/тени/персонаж/рамка/сетка) живёт в одном sceneLayer —
+// порядок отрисовки задаётся порядком узлов внутри слоя; оверлей отдельно.
+const sceneLayer = ref(null)
 const overlayLayer = ref(null)
 
 const containerW = ref(0)
@@ -223,28 +221,61 @@ function clipCanvas(source, maskCanvas, maskX = 0, maskY = 0, maskW = source.wid
   return out
 }
 
-function renderOffscreen() {
-  renderBg()
+// Кеш между кадрами кисти: во время мазка меняется только brushCanvas,
+// поэтому фон, нижний силуэт и маску тени можно не пересобирать на каждый
+// mousemove (это была основная причина лагов кисти — аллокации и композиты
+// холстов fullCanvasSize² на каждое событие мыши).
+let cachedBottomSilhouette = null
+let cachedShadowMask = null // маска1, развёрнутая в полные координаты (для обрезки тени)
 
+// brushOnly=true — быстрый путь для мазка кисти/лассо: переиспользует кеш
+// нижнего силуэта и фона, пересобирает только зависящее от brushCanvas.
+function renderOffscreen(brushOnly = false) {
   const fullSize = store.fullCanvasSize
   const frameSize = store.canvasSize
   const offset = store.frameOffset
 
-  const mask = store.maskImage || (store.frameImage ? generateMask(store.frameImage, frameSize) : null)
-
-  // --- Нижний силуэт: персонаж × маска1 (только в области рамки), в полных координатах ---
-  const maskedChar = document.createElement('canvas')
-  maskedChar.width = frameSize; maskedChar.height = frameSize
-  const mc = maskedChar.getContext('2d')
-  renderCharWithFilters(mc, charDrawX.value - offset, charDrawY.value - offset, charW.value, charH.value)
-  if (mask) {
-    mc.globalCompositeOperation = 'destination-in'
-    mc.drawImage(mask, 0, 0, frameSize, frameSize)
-    mc.globalCompositeOperation = 'source-over'
+  if (!store.charImage) {
+    // Персонажа нет (удалили, отменили действие и т.д.) — не оставляем
+    // протухшие силуэт/тень с прошлого кадра.
+    renderBg()
+    charBottomCanvas.value = null
+    charTopCanvas.value = null
+    charShadowBottomCanvas.value = null
+    charShadowTopCanvas.value = null
+    cachedBottomSilhouette = null
+    cachedShadowMask = null
+    return
   }
-  const bottomSilhouette = document.createElement('canvas')
-  bottomSilhouette.width = fullSize; bottomSilhouette.height = fullSize
-  bottomSilhouette.getContext('2d').drawImage(maskedChar, offset, offset)
+
+  if (!brushOnly || !cachedBottomSilhouette) {
+    const mask = store.maskImage || (store.frameImage ? generateMask(store.frameImage, frameSize) : null)
+    renderBg()
+
+    // --- Нижний силуэт: персонаж × маска1 (только в области рамки), в полных координатах ---
+    const maskedChar = document.createElement('canvas')
+    maskedChar.width = frameSize; maskedChar.height = frameSize
+    const mc = maskedChar.getContext('2d')
+    renderCharWithFilters(mc, charDrawX.value - offset, charDrawY.value - offset, charW.value, charH.value)
+    if (mask) {
+      mc.globalCompositeOperation = 'destination-in'
+      mc.drawImage(mask, 0, 0, frameSize, frameSize)
+      mc.globalCompositeOperation = 'source-over'
+    }
+    const bottomSilhouette = document.createElement('canvas')
+    bottomSilhouette.width = fullSize; bottomSilhouette.height = fullSize
+    bottomSilhouette.getContext('2d').drawImage(maskedChar, offset, offset)
+    cachedBottomSilhouette = bottomSilhouette
+
+    if (mask) {
+      const shadowMaskFull = document.createElement('canvas')
+      shadowMaskFull.width = fullSize; shadowMaskFull.height = fullSize
+      shadowMaskFull.getContext('2d').drawImage(mask, offset, offset, frameSize, frameSize)
+      cachedShadowMask = shadowMaskFull
+    } else {
+      cachedShadowMask = null
+    }
+  }
 
   // --- Верхний силуэт: персонаж × brushCanvas, в полных координатах ---
   const topSilhouette = document.createElement('canvas')
@@ -255,7 +286,7 @@ function renderOffscreen() {
   ttx.drawImage(brushCanvas, 0, 0)
   ttx.globalCompositeOperation = 'source-over'
 
-  charBottomCanvas.value = bottomSilhouette
+  charBottomCanvas.value = cachedBottomSilhouette
   charTopCanvas.value = topSilhouette
 
   if (!store.charShadowEnabled) {
@@ -271,16 +302,13 @@ function renderOffscreen() {
   const combined = document.createElement('canvas')
   combined.width = fullSize; combined.height = fullSize
   const cctx = combined.getContext('2d')
-  cctx.drawImage(bottomSilhouette, 0, 0)
+  cctx.drawImage(cachedBottomSilhouette, 0, 0)
   cctx.drawImage(topSilhouette, 0, 0)
 
   const fullShadow = buildShadowLayer(combined)
 
   // Нижняя часть тени — видна только в окне рамки (маска1), рисуется под рамкой.
-  const shadowMaskFull = document.createElement('canvas')
-  shadowMaskFull.width = fullSize; shadowMaskFull.height = fullSize
-  if (mask) shadowMaskFull.getContext('2d').drawImage(mask, offset, offset, frameSize, frameSize)
-  charShadowBottomCanvas.value = mask ? clipCanvas(fullShadow, shadowMaskFull) : null
+  charShadowBottomCanvas.value = cachedShadowMask ? clipCanvas(fullShadow, cachedShadowMask) : null
 
   // Верхняя часть тени — видна там же, где вылезающий персонаж (brushCanvas), рисуется над рамкой.
   charShadowTopCanvas.value = clipCanvas(fullShadow, brushCanvas)
@@ -288,6 +316,14 @@ function renderOffscreen() {
 
 function renderOverlay() {
   const fullSize = store.fullCanvasSize
+
+  // Ни один режим отображения не активен — не аллоцируем холст fullSize² зря
+  // (renderOverlay дёргается на каждый кадр кисти через redrawAll).
+  if (!store.showMaskOverlay && !(store.showHidden && store.charImage)) {
+    overlayCanvas.value = null
+    nextTick(() => overlayLayer.value?.getNode()?.batchDraw())
+    return
+  }
 
   const oc = document.createElement('canvas')
   oc.width = fullSize; oc.height = fullSize
@@ -332,16 +368,25 @@ function renderOverlay() {
   nextTick(() => overlayLayer.value?.getNode()?.batchDraw())
 }
 
-function redrawAll() {
-  renderOffscreen()
+function redrawAll(brushOnly = false) {
+  renderOffscreen(brushOnly)
   renderOverlay()
   nextTick(() => {
-    bgLayer.value?.getNode()?.batchDraw()
-    charShadowBottomLayer.value?.getNode()?.batchDraw()
-    charBottomLayer.value?.getNode()?.batchDraw()
-    charShadowTopLayer.value?.getNode()?.batchDraw()
-    charTopLayer.value?.getNode()?.batchDraw()
+    sceneLayer.value?.getNode()?.batchDraw()
     overlayLayer.value?.getNode()?.batchDraw()
+  })
+}
+
+// Троттлинг перерисовки кисти: mousemove приходит чаще, чем кадры экрана,
+// а renderOffscreen (даже brushOnly) — недешёвый. Мазки копятся в brushCanvas
+// синхронно (paint), а пересборка слоёв — максимум раз за кадр.
+let brushRedrawScheduled = false
+function scheduleBrushRedraw() {
+  if (brushRedrawScheduled) return
+  brushRedrawScheduled = true
+  requestAnimationFrame(() => {
+    brushRedrawScheduled = false
+    redrawAll(true)
   })
 }
 
@@ -477,21 +522,15 @@ watchEffect(() => {
   const shOy = store.charShadowOffsetY
   const shOp = store.charShadowOpacity
 
-  if (!img) {
-    // Фон может быть без персонажа
-    renderBg()
-    nextTick(() => bgLayer.value?.getNode()?.batchDraw())
-    return
-  }
+  // renderOffscreen сама корректно очищает слои персонажа/тени, если
+  // store.charImage отсутствует — здесь просто прогоняем обычный путь.
+  void img
   renderOffscreen()
   renderOverlay()
 
   nextTick(() => {
-    bgLayer.value?.getNode()?.batchDraw()
-    charShadowBottomLayer.value?.getNode()?.batchDraw()
-    charBottomLayer.value?.getNode()?.batchDraw()
-    charShadowTopLayer.value?.getNode()?.batchDraw()
-    charTopLayer.value?.getNode()?.batchDraw()
+    sceneLayer.value?.getNode()?.batchDraw()
+    overlayLayer.value?.getNode()?.batchDraw()
   })
 })
 
@@ -749,7 +788,8 @@ function applyLasso() {
   if (!path) return
   recordHistory()
   fillPath(path, lassoEffectiveSubtract())
-  redrawAll()
+  // Лассо меняет только brushCanvas — быстрый путь без пересборки фона/нижнего слоя
+  redrawAll(true)
   lassoReset()
 }
 
@@ -1064,7 +1104,7 @@ onMounted(() => {
       isPainting = true
       // brushCanvas теперь занимает весь холст — координаты передаём как есть
       paint(canvasPos.x, canvasPos.y, store.brushSize, store.brushHardness, store.brushMode === 'erase')
-      redrawAll()
+      scheduleBrushRedraw()
     }
   })
 
@@ -1098,7 +1138,7 @@ onMounted(() => {
       )
     } else if ((tool === 'brush') && isPainting) {
       paint(canvasPos.x, canvasPos.y, store.brushSize, store.brushHardness, store.brushMode === 'erase')
-      redrawAll()
+      scheduleBrushRedraw()
     }
   })
 
@@ -1197,32 +1237,22 @@ onUnmounted(() => {
   <div class="editor-canvas" ref="containerRef">
     <v-stage :config="stageConfig" ref="stageRef">
 
-      <!-- Слой 0: фон токена -->
-      <v-layer ref="bgLayer">
+      <!-- Единый слой сцены. Konva-слой = отдельный <canvas> в DOM (рекомендация ≤3-5),
+           поэтому весь статичный контент в одном слое — порядок узлов задаёт z-order:
+           фон → тень-низ → персонаж-низ → рамка → сетка → тень-верх → персонаж-верх -->
+      <v-layer ref="sceneLayer">
         <v-image
           v-if="bgCanvas"
           :config="{ image: bgCanvas, x: 0, y: 0, width: store.fullCanvasSize, height: store.fullCanvasSize, listening: false }"
         />
-      </v-layer>
-
-      <!-- Слой 1a: тень нижнего слоя персонажа (под персонажем, под рамкой) -->
-      <v-layer ref="charShadowBottomLayer">
         <v-image
           v-if="charShadowBottomCanvas"
           :config="charShadowBottomConfig"
         />
-      </v-layer>
-
-      <!-- Слой 1b: персонаж ЗА рамкой -->
-      <v-layer ref="charBottomLayer">
         <v-image
           v-if="store.hasChar"
           :config="charBottomConfig"
         />
-      </v-layer>
-
-      <!-- Слой 2: рамка + сетка -->
-      <v-layer ref="frameLayer">
         <v-image
           v-if="store.hasFrame"
           :config="frameConfig"
@@ -1241,25 +1271,18 @@ onUnmounted(() => {
             :config="{ ...line, stroke: 'rgba(255,255,255,0.08)', strokeWidth: 0.5 }"
           />
         </template>
-      </v-layer>
-
-      <!-- Слой 3a: тень верхнего слоя персонажа (над рамкой, под вылезающим персонажем) -->
-      <v-layer ref="charShadowTopLayer">
         <v-image
           v-if="charShadowTopCanvas"
           :config="charShadowTopConfig"
         />
-      </v-layer>
-
-      <!-- Слой 3b: персонаж НАД рамкой -->
-      <v-layer ref="charTopLayer">
         <v-image
           v-if="store.hasChar"
           :config="charTopConfig"
         />
       </v-layer>
 
-      <!-- Слой 4: оверлей режимов отображения -->
+      <!-- Оверлей режимов отображения (Маска/Скрытое) — отдельный слой,
+           чтобы не перерисовывать сцену при переключении режимов -->
       <v-layer ref="overlayLayer">
         <v-image
           v-if="overlayCanvas && (store.showMaskOverlay || store.showHidden)"

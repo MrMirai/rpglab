@@ -2,6 +2,12 @@
 // Маска = прозрачные пиксели, недостижимые снаружи (внутри рамки).
 // Замкнутые области между щупальцами тоже считаются внутренними.
 
+// Кеш масок по картинке рамки: flood fill + getImageData + dilate — дорогие,
+// а generateMask дёргается на каждый кадр перерисовки (кисть, движение персонажа,
+// превью-окно, экспорт). Ключ — сам объект картинки (WeakMap: при замене рамки
+// старая запись уходит вместе с картинкой в GC), внутри — Map по размеру.
+const maskCache = new WeakMap()
+
 export function useAutoMask() {
   function floodFill(data, size, startX, startY, alphaThreshold = 30) {
     const visited = new Uint8Array(size * size)
@@ -38,6 +44,9 @@ export function useAutoMask() {
   }
 
   function generateMask(frameImg, size = 500) {
+    let bySize = maskCache.get(frameImg)
+    if (bySize?.has(size)) return bySize.get(size)
+
     const tmp = document.createElement('canvas')
     tmp.width = size; tmp.height = size
     const tc = tmp.getContext('2d')
@@ -93,6 +102,11 @@ export function useAutoMask() {
     }
     dc.drawImage(maskCanvas, 0, 0)  // поверх — оригинал
 
+    if (!bySize) {
+      bySize = new Map()
+      maskCache.set(frameImg, bySize)
+    }
+    bySize.set(size, dilated)
     return dilated
   }
 

@@ -1,6 +1,14 @@
 // Базовый HTTP-клиент с авто-refresh access-токена.
 // accessToken живёт в памяти, refreshToken — в localStorage (переживает перезагрузку).
 
+// Бэк теперь сам настраивает CORS (разрешённый origin — см. API.md), поэтому
+// дев-прокси Vite (/api → localhost:8080) больше не нужен — ходим напрямую.
+const API_BASE_URL = 'http://localhost:8080'
+
+function resolveUrl(path) {
+  return path.startsWith('/api/') ? `${API_BASE_URL}${path}` : path
+}
+
 let accessToken = null
 
 export function setAccessToken(token) {
@@ -46,7 +54,7 @@ async function refreshAccessToken() {
   const refresh = getRefreshToken()
   if (!refresh) throw new Error('No refresh token')
 
-  const res = await fetch('/api/auth/refresh', {
+  const res = await fetch(resolveUrl('/api/auth/refresh'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refreshToken: refresh }),
@@ -79,7 +87,7 @@ export async function apiFetch(path, options = {}, attempt = 0) {
     headers['Authorization'] = `Bearer ${accessToken}`
   }
 
-  let res = await fetch(path, { ...options, headers })
+  let res = await fetch(resolveUrl(path), { ...options, headers })
 
   // 401 — пробуем обновить токен и повторить запрос
   if (res.status === 401 && getRefreshToken()) {
@@ -94,7 +102,7 @@ export async function apiFetch(path, options = {}, attempt = 0) {
     try {
       const newToken = await refreshAccessToken()
       // Повторяем исходный запрос с новым токеном
-      res = await fetch(path, {
+      res = await fetch(resolveUrl(path), {
         ...options,
         headers: { ...headers, Authorization: `Bearer ${newToken}` },
       })

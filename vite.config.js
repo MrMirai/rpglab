@@ -6,22 +6,17 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [
-    vue(),
-    vueDevTools(),
-  ],
+  plugins: [vue(), vueDevTools()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  // Дев-прокси на /api больше не нужен — бэк сам настроил CORS для
+  // http://localhost:5176 (см. API.md), фронт ходит напрямую через
+  // API_BASE_URL в shared/composables/useApi.js.
   server: {
-    proxy: {
-      // Прокси на бэкенд в dev — обходит CORS, запросы к /api идут на localhost:8080
-      '/api': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
-      },
-    },
+    port: 5176,
+    strictPort: true,
   },
 })

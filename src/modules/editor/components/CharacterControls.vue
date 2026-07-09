@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useEditorStore } from '../store'
-import SliderControl from './SliderControl.vue'
+import SliderControl from '@/shared/components/SliderControl.vue'
 
 const store = useEditorStore()
 const scalePercent = computed(() => Math.round(store.charScale * 100))

@@ -113,7 +113,7 @@
 <script setup>
 import { RotateCcw } from 'lucide-vue-next'
 import { useEditorStore } from '../store'
-import SliderControl from './SliderControl.vue'
+import SliderControl from '@/shared/components/SliderControl.vue'
 import ColorButton from '@/shared/components/ColorButton.vue'
 
 const store = useEditorStore()

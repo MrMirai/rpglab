@@ -4,10 +4,15 @@ import { useAuthStore } from '@/modules/auth'
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    // Редактор — публичный, доступен без авторизации
+    // Редактор токенов — публичный, доступен без авторизации
     {
       path: '/',
       component: () => import('@/views/EditorView.vue'),
+    },
+    // Редактор раздаточных материалов (handouts) — тоже публичный
+    {
+      path: '/editor/handout',
+      component: () => import('@/views/HandoutEditorView.vue'),
     },
     // Проекты — требуют аккаунта
     {

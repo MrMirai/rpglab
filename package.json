@@ -13,6 +13,7 @@
     "format": "prettier --write --experimental-cli src/"
   },
   "dependencies": {
+    "jspdf": "^4.2.1",
     "konva": "^10.3.0",
     "lucide-vue-next": "^1.0.0",
     "pinia": "^3.0.4",

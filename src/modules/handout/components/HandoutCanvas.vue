@@ -159,16 +159,24 @@ function textTextConfig(el) {
   }
 }
 
-// IMAGE: группа с клипом (скругление + обрезка contain/cover) + картинка внутри
+// IMAGE: группа с клипом (скругление + обрезка contain/cover) + картинка внутри.
+// width/height заданы как РЕАЛЬНЫЕ атрибуты узла (не только в замыкании clipFunc) —
+// иначе Transformer не видит размер группы и живой ресайз (onElementLiveTransform)
+// не может впечь scale в width/height.
 function imageGroupConfig(el) {
-  const w = el.width, h = el.height, r = Math.min(el.cornerRadius, w / 2, h / 2)
   return {
     id: el.id,
-    ...flipBlendConfig(el, w, h),
+    ...flipBlendConfig(el, el.width, el.height),
+    width: el.width,
+    height: el.height,
     opacity: el.opacity,
     visible: el.visible,
     draggable: draggableFor(el),
-    clipFunc: (ctx) => {
+    // shape — сам узел (группа): читаем ЖИВУЮ геометрию, а не el.width/height из
+    // замыкания (при live-ресайзе мутируется узел, конфиг догоняет через Vue позже).
+    clipFunc: (ctx, shape) => {
+      const w = shape.width(), h = shape.height()
+      const r = Math.min(el.cornerRadius, w / 2, h / 2)
       ctx.beginPath()
       if (r > 0) {
         ctx.moveTo(r, 0)
@@ -202,28 +210,39 @@ function imageCssFilter(el) {
 function imageInnerConfig(el) {
   const img = imageFor(el.url)
   if (!img) return null
-  const w = el.width, h = el.height
   const iw = img.width, ih = img.height
   const filter = imageCssFilter(el)
 
-  // Геометрия отрисовки по режиму fit (dx,dy,dw,dh + опциональный crop источника)
-  let draw
-  if (el.fit === 'contain') {
-    const s = Math.min(w / iw, h / ih)
-    draw = { dx: (w - iw * s) / 2, dy: (h - ih * s) / 2, dw: iw * s, dh: ih * s, crop: null }
-  } else if (el.fit === 'cover') {
-    const s = Math.max(w / iw, h / ih)
-    const cw = w / s, ch = h / s
-    draw = { dx: 0, dy: 0, dw: w, dh: h, crop: { x: (iw - cw) / 2, y: (ih - ch) / 2, w: cw, h: ch } }
-  } else {
-    draw = { dx: 0, dy: 0, dw: w, dh: h, crop: null } // fill
-  }
-
   // sceneFunc даёт хук на ctx.filter (Konva-конфиг image такого не умеет).
   // Тень/hitFunc не задаём — картинка внутри клип-группы, клики ловит хит-rect группы.
+  // Геометрию (w/h) и режим fit пересчитываем ВНУТРИ sceneFunc от ЖИВОГО размера
+  // родителя-группы — при ресайзе мутируется группа (onElementLiveTransform), и
+  // картинка перекладывается по contain/cover в этом же кадре, без растяжения
+  // (собственные width/height v-image через Vue могут ещё не обновиться).
   return {
+    name: 'img-inner',
     listening: false,
-    sceneFunc: (ctx) => {
+    // Собственные width/height — чтобы у sceneFunc-шейпа был ненулевой getSelfRect
+    // (иначе Transformer не измерит его в getClientRect группы). Живой ресайз
+    // мутирует их синхронно (onElementLiveTransform), поэтому geometry sceneFunc
+    // берёт с САМОГО шейпа (shape.width()/height()), а не с родителя.
+    width: el.width,
+    height: el.height,
+    sceneFunc: (ctx, shape) => {
+      const w = shape.width(), h = shape.height()
+
+      let draw
+      if (el.fit === 'contain') {
+        const s = Math.min(w / iw, h / ih)
+        draw = { dx: (w - iw * s) / 2, dy: (h - ih * s) / 2, dw: iw * s, dh: ih * s, crop: null }
+      } else if (el.fit === 'cover') {
+        const s = Math.max(w / iw, h / ih)
+        const cw = w / s, ch = h / s
+        draw = { dx: 0, dy: 0, dw: w, dh: h, crop: { x: (iw - cw) / 2, y: (ih - ch) / 2, w: cw, h: ch } }
+      } else {
+        draw = { dx: 0, dy: 0, dw: w, dh: h, crop: null } // fill
+      }
+
       ctx.save()
       if (filter !== 'none') ctx.filter = filter
       if (draw.crop) {
@@ -306,6 +325,13 @@ const gridH = computed(() => {
 const transformerConfig = {
   rotateEnabled: true,
   keepRatio: false,
+  // Не переворачиваем элемент перетаскиванием ручки за противоположную сторону:
+  // Konva иначе даёт отрицательный scale, а decompose трактует горизонтальный
+  // флип как «поворот 180° + вертикальный флип» (неоднозначность знака
+  // детерминанта) — рамка глючила и переворачивалась не по той оси. Отражение —
+  // только кнопками H/V в тулбаре (store.flipElement). flipEnabled:false
+  // клампит ресайз у границы вместо зеркалирования.
+  flipEnabled: false,
   ignoreStroke: true,
   borderStroke: '#c4954a',
   anchorStroke: '#c4954a',
@@ -317,11 +343,25 @@ const transformerConfig = {
     Math.abs(newBox.width) < 8 || Math.abs(newBox.height) < 8 ? oldBox : newBox,
 }
 
+const ALL_ANCHORS = [
+  'top-left', 'top-center', 'top-right',
+  'middle-left', 'middle-right',
+  'bottom-left', 'bottom-center', 'bottom-right',
+]
+// У текста высота авто (перетекает) — вертикальный ресайз бессмыслен,
+// оставляем только горизонтальные ручки.
+const TEXT_ANCHORS = ['middle-left', 'middle-right']
+
 function updateTransformer() {
   const tr = transformerRef.value?.getNode()
   const stage = stageRef.value?.getStage()
   if (!tr || !stage) return
-  tr.nodes(getTransformerNodes(store.selectedIds, stage, store.elements))
+  const nodes = getTransformerNodes(store.selectedIds, stage, store.elements)
+  tr.nodes(nodes)
+  const onlyText =
+    nodes.length > 0 &&
+    nodes.every((n) => store.elements.find((e) => e.id === n.id())?.type === 'TEXT')
+  tr.enabledAnchors(onlyText ? TEXT_ANCHORS : ALL_ANCHORS)
   tr.getLayer()?.batchDraw()
 }
 
@@ -358,84 +398,130 @@ function onElementDragEnd(e) {
   store.updateElement(el.id, nodeToTopLeft(node, el))
 }
 
+// Живой ресайз: Konva эмитит 'transform' на узле СИНХРОННО каждый кадр жеста —
+// до того как Vue узнаёт об изменении. Тут же конвертируем scaleX/scaleY в
+// реальные width/height ПРЯМО на Konva-узле (минуя store) и сбрасываем scale в
+// 1 — Konva перерисовывает узел с новой геометрией в ТОМ ЖЕ кадре, поэтому нет
+// растяжения (к отрисовке scale всегда 1) и рамка Transformer совпадает с узлом
+// (нет дёрганья: узел и рамка согласованы синхронно, без гонки с Vue-реактивностью).
+// Официальный приём Konva («Resize Text» в доках). store обновляется ТОЛЬКО на
+// transformend (см. onTransformEnd). Событие 'transform' Transformer эмитит через
+// _fire на СЕБЕ (без всплытия к слою), поэтому подписка на transformerRef, а не на
+// elementsLayer; e.target — конкретный изменяемый узел (по узлу на мультивыделении).
+function onElementLiveTransform(e) {
+  const node = e.target
+  const el = store.elements.find((x) => x.id === node.id())
+  if (!el) return
+
+  // Размер берём по модулю scale. Знак scale = ЖИВОЙ знак от Konva: если тянуть
+  // ручку за противоположную сторону, Konva сам делает scale отрицательным
+  // (переворот) — сохраняем этот знак на узле (НЕ навязываем сохранённый флаг),
+  // иначе рамка/позиция глючат при пересечении. Флаг el.flipX/flipY доводится в
+  // стор только на transformend (по финальному знаку узла).
+  const sgnX = node.scaleX() < 0 ? -1 : 1
+  const sgnY = node.scaleY() < 0 ? -1 : 1
+  const sx = Math.abs(node.scaleX())
+  const sy = Math.abs(node.scaleY())
+
+  if (el.type === 'TEXT') {
+    // Активны только горизонтальные ручки (TEXT_ANCHORS) — scaleY всегда 1,
+    // высота авто (текст перетекает по ширине).
+    const newWidth = Math.max(30, node.width() * sx)
+    node.getText().width(newWidth) // Konva.Label: прямой доступ к Text-child
+    node.width(newWidth)
+    node.scaleX(sgnX)
+    node.scaleY(sgnY)
+    // Tag-фон Label подгоняется под Text автоматически (встроено в Konva.Label)
+  } else if (el.type === 'IMAGE') {
+    // Группа сама по себе НЕ имеет измеряемого размера: её getClientRect (по нему
+    // Transformer считает жест) = объединение clientRect'ов ДЕТЕЙ. Поэтому мало
+    // впечь scale в width/height группы — надо синхронно догнать РАЗМЕРЫ ДЕТЕЙ
+    // (картинка img-inner + хит-rect img-hit), иначе бокс группы (по стейл-детям)
+    // разъезжается с реальным жестом → картинку раздувает/уносит.
+    const newW = Math.max(20, node.width() * sx)
+    const newH = Math.max(20, node.height() * sy)
+    node.setAttrs({ width: newW, height: newH, scaleX: sgnX, scaleY: sgnY })
+    // clipFunc читает живой размер группы (shape.width()/height()), sceneFunc —
+    // свой (img-inner ниже), перекладывая картинку по fit в этом же кадре.
+    const inner = node.findOne('.img-inner')
+    if (inner) inner.setAttrs({ width: newW, height: newH })
+    const hit = node.findOne('.img-hit')
+    if (hit) hit.setAttrs({ width: newW, height: newH })
+  } else if (el.type === 'SHAPE' && el.shapeType === 'ellipse') {
+    node.setAttrs({
+      radiusX: Math.max(4, node.radiusX() * sx),
+      radiusY: Math.max(4, node.radiusY() * sy),
+      scaleX: sgnX,
+      scaleY: sgnY,
+    })
+  } else if (el.type === 'SHAPE') {
+    node.setAttrs({
+      width: Math.max(8, node.width() * sx),
+      height: Math.max(8, node.height() * sy),
+      scaleX: sgnX,
+      scaleY: sgnY,
+    })
+  }
+
+  node.getLayer()?.batchDraw()
+}
+
 function onTransformStart() {
   history.record(store)
 }
 
-// Итоговая геометрия узла из ЖИВОГО scale: scale «впечён» в width/height, знак
-// flip отделён (живёт во флаге el.flipX/flipY). Читаем текущий scale узла ×
-// текущий размер (у текста — ширина внутреннего Text, у остального — el.width из
-// стора, т.к. Konva.Group своего width не имеет). Ничего не мутирует.
-function readNodeGeometry(node, el) {
-  const sx = Math.abs(node.scaleX())
-  const sy = Math.abs(node.scaleY())
-  const rotation = Math.round(node.rotation() * 10) / 10
-
-  if (el.type === 'SHAPE' && el.shapeType === 'ellipse') {
-    const newW = Math.max(8, Math.round(el.width * sx))
-    const newH = Math.max(8, Math.round(el.height * sy))
-    return { width: newW, height: newH, x: Math.round(node.x() - newW / 2), y: Math.round(node.y() - newH / 2), rotation }
-  }
-
-  if (el.type === 'TEXT') {
-    // Ширину читаем с внутреннего Text-узла (он и есть носитель размера при
-    // перетекании), а не с базы — живой onTransform накапливает её через node.
-    const inner = node.getText?.()
-    const curW = inner ? inner.width() : el.width
-    const newW = Math.max(30, Math.round(curW * sx))
-    const x = Math.round(node.x() - (el.flipX ? newW : 0))
-    const y = Math.round(node.y() - (el.flipY ? el.height : 0))
-    return { width: newW, height: el.height, x, y, rotation }
-  }
-
-  // image/rect: scale читаем на transformend и впекаем в el.width/height (во
-  // время жеста scale живёт на узле — Konva масштабирует картинку/прямоугольник
-  // равномерно, без «плохой» деформации, поэтому live-нормализация не нужна).
-  const newW = Math.max(8, Math.round(el.width * sx))
-  const newH = Math.max(8, Math.round(el.height * sy))
-  const x = Math.round(node.x() - (el.flipX ? newW : 0))
-  const y = Math.round(node.y() - (el.flipY ? newH : 0))
-  return { width: newW, height: newH, x, y, rotation }
-}
-
-// Живой transform: ТОЛЬКО для текста «сплющиваем» scale в ширину Text-узла, чтобы
-// буквы не растягивались, а текст перетекал. Механика Transformer инкрементальная
-// (каждый кадр строит рамку из текущих attrs узла), поэтому сброс scale→1 с
-// переносом в width корректно накапливает размер. Для image/rect/ellipse не
-// вмешиваемся — Konva сам рисует scale, деформации нет.
-function onTransform() {
-  const tr = transformerRef.value?.getNode()
-  tr?.nodes().forEach((node) => {
-    const el = store.elements.find((x) => x.id === node.id())
-    if (el?.type !== 'TEXT') return
-    const inner = node.getText?.()
-    if (!inner) return
-    const sx = Math.abs(node.scaleX())
-    // scaleY у текста игнорируем (высота авто) — сбрасываем, чтобы не тянуло по вертикали
-    node.scaleY(el.flipY ? -1 : 1)
-    if (sx === 1) return
-    const newW = Math.max(30, inner.width() * sx)
-    // Позиция left-top при flip: origin-сдвиг компенсируем по новой ширине
-    const topLeftX = node.x() - (el.flipX ? inner.width() : 0)
-    inner.width(newW)
-    node.scaleX(el.flipX ? -1 : 1)
-    node.x(topLeftX + (el.flipX ? newW : 0))
-  })
-}
-
-// Конец жеста: снимаем финальную геометрию и коммитим в стор (один раз).
-// Сбрасываем scale узла к знаку flip, чтобы конфиг из стора совпал с узлом.
+// Конец жеста: scale уже впечён в width/height покадрово (onElementLiveTransform),
+// узел имеет корректную геометрию и scale=±1. Финальный ЗНАК scale = актуальный
+// флаг flip (пользователь мог перевернуть элемент, протянув ручку за
+// противоположную сторону) — фиксируем flipX/flipY по нему, а позицию узла
+// приводим к левому-верху с тем же ЗНАКОМ (не по старому el.flipX). Эллипс
+// центр-based — flip не сдвигает позицию, только пишем флаг.
 function onTransformEnd() {
   const tr = transformerRef.value?.getNode()
-  tr?.nodes().forEach((node) => {
+  if (!tr) return
+
+  tr.nodes().forEach((node) => {
     const el = store.elements.find((x) => x.id === node.id())
     if (!el) return
-    const geo = readNodeGeometry(node, el)
-    node.scaleX(el.flipX ? -1 : 1)
-    node.scaleY(el.flipY ? -1 : 1)
-    store.updateElement(el.id, geo)
+    const rotation = Math.round(node.rotation() * 10) / 10
+    const flipX = node.scaleX() < 0
+    const flipY = node.scaleY() < 0
+    let updates = { rotation, flipX, flipY }
+
+    if (el.type === 'SHAPE' && el.shapeType === 'ellipse') {
+      // центр-based: node.x()/y() = центр bbox (flip вокруг центра, без сдвига)
+      const w = Math.max(8, Math.round(node.radiusX() * 2))
+      const h = Math.max(8, Math.round(node.radiusY() * 2))
+      updates = { ...updates, width: w, height: h, x: Math.round(node.x() - w / 2), y: Math.round(node.y() - h / 2) }
+    } else if (el.type === 'TEXT') {
+      const w = Math.round(node.width())
+      updates = {
+        ...updates,
+        width: w,
+        x: Math.round(node.x() - (flipX ? w : 0)),
+        y: Math.round(node.y() - (flipY ? el.height : 0)),
+      }
+    } else {
+      const w = Math.round(node.width())
+      const h = Math.round(node.height())
+      updates = {
+        ...updates,
+        width: w,
+        height: h,
+        x: Math.round(node.x() - (flipX ? w : 0)),
+        y: Math.round(node.y() - (flipY ? h : 0)),
+      }
+    }
+
+    store.updateElement(el.id, updates)
   })
-  tr?.forceUpdate()
+
+  // Рамку обновляем ПОСЛЕ того, как Vue применит финальные конфиги к узлам
+  // (микротаск) — иначе строится по старой геометрии и «уезжает» до клика.
+  nextTick(() => {
+    tr.forceUpdate()
+    tr.getLayer()?.batchDraw()
+  })
 }
 
 // --- Клики по стейджу: выделение ---
@@ -600,12 +686,13 @@ onMounted(() => {
   // Delegation вместо индивидуальных @dragstart/@dragend/@transformstart/
   // @transformend на каждом узле в шаблоне — заодно убирает Vue-варнинг
   // "Extraneous non-emits event listeners" на v-group/v-label (компоненты
-  // vue-konva, рендерящие несколько детей во фрагмент). Konva.Node#fire для
-  // drag — обычное всплытие (bubbling) от потомка к родителю, поэтому 'dragstart'/
-  // 'dragend' ловятся подпиской на elementsLayer. А вот Transformer эмитит
-  // 'transformstart'/'transformend' через _fire (БЕЗ bubbling) на себе самом
-  // (см. konva/lib/shapes/Transformer.js) — их нужно ловить на самом
-  // transformerRef, не на слое.
+  // vue-konva, рендерящие несколько детей во фрагмент). ВАЖНО про всплытие:
+  // drag-события (dragstart/dragend) идут через fire(..., true) с bubbling —
+  // ловятся на elementsLayer. А Transformer эмитит 'transform'/'transformstart'/
+  // 'transformend' через _fire (БЕЗ bubbling) на СЕБЕ (см. Transformer.js:
+  // this._fire('transform', { target: node })) — до слоя они НЕ доходят, поэтому
+  // все три ловим на самом transformerRef; в 'transform' e.target — конкретный
+  // изменяемый узел (при мультивыделении событие эмитится по узлу на каждый).
   const elementsLayer = elementsLayerRef.value?.getNode()
   if (elementsLayer) {
     elementsLayer.on('dragstart', onElementDragStart)
@@ -614,7 +701,7 @@ onMounted(() => {
   const transformerNode = transformerRef.value?.getNode()
   if (transformerNode) {
     transformerNode.on('transformstart', onTransformStart)
-    transformerNode.on('transform', onTransform)
+    transformerNode.on('transform', onElementLiveTransform)
     transformerNode.on('transformend', onTransformEnd)
   }
 
@@ -702,8 +789,10 @@ watch(() => store.activeTool, (tool) => {
           >
             <v-image v-if="imageInnerConfig(el)" :config="imageInnerConfig(el)" />
             <v-rect v-else :config="imagePlaceholderConfig(el)" />
-            <!-- Прозрачный хит-рект: группа без него не ловит клики по пустым местам -->
-            <v-rect :config="{ x: 0, y: 0, width: el.width, height: el.height, fill: 'rgba(0,0,0,0.001)' }" />
+            <!-- Прозрачный хит-рект: группа без него не ловит клики по пустым местам.
+                 name='img-hit' — живой ресайз синхронно тянет его размер (см.
+                 onElementLiveTransform), чтобы getClientRect группы совпадал с жестом. -->
+            <v-rect :config="{ name: 'img-hit', x: 0, y: 0, width: el.width, height: el.height, fill: 'rgba(0,0,0,0.001)' }" />
           </v-group>
 
           <!-- SHAPE -->

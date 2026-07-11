@@ -30,9 +30,9 @@ async function doExport(format) {
   error.value = ''
   try {
     const name = filename.value.trim() || 'handout'
-    if (format === 'png') exportPng(stage, uiLayer, store.document, dpi.value, name)
-    else if (format === 'webp') exportWebp(stage, uiLayer, store.document, dpi.value, name)
-    else if (format === 'pdf') await exportPdf(stage, uiLayer, store.document, dpi.value, name)
+    if (format === 'png') await exportPng(stage, uiLayer, store.document, dpi.value, name, store.elements)
+    else if (format === 'webp') await exportWebp(stage, uiLayer, store.document, dpi.value, name, store.elements)
+    else if (format === 'pdf') await exportPdf(stage, uiLayer, store.document, dpi.value, name, store.elements)
   } catch (e) {
     error.value = e.message || 'Не удалось экспортировать'
   } finally {

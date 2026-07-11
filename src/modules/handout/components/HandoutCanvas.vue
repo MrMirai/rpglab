@@ -86,13 +86,15 @@ const docBorderConfig = computed(() => ({
   listening: false,
 }))
 
+// Непрозрачный фон только для type==='color' — для 'texture' НЕ красим area
+// сплошным цветом: прозрачные пиксели картинки должны остаться прозрачными
+// (и на экране, и при экспорте в PNG/WebP), а не запекаться в белый.
 const bgRectConfig = computed(() => ({
   x: 0, y: 0,
   width: store.document.width,
   height: store.document.height,
-  fill: store.document.background.type === 'color'
-    ? store.document.background.color
-    : '#ffffff',
+  fill: store.document.background.color,
+  listening: false,
 }))
 
 const bgTextureConfig = computed(() => {
@@ -105,6 +107,7 @@ const bgTextureConfig = computed(() => {
     width: store.document.width,
     height: store.document.height,
     image: img,
+    listening: false,
   }
 })
 
@@ -371,6 +374,20 @@ watch(
   { deep: true },
 )
 
+// Свойства картинки, влияющие ТОЛЬКО на sceneFunc (fit + цветокоррекция), не
+// меняют ни один Konva-attr узла — vue-konva видит лишь новую ссылку sceneFunc и
+// не всегда перерисовывает слой сам. Подписываемся на их сигнатуру и форсим
+// batchDraw слоя элементов, чтобы смена «Вписать/Заполнить/Растянуть» и фильтры
+// отражались на холсте сразу.
+watch(
+  () =>
+    store.elements
+      .filter((e) => e.type === 'IMAGE')
+      .map((e) => `${e.id}:${e.fit}:${e.hue}:${e.saturation}:${e.brightness}:${e.contrast}`)
+      .join('|'),
+  () => nextTick(() => elementsLayerRef.value?.getNode()?.batchDraw()),
+)
+
 // --- Drag / Transform элементов ---
 function onElementDragStart() {
   history.record(store)
@@ -617,6 +634,7 @@ function onZoomSlider(val) {
 }
 
 let ro = null
+let onFontsLoadingDone = null
 
 onMounted(() => {
   ro = new ResizeObserver((entries) => {
@@ -630,6 +648,14 @@ onMounted(() => {
   containerW.value = containerRef.value.offsetWidth
   containerH.value = containerRef.value.offsetHeight
   centerView()
+
+  // Самохостed шрифты (Caveat/Marck Script/Neucha/PT Mono/Cousine/Overpass Mono)
+  // грузятся браузером асинхронно при первом обращении. Konva рисует текст
+  // синхронно текущим (фолбэк) шрифтом и САМ не перерисует холст, когда файл
+  // догрузится — 'loadingdone' на document.fonts форсит один redraw на весь
+  // документ сразу, как только шрифты готовы (без per-элементного отслеживания).
+  onFontsLoadingDone = () => elementsLayerRef.value?.getNode()?.batchDraw()
+  document.fonts?.addEventListener('loadingdone', onFontsLoadingDone)
 
   bridge.setHandlers({
     getStageForExport: () => ({
@@ -741,6 +767,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   ro?.disconnect()
+  if (onFontsLoadingDone) document.fonts?.removeEventListener('loadingdone', onFontsLoadingDone)
 })
 
 // Смена инструмента — курсор
@@ -757,11 +784,18 @@ watch(() => store.activeTool, (tool) => {
       @click="onStageClick"
       @dblclick="onStageDblClick"
     >
-      <!-- Слой 1: фон документа -->
+      <!-- Слой 1: фон документа. Для type==='texture' НЕ красим area сплошным
+           цветом (см. bgRectConfig) — прозрачные пиксели картинки остаются
+           прозрачными пикселями Konva-канваса и просвечивают DOM-фон
+           .handout-canvas ПОД стейджем (та же шахматка, что и снаружи документа,
+           см. стили ниже) — никакой второй шахматки рисовать не нужно, и она не
+           может разъехаться по масштабу с внешней, т.к. это один и тот же DOM-фон.
+           Так же и в экспортированном PNG/WebP — настоящая альфа, а не
+           запечённый цвет/узор. -->
       <v-layer>
-        <v-rect v-if="store.document.background.type !== 'none'" :config="bgRectConfig" />
+        <v-rect v-if="store.document.background.type === 'color'" :config="bgRectConfig" />
         <v-rect
-          v-else
+          v-else-if="store.document.background.type === 'none'"
           :config="{ ...bgRectConfig, fill: 'rgba(255,255,255,0.03)' }"
         />
         <v-image v-if="bgTextureConfig" :config="bgTextureConfig" />

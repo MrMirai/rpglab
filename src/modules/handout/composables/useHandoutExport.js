@@ -3,6 +3,23 @@
 
 const BASE_DPI = 96
 
+// Самохостed шрифты (Caveat/Marck Script/Neucha/PT Mono/Cousine/Overpass Mono,
+// см. shared/assets/styles/_fonts.scss) грузятся браузером ЛЕНИВО — только когда
+// какой-то узел реально запрашивает их. К моменту экспорта файл может быть ещё
+// не догружен, и toDataURL синхронно нарисует текст фолбэк-шрифтом БЕЗ ошибки
+// (в отличие от <img>, canvas не ждёт шрифт сам). document.fonts.ready ждёт
+// только уже запрошенные шрифты — на случай, если элемент с кастомным шрифтом
+// ещё ни разу не отрисовывался (сразу после смены fontFamily), явно просим
+// браузер загрузить его перед экспортом через document.fonts.load.
+async function ensureFontsLoaded(elements) {
+  if (!document.fonts) return
+  const families = new Set(elements.filter((e) => e.type === 'TEXT').map((e) => e.fontFamily))
+  await Promise.all(
+    [...families].map((f) => document.fonts.load(`16px "${f}"`).catch(() => {})),
+  )
+  await document.fonts.ready
+}
+
 export function useHandoutExport() {
   // Снимок области документа (0,0..w,h) без ui-слоя и без текущего pan/zoom:
   // временно сбрасываем трансформ стейджа, делаем toDataURL, возвращаем всё назад.
@@ -42,19 +59,22 @@ export function useHandoutExport() {
     a.click()
   }
 
-  function exportPng(stage, uiLayer, doc, dpi, filename = 'handout') {
+  async function exportPng(stage, uiLayer, doc, dpi, filename = 'handout', elements = []) {
+    await ensureFontsLoaded(elements)
     const url = captureDataUrl(stage, uiLayer, doc, dpi, 'image/png')
     download(url, `${filename}.png`)
   }
 
-  function exportWebp(stage, uiLayer, doc, dpi, filename = 'handout') {
+  async function exportWebp(stage, uiLayer, doc, dpi, filename = 'handout', elements = []) {
+    await ensureFontsLoaded(elements)
     const url = captureDataUrl(stage, uiLayer, doc, dpi, 'image/webp')
     download(url, `${filename}.webp`)
   }
 
   // PDF: PNG-снимок вставляется картинкой в страницу физического размера
   // документа (мм из px при 96dpi). jspdf грузим лениво — он нужен редко.
-  async function exportPdf(stage, uiLayer, doc, dpi, filename = 'handout') {
+  async function exportPdf(stage, uiLayer, doc, dpi, filename = 'handout', elements = []) {
+    await ensureFontsLoaded(elements)
     const { jsPDF } = await import('jspdf')
     const mmW = (doc.width / BASE_DPI) * 25.4
     const mmH = (doc.height / BASE_DPI) * 25.4

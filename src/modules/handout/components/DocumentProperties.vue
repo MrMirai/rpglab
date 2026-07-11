@@ -37,12 +37,36 @@ function setBgType(type) {
   store.setBackground({ type })
 }
 
-function onTextureFile(e) {
+// Размер документа подгоняется под натуральный пиксельный размер загруженной
+// картинки — иначе текстура растягивается/обрезается под текущий (обычно
+// A4) размер, что почти всегда не то, что нужно. Ждём decode картинки, чтобы
+// узнать naturalWidth/Height (Image.onload может сработать до полного decode
+// в некоторых браузерах — img.decode() надёжнее). Тот же clamp [50,4000], что
+// и у ручного ввода размера (setCustomSize) — не даём документу выйти за
+// разумные пределы холста/экспорта.
+async function onTextureFile(e) {
   const file = e.target.files[0]
   e.target.value = ''
   if (!file) return
+  const url = URL.createObjectURL(file)
+  const img = new Image()
+  img.src = url
+  try {
+    await img.decode()
+  } catch {
+    // decode() может упасть на битом файле — грузим текстуру как есть,
+    // без автоподгона размера, чем ломать загрузку целиком
+  }
   history.record(store)
-  store.setBackground({ type: 'texture', textureUrl: URL.createObjectURL(file) })
+  const patch = { type: 'texture', textureUrl: url }
+  if (img.naturalWidth && img.naturalHeight) {
+    store.setDocument({
+      sizePreset: 'custom',
+      width: Math.max(50, Math.min(4000, img.naturalWidth)),
+      height: Math.max(50, Math.min(4000, img.naturalHeight)),
+    })
+  }
+  store.setBackground(patch)
 }
 
 function removeTexture() {

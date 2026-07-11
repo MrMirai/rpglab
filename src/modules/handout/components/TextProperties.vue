@@ -21,17 +21,22 @@ const history = useHandoutHistory()
 
 const sections = ref({ font: true, color: true, spacing: true })
 
-// Web-safe шрифты + пара тематических generic-стеков
-const FONT_FAMILIES = [
-  'Georgia',
-  'Times New Roman',
-  'Palatino Linotype',
-  'Garamond',
-  'Arial',
-  'Verdana',
-  'Trebuchet MS',
-  'Courier New',
-  'Impact',
+// Web-safe шрифты + самохостed woff2 с поддержкой кириллицы (см.
+// shared/assets/styles/_fonts.scss) — печатная машинка и рукописные, для
+// тематического оформления раздаток (письма, записки, старые документы).
+const FONT_GROUPS = [
+  {
+    label: 'Обычные',
+    fonts: ['Georgia', 'Times New Roman', 'Palatino Linotype', 'Garamond', 'Arial', 'Verdana', 'Trebuchet MS', 'Courier New', 'Impact'],
+  },
+  {
+    label: 'Печатная машинка',
+    fonts: ['PT Mono', 'Cousine', 'Overpass Mono'],
+  },
+  {
+    label: 'Рукописные',
+    fonts: ['Caveat', 'Marck Script', 'Neucha'],
+  },
 ]
 
 function update(propsPatch, key = null) {
@@ -75,9 +80,11 @@ const aligns = [
           :value="element.fontFamily"
           @change="update({ fontFamily: $event.target.value })"
         >
-          <option v-for="f in FONT_FAMILIES" :key="f" :value="f" :style="{ fontFamily: f }">
-            {{ f }}
-          </option>
+          <optgroup v-for="group in FONT_GROUPS" :key="group.label" :label="group.label">
+            <option v-for="f in group.fonts" :key="f" :value="f" :style="{ fontFamily: f }">
+              {{ f }}
+            </option>
+          </optgroup>
         </select>
 
         <div class="font-row">

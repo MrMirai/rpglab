@@ -1,5 +1,6 @@
 <script setup>
 import AppLayout from '@/shared/components/layout/AppLayout.vue'
+import EditorSwitcher from '@/shared/components/layout/EditorSwitcher.vue'
 import {
   EditorCanvas,
   EditorToolbar,
@@ -16,6 +17,9 @@ const auth = useAuthStore()
 
 <template>
   <AppLayout :is-authenticated="auth.isAuthenticated">
+    <template #header-logo>
+      <EditorSwitcher />
+    </template>
     <template #header-toolbar>
       <EditorToolbar />
     </template>

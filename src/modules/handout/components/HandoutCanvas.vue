@@ -4,6 +4,7 @@ import { useHandoutStore } from '../store'
 import { useHandoutHistory } from '../composables/useHandoutHistory'
 import { useHandoutSelection } from '../composables/useHandoutSelection'
 import { useHandoutBridge } from '../composables/useHandoutBridge'
+import { inkGrainFilter, inkSeedFromId } from '../composables/useInkEffect'
 import { blendModeToOp } from '../store'
 import ZoomNavigator from '@/shared/components/ZoomNavigator.vue'
 import HandoutHotkeyHelp from './HandoutHotkeyHelp.vue'
@@ -114,6 +115,15 @@ const bgTextureConfig = computed(() => {
 // --- Конфиги элементов ---
 const draggableFor = (el) => !el.locked && store.activeTool === 'select'
 
+// Эффективный режим наложения: «вписанность» (inkStrength) при обычном режиме
+// автоматически переводит элемент в multiply — краска затемняет бумагу и её
+// фактура просвечивает сквозь элемент (главное слагаемое эффекта, см.
+// useInkEffect). Явно выбранный не-normal режим уважаем — не перебиваем.
+function effectiveBlendOp(el) {
+  if ((el.inkStrength ?? 0) > 0 && el.blendMode === 'normal') return 'multiply'
+  return blendModeToOp(el.blendMode)
+}
+
 // Отражение + режим наложения — общие для прямоугольных типов (rect/image/text).
 // Узел позиционируется ЛЕВЫМ-ВЕРХОМ (как el.x/el.y и как ждёт Konva Transformer —
 // поэтому поворот/ресайз не кривят). flip = scaleX/scaleY = -1: Konva отражает
@@ -127,7 +137,7 @@ function flipBlendConfig(el, bboxW, bboxH) {
     scaleX: el.flipX ? -1 : 1,
     scaleY: el.flipY ? -1 : 1,
     rotation: el.rotation,
-    globalCompositeOperation: blendModeToOp(el.blendMode),
+    globalCompositeOperation: effectiveBlendOp(el),
   }
 }
 
@@ -297,7 +307,7 @@ function ellipseConfig(el) {
     scaleX: el.flipX ? -1 : 1,
     scaleY: el.flipY ? -1 : 1,
     rotation: el.rotation,
-    globalCompositeOperation: blendModeToOp(el.blendMode),
+    globalCompositeOperation: effectiveBlendOp(el),
     fill: el.fill === 'none' ? undefined : el.fill,
     stroke: el.strokeWidth > 0 ? el.stroke : undefined,
     strokeWidth: el.strokeWidth,
@@ -386,6 +396,60 @@ watch(
       .map((e) => `${e.id}:${e.fit}:${e.hue}:${e.saturation}:${e.brightness}:${e.contrast}`)
       .join('|'),
   () => nextTick(() => elementsLayerRef.value?.getNode()?.batchDraw()),
+)
+
+// --- Эффект «вписанности» в бумагу (inkStrength, см. useInkEffect) ---
+// Konva-фильтры (зерно + растекание) работают только на закешированном узле —
+// кеш надо пересобирать руками при каждом изменении внешности элемента.
+
+// pixelRatio кеша: подгоняем под зум ступенями 0.5, иначе при увеличении
+// закешированный текст мылится (битмап растягивается), а плавный зум
+// перекешировал бы на каждый кадр. Потолок 3 — хватает и на 300dpi экспорт.
+const inkCacheRatio = computed(() => Math.min(3, Math.max(1, Math.round(viewZoom.value * 2) / 2)))
+
+// Пересобирает кеши/фильтры всех «вписанных» элементов (и снимает с остальных).
+// ratioOverride — для экспорта: перед снимком кеш пересобирается под экспортный
+// pixelRatio, после — обратно под экранный (см. useHandoutExport).
+function syncInkCaches(ratioOverride = null) {
+  const stage = stageRef.value?.getStage()
+  if (!stage) return
+  const ratio = typeof ratioOverride === 'number' ? ratioOverride : inkCacheRatio.value
+  for (const el of store.elements) {
+    const node = stage.findOne('#' + el.id)
+    if (!node) continue
+    const strength = (el.inkStrength ?? 0) / 100
+    // Невидимый/редактируемый элемент не кешируем: drawScene пропускает
+    // невидимые узлы и кеш получился бы пустым (элемент «пропал» бы навсегда).
+    const active = strength > 0 && el.visible && store.editingElementId !== el.id
+    if (active) {
+      const rect = node.getClientRect({ skipTransform: true })
+      if (rect.width < 1 || rect.height < 1) continue // пустой текст и т.п. — кешировать нечего
+      node.filters([inkGrainFilter])
+      node.setAttrs({ inkStrength: strength, inkSeed: inkSeedFromId(el.id), inkPixelRatio: ratio })
+      node.cache({ pixelRatio: ratio, offset: 2 })
+    } else if (node.isCached()) {
+      node.clearCache()
+      node.filters([])
+    }
+  }
+  elementsLayerRef.value?.getNode()?.batchDraw()
+}
+
+// Пересборка кеша при любом изменении внешности «вписанных» элементов.
+// x/y исключены из сигнатуры — перемещение не меняет локальную отрисовку
+// (кеш едет вместе с узлом). Флаг загрузки картинки (imageCache) включён:
+// IMAGE мог закешироваться плейсхолдером до того, как файл догрузился.
+watch(
+  () => [
+    store.elements
+      .filter((e) => (e.inkStrength ?? 0) > 0)
+      // eslint-disable-next-line no-unused-vars
+      .map(({ x, y, ...rest }) => JSON.stringify(rest) + (rest.url && imageCache[rest.url] ? '+img' : ''))
+      .join('|'),
+    inkCacheRatio.value,
+    store.editingElementId,
+  ],
+  () => nextTick(syncInkCaches),
 )
 
 // --- Drag / Transform элементов ---
@@ -485,6 +549,19 @@ function onElementLiveTransform(e) {
 
 function onTransformStart() {
   history.record(store)
+  // Кеш «вписанности» — битмап фиксированного размера: живая мутация
+  // width/height (onElementLiveTransform) его не перерисовывает, контент
+  // отставал бы от рамки. На время жеста снимаем кеш (элемент временно без
+  // зерна/растекания), transformend вернёт его через syncInkCaches.
+  transformerRef.value
+    ?.getNode()
+    ?.nodes()
+    .forEach((node) => {
+      if (node.isCached()) {
+        node.clearCache()
+        node.filters([])
+      }
+    })
 }
 
 // Конец жеста: scale уже впечён в width/height покадрово (onElementLiveTransform),
@@ -535,7 +612,10 @@ function onTransformEnd() {
 
   // Рамку обновляем ПОСЛЕ того, как Vue применит финальные конфиги к узлам
   // (микротаск) — иначе строится по старой геометрии и «уезжает» до клика.
+  // Кеш «вписанности» возвращаем тут же явно: watch-сигнатура не сработает,
+  // если жест не изменил геометрию (кеш снят в onTransformStart).
   nextTick(() => {
+    syncInkCaches()
     tr.forceUpdate()
     tr.getLayer()?.batchDraw()
   })
@@ -654,7 +734,12 @@ onMounted(() => {
   // синхронно текущим (фолбэк) шрифтом и САМ не перерисует холст, когда файл
   // догрузится — 'loadingdone' на document.fonts форсит один redraw на весь
   // документ сразу, как только шрифты готовы (без per-элементного отслеживания).
-  onFontsLoadingDone = () => elementsLayerRef.value?.getNode()?.batchDraw()
+  // Кеши «вписанности» пересобираем тоже: текст мог закешироваться
+  // фолбэк-шрифтом до догрузки woff2 (batchDraw кеш не перерисовывает).
+  onFontsLoadingDone = () => {
+    elementsLayerRef.value?.getNode()?.batchDraw()
+    syncInkCaches()
+  }
   document.fonts?.addEventListener('loadingdone', onFontsLoadingDone)
 
   bridge.setHandlers({
@@ -663,7 +748,12 @@ onMounted(() => {
       uiLayer: uiLayerRef.value?.getNode() ?? null,
     }),
     centerView,
+    syncInkCaches,
   })
+
+  // Элементы могли остаться в сторе с прошлого визита на страницу — watch
+  // по сигнатуре не сработает (она не изменилась), кешируем при монтировании.
+  nextTick(syncInkCaches)
 
   const el = containerRef.value
   el.setAttribute('tabindex', '0')
@@ -784,15 +874,25 @@ watch(() => store.activeTool, (tool) => {
       @click="onStageClick"
       @dblclick="onStageDblClick"
     >
-      <!-- Слой 1: фон документа. Для type==='texture' НЕ красим area сплошным
-           цветом (см. bgRectConfig) — прозрачные пиксели картинки остаются
-           прозрачными пикселями Konva-канваса и просвечивают DOM-фон
+      <!-- Слой 1: фон документа + элементы. Фон ОБЯЗАН жить в ТОМ ЖЕ слое, что
+           и элементы: Konva-слой — отдельный <canvas>, а globalCompositeOperation
+           (blendMode элемента и multiply «вписанности») смешивает только внутри
+           своего канваса — слои браузер складывает поверх друг друга обычным
+           source-over, и бленд через границу слоёв физически не работает
+           (проверено: multiply-элемент над фоном-текстурой в отдельном слое
+           рисовался как плоский source-over). Для type==='texture' НЕ красим
+           area сплошным цветом (см. bgRectConfig) — прозрачные пиксели картинки
+           остаются прозрачными пикселями Konva-канваса и просвечивают DOM-фон
            .handout-canvas ПОД стейджем (та же шахматка, что и снаружи документа,
            см. стили ниже) — никакой второй шахматки рисовать не нужно, и она не
            может разъехаться по масштабу с внешней, т.к. это один и тот же DOM-фон.
            Так же и в экспортированном PNG/WebP — настоящая альфа, а не
-           запечённый цвет/узор. -->
-      <v-layer>
+           запечённый цвет/узор.
+           Drag/transform-события элементов не биндятся на каждый узел —
+           делегированы на весь слой в onMounted (см. комментарий там), это же
+           убирает Vue-варнинг на v-group/v-label; фоновые узлы listening:false,
+           делегации не мешают. -->
+      <v-layer ref="elementsLayerRef">
         <v-rect v-if="store.document.background.type === 'color'" :config="bgRectConfig" />
         <v-rect
           v-else-if="store.document.background.type === 'none'"
@@ -800,12 +900,6 @@ watch(() => store.activeTool, (tool) => {
         />
         <v-image v-if="bgTextureConfig" :config="bgTextureConfig" />
         <v-rect :config="docBorderConfig" />
-      </v-layer>
-
-      <!-- Слой 2: элементы (порядок массива = z-order). Drag/transform-события
-           не биндятся на каждый узел — делегированы на весь слой в onMounted
-           (см. комментарий там), это же убирает Vue-варнинг на v-group/v-label. -->
-      <v-layer ref="elementsLayerRef">
         <template v-for="el in store.elements" :key="el.id">
           <!-- TEXT: Label = Tag (фон) + Text -->
           <v-label

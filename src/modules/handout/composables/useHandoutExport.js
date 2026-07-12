@@ -1,6 +1,8 @@
 // Экспорт раздатки: PNG/WebP через Konva stage.toDataURL, PDF через jspdf.
 // Документ задан в px при 96dpi, поэтому pixelRatio = dpi / 96.
 
+import { useHandoutBridge } from './useHandoutBridge'
+
 const BASE_DPI = 96
 
 // Самохостed шрифты (Caveat/Marck Script/Neucha/PT Mono/Cousine/Overpass Mono,
@@ -21,6 +23,8 @@ async function ensureFontsLoaded(elements) {
 }
 
 export function useHandoutExport() {
+  const bridge = useHandoutBridge()
+
   // Снимок области документа (0,0..w,h) без ui-слоя и без текущего pan/zoom:
   // временно сбрасываем трансформ стейджа, делаем toDataURL, возвращаем всё назад.
   function captureDataUrl(stage, uiLayer, doc, dpi, mimeType) {
@@ -34,6 +38,10 @@ export function useHandoutExport() {
     if (uiLayer) uiLayer.visible(false)
     stage.position({ x: 0, y: 0 })
     stage.scale({ x: 1, y: 1 })
+    // Кеши эффекта «вписанности» собраны под экранный зум — пересобираем под
+    // экспортный pixelRatio, иначе зерно/текст в снимке мылятся (toDataURL
+    // растянул бы экранный битмап). В finally — обратно под экран.
+    bridge.syncInkCaches(dpi / BASE_DPI)
 
     try {
       return stage.toDataURL({
@@ -48,6 +56,7 @@ export function useHandoutExport() {
       stage.position({ x: prev.x, y: prev.y })
       stage.scale({ x: prev.scaleX, y: prev.scaleY })
       if (uiLayer) uiLayer.visible(uiWasVisible)
+      bridge.syncInkCaches()
       stage.batchDraw()
     }
   }

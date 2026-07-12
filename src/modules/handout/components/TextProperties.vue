@@ -11,6 +11,7 @@ import { useHandoutHistory } from '../composables/useHandoutHistory'
 import NumberField from './NumberField.vue'
 import TransformSection from './TransformSection.vue'
 import BlendModeSelect from './BlendModeSelect.vue'
+import InkEffectSection from './InkEffectSection.vue'
 
 // Свойства выбранного текстового элемента.
 const props = defineProps({
@@ -190,6 +191,8 @@ const aligns = [
         />
       </div>
     </CollapsibleSection>
+
+    <InkEffectSection :element="element" />
 
     <BlendModeSelect :element="element" />
 

@@ -9,6 +9,7 @@ import { useHandoutStore } from '../store'
 import { useHandoutHistory } from '../composables/useHandoutHistory'
 import TransformSection from './TransformSection.vue'
 import BlendModeSelect from './BlendModeSelect.vue'
+import InkEffectSection from './InkEffectSection.vue'
 
 // Свойства выбранного изображения.
 const props = defineProps({
@@ -111,6 +112,8 @@ function resetFilters() {
         />
       </div>
     </CollapsibleSection>
+
+    <InkEffectSection :element="element" />
 
     <BlendModeSelect :element="element" />
 

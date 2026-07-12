@@ -7,6 +7,7 @@ import { useHandoutStore } from '../store'
 import { useHandoutHistory } from '../composables/useHandoutHistory'
 import TransformSection from './TransformSection.vue'
 import BlendModeSelect from './BlendModeSelect.vue'
+import InkEffectSection from './InkEffectSection.vue'
 
 // Свойства выбранной фигуры (прямоугольник / эллипс).
 const props = defineProps({
@@ -65,6 +66,8 @@ function update(patch, key = null) {
         />
       </div>
     </CollapsibleSection>
+
+    <InkEffectSection :element="element" />
 
     <BlendModeSelect :element="element" />
 

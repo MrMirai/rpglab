@@ -6,6 +6,9 @@ const handlers = {
   // Возвращает { stage, uiLayer } Konva для экспорта (uiLayer скрывается на время снимка)
   getStageForExport: null,
   centerView: null,
+  // Пересборка кешей эффекта «вписанности» (см. useInkEffect). С аргументом-
+  // числом кеширует под этот pixelRatio (экспорт), без — под экранный зум.
+  syncInkCaches: null,
 }
 
 export function useHandoutBridge() {
@@ -21,5 +24,9 @@ export function useHandoutBridge() {
     handlers.centerView?.()
   }
 
-  return { setHandlers, getStageForExport, centerView }
+  function syncInkCaches(ratio = null) {
+    handlers.syncInkCaches?.(ratio)
+  }
+
+  return { setHandlers, getStageForExport, centerView, syncInkCaches }
 }

@@ -11,6 +11,9 @@ export function generateId() {
 // Базовые поля, общие для всех элементов.
 // flipX/flipY — зеркальное отражение (Konva реализуем через scale + offset).
 // blendMode — режим наложения (globalCompositeOperation), доступен всем типам.
+// inkStrength — «вписанность» в бумагу 0..100 (см. useInkEffect): multiply +
+// зерно бумаги выедает краску + растекание краёв. У старых/загруженных
+// элементов поля может не быть — читать через `?? 0`.
 function baseDefaults() {
   return {
     x: 0,
@@ -22,6 +25,7 @@ function baseDefaults() {
     flipX: false,
     flipY: false,
     blendMode: 'normal', // см. BLEND_MODES
+    inkStrength: 0,
   }
 }
 

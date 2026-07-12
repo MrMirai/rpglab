@@ -88,7 +88,7 @@ async function loadFile(file) {
         :filled="!!store.bgImage"
         accept="image/*"
         label="Загрузить фон"
-        hint="PNG, JPG или перетащи файл"
+        hint="PNG, JPG, WebP"
         @select="loadFile"
       >
         <template #icon>

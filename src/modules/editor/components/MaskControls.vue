@@ -69,7 +69,7 @@ function runPreset(type) {
     <input
       ref="maskFileInput"
       type="file"
-      accept="image/png"
+      accept="image/png,image/webp"
       style="display: none"
       @change="onMaskFileChange"
     />

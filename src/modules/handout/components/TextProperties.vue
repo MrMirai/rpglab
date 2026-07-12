@@ -5,6 +5,7 @@ import ColorButton from '@/shared/components/ColorButton.vue'
 import BaseButton from '@/shared/components/BaseButton.vue'
 import SliderControl from '@/shared/components/SliderControl.vue'
 import CollapsibleSection from '@/shared/components/CollapsibleSection.vue'
+import SelectField from '@/shared/components/SelectField.vue'
 import { useHandoutStore } from '../store'
 import { useHandoutHistory } from '../composables/useHandoutHistory'
 import NumberField from './NumberField.vue'
@@ -24,6 +25,9 @@ const sections = ref({ font: true, color: true, spacing: true })
 // Web-safe шрифты + самохостed woff2 с поддержкой кириллицы (см.
 // shared/assets/styles/_fonts.scss) — печатная машинка и рукописные, для
 // тематического оформления раздаток (письма, записки, старые документы).
+// fonts: строка = font-family (label совпадает со значением) либо пара
+// [value, label], где value — точное имя font-family из @font-face, а label —
+// человекочитаемое название в списке (для шрифтов с техническим именем семейства).
 const FONT_GROUPS = [
   {
     label: 'Обычные',
@@ -35,9 +39,38 @@ const FONT_GROUPS = [
   },
   {
     label: 'Рукописные',
-    fonts: ['Caveat', 'Marck Script', 'Neucha'],
+    fonts: [
+      'Caveat', 'Marck Script', 'Neucha',
+      'Sacramento', 'Yuliana',
+      ['Makan Hati Cyrillic', 'Makan Hati'],
+      ['Playlist SHA', 'Playlist'],
+      ['HamiltoneSHA', 'Hamiltone'],
+      ['Coming Soon RUS', 'Coming Soon'],
+      'TippyToes Regular', 'TippyToes Skinny', 'TippyToes Bold', 'TippyToes X-tra Bold',
+    ],
+  },
+  {
+    label: 'Декоративные',
+    fonts: [
+      'Blackcraft', 'Kontrabanda', 'Most Wazted',
+      ['Ura Bum Bum SP', 'Ura Bum Bum'],
+      ['ALK Life', 'ALK Life'],
+      ['Kislicin Graffiti', 'Kislicin Graffiti'],
+    ],
   },
 ]
+
+const fontOptions = FONT_GROUPS.map((group) => ({
+  label: group.label,
+  options: group.fonts.map((f) => {
+    const [value, label] = Array.isArray(f) ? f : [f, f]
+    return { value, label }
+  }),
+}))
+
+function fontOptionStyle(option) {
+  return { fontFamily: option.value }
+}
 
 function update(propsPatch, key = null) {
   history.record(store, key ? `text-${key}:${props.element.id}` : null)
@@ -75,17 +108,12 @@ const aligns = [
   <div class="text-props">
     <CollapsibleSection v-model:open="sections.font" label="Шрифт">
       <div class="section-body">
-        <select
-          class="select"
-          :value="element.fontFamily"
-          @change="update({ fontFamily: $event.target.value })"
-        >
-          <optgroup v-for="group in FONT_GROUPS" :key="group.label" :label="group.label">
-            <option v-for="f in group.fonts" :key="f" :value="f" :style="{ fontFamily: f }">
-              {{ f }}
-            </option>
-          </optgroup>
-        </select>
+        <SelectField
+          :model-value="element.fontFamily"
+          :options="fontOptions"
+          :option-style="fontOptionStyle"
+          @update:model-value="update({ fontFamily: $event })"
+        />
 
         <div class="font-row">
           <NumberField
@@ -175,21 +203,6 @@ const aligns = [
   flex-direction: column;
   gap: var(--space-2);
   padding: 0 var(--space-4) var(--space-3);
-}
-
-.select {
-  width: 100%;
-  padding: var(--space-1) var(--space-2);
-  font-size: var(--text-xs);
-  background: var(--color-bg-1);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-1);
-
-  &:focus {
-    outline: none;
-    border-color: var(--color-accent);
-  }
 }
 
 .style-row {

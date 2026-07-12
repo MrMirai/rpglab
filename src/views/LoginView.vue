@@ -1,9 +1,8 @@
 <template>
-  <div class="auth-page">
+  <AuthPageBackground>
     <div class="auth-card">
       <div class="auth-card__logo">
-        <span class="auth-card__logo-icon">◎</span>
-        <span class="auth-card__logo-text">RPGLab</span>
+        <LogoIcon :size="72" class="auth-card__logo-icon" />
       </div>
 
       <h1 class="auth-card__title">Войти в аккаунт</h1>
@@ -42,7 +41,7 @@
         <RouterLink to="/register">Зарегистрироваться</RouterLink>
       </p>
     </div>
-  </div>
+  </AuthPageBackground>
 </template>
 
 <script setup>
@@ -50,6 +49,8 @@ import { ref, computed, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/modules/auth'
 import BaseButton from '@/shared/components/BaseButton.vue'
+import AuthPageBackground from '@/shared/components/AuthPageBackground.vue'
+import LogoIcon from '@/shared/components/LogoIcon.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -98,17 +99,9 @@ async function handleSubmit() {
 </script>
 
 <style lang="scss" scoped>
-.auth-page {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-bg-1);
-}
-
 .auth-card {
-  width: 100%;
-  max-width: 380px;
+  width: 380px;
+  max-width: 100%;
   padding: var(--space-8);
   background: var(--color-bg-2);
   border: 1px solid var(--color-border);
@@ -116,19 +109,11 @@ async function handleSubmit() {
 
   &__logo {
     display: flex;
-    align-items: center;
-    gap: var(--space-2);
+    justify-content: center;
     margin-bottom: var(--space-6);
   }
 
   &__logo-icon {
-    font-size: 24px;
-    color: var(--color-accent);
-  }
-
-  &__logo-text {
-    font-size: var(--text-lg);
-    font-weight: var(--weight-semibold);
     color: var(--color-accent);
   }
 

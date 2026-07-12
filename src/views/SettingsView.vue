@@ -56,6 +56,7 @@ async function onRemoveAvatar() {
             :src="auth.user.avatarUrl"
             alt=""
             class="avatar-preview"
+            @error="auth.refreshAvatarOnError"
           />
           <span v-else class="avatar-preview avatar-preview--placeholder">
             <User :size="28" />

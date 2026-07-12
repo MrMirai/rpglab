@@ -1,7 +1,8 @@
 <script setup>
 import { RouterLink } from 'vue-router'
-import { Layers, FileText, ArrowRight } from 'lucide-vue-next'
+import { FileText, ArrowRight } from 'lucide-vue-next'
 import { UserMenu, useAuthStore } from '@/modules/auth'
+import LogoIcon from '@/shared/components/LogoIcon.vue'
 
 // Главная страница: рассказывает о сервисе и ведёт в редакторы.
 // Собственная лёгкая шапка (не AppLayout — тот заточен под canvas-редактор
@@ -11,10 +12,9 @@ const auth = useAuthStore()
 const EDITORS = [
   {
     path: '/editor/token',
-    icon: Layers,
+    iconChar: '◎',
     title: 'Редактор токенов',
-    description:
-      'Создавайте токены персонажей для НРИ с эффектом "вылезания" за рамку — персонаж выходит за пределы токена, создавая объёмный портретный эффект.',
+    description: 'Создавайте токены персонажей для НРИ с эффектом "объема" за пару минут.',
     status: 'available',
   },
   {
@@ -22,7 +22,7 @@ const EDITORS = [
     icon: FileText,
     title: 'Редактор раздаток',
     description:
-      'Собирайте раздаточные материалы для игроков: текст, изображения и фигуры на документе произвольного размера с полным контролем оформления.',
+      'Собирайте раздаточные материалы для игроков: мощный функционал и все что нужно для создания атмосферы и антуража для ваших компаний.',
     status: 'available',
   },
 ]
@@ -32,7 +32,7 @@ const EDITORS = [
   <div class="home">
     <header class="home-header">
       <div class="home-header__logo">
-        <span class="logo-icon">◎</span>
+        <LogoIcon :size="26" class="logo-icon" />
         <span class="logo-text">RPGLab</span>
       </div>
       <UserMenu />
@@ -42,9 +42,9 @@ const EDITORS = [
       <section class="hero">
         <h1>Набор редакторов для настольных ролевых игр</h1>
         <p class="hero-subtitle">
-          RPGLab — инструменты для создания материалов к вашим НРИ-партиям: токены персонажей
-          с эффектом объёма и раздаточные материалы для игроков. Работает прямо в браузере,
-          без установки.
+          RPGLab — инструменты для создания материалов к вашим НРИ-партиям: токены персонажей с
+          эффектом объёма и раздаточные материалы для игроков. Работает прямо в браузере, без
+          установки.
         </p>
       </section>
 
@@ -56,7 +56,8 @@ const EDITORS = [
           class="editor-card"
         >
           <div class="editor-card__icon">
-            <component :is="editor.icon" :size="28" />
+            <span v-if="editor.iconChar" class="editor-card__icon-char">{{ editor.iconChar }}</span>
+            <component :is="editor.icon" v-else :size="28" />
           </div>
           <h2>{{ editor.title }}</h2>
           <p>{{ editor.description }}</p>
@@ -69,8 +70,8 @@ const EDITORS = [
 
       <section v-if="!auth.isAuthenticated" class="account-note">
         <p>
-          Редакторы доступны без регистрации. Аккаунт понадобится только для сохранения
-          проектов и загрузки собственных рамок —
+          Редакторы доступны без регистрации. Аккаунт понадобится только для сохранения проектов и
+          загрузки собственных рамок —
           <RouterLink to="/register">зарегистрируйтесь</RouterLink>
           или
           <RouterLink to="/login">войдите</RouterLink>, если он уже есть.
@@ -105,9 +106,7 @@ const EDITORS = [
   gap: var(--space-2);
 
   .logo-icon {
-    font-size: 22px;
     color: var(--color-accent);
-    line-height: 1;
   }
 
   .logo-text {
@@ -191,6 +190,11 @@ const EDITORS = [
   border-radius: var(--radius-md);
   background-color: var(--color-accent-muted);
   color: var(--color-accent);
+}
+
+.editor-card__icon-char {
+  font-size: 26px;
+  line-height: 1;
 }
 
 .editor-card__cta {

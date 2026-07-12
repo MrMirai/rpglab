@@ -80,7 +80,7 @@ async function handleLogout() {
         :title="auth.user?.username"
         @click="toggle"
       >
-        <img v-if="auth.user?.avatarUrl" :src="auth.user.avatarUrl" alt="" class="user-menu__avatar" />
+        <img v-if="auth.user?.avatarUrl" :src="auth.user.avatarUrl" alt="" class="user-menu__avatar" @error="auth.refreshAvatarOnError" />
         <span v-else class="user-menu__avatar user-menu__avatar--placeholder">
           <User :size="16" />
         </span>

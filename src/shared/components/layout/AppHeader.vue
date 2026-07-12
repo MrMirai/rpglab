@@ -2,6 +2,7 @@
 import { useRouter, useRoute } from 'vue-router'
 import { Save } from 'lucide-vue-next'
 import BaseButton from '@/shared/components/BaseButton.vue'
+import LogoIcon from '@/shared/components/LogoIcon.vue'
 
 // Общий каркас шапки: логотип + постоянное действие «Сохранить».
 // «Проекты» переехали в дропдаун аватара (UserMenu, слот user).
@@ -32,7 +33,7 @@ function onSave() {
     <div class="logo">
       <!-- Слот под переключатель редакторов (планируется выпадающий список) -->
       <slot name="logo">
-        <span class="logo-icon">◎</span>
+        <LogoIcon :size="22" class="logo-icon" />
         <span class="logo-text">RPGLab</span>
       </slot>
     </div>
@@ -79,9 +80,7 @@ function onSave() {
   flex-shrink: 0;
 
   &-icon {
-    font-size: 20px;
     color: var(--color-accent);
-    line-height: 1;
   }
 
   &-text {

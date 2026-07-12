@@ -119,3 +119,127 @@
   src: url('../fonts/overpass-mono-400-latin.woff2') format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
+
+// ─── Декоративные/рукописные шрифты для раздаток (единый файл cyrillic+latin) ──
+// Отличие от шрифтов выше: не разбиты на subset'ы по unicode-range — каждый
+// содержит оба набора глифов в одном woff2, поэтому один @font-face на шрифт.
+// Все проверены на полное покрытие кириллицы (см. _fonts проверку fontTools).
+
+@font-face {
+  font-family: 'Sacramento';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/sacramento.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Yuliana';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/yuliana.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Makan Hati Cyrillic';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/makanhaticyrillic.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Playlist SHA';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/playlist-sha-2.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'HamiltoneSHA';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/hamiltonesha-0.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Coming Soon RUS';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/comingsoonrus.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Kislicin Graffiti';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/kislicingraffiti.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'ALK Life';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/alk-life-webfont.woff2') format('woff2');
+}
+
+// TippyToes — семейство из 4 отдельных начертаний. Google/автор задал каждому
+// своё имя семейства (Regular/Skinny/Bold/X-tra Bold), поэтому регистрируем их
+// как отдельные font-family, а не через font-weight одного семейства.
+@font-face {
+  font-family: 'TippyToes Regular';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/tippytoesregular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'TippyToes Skinny';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/tippytoesskinny.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'TippyToes Bold';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/tippytoesbold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'TippyToes X-tra Bold';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/tippytoesxtrabold.woff2') format('woff2');
+}
+
+// Гранж/декоративные — жирные брутальные начертания (заголовки, печати, НРИ)
+@font-face {
+  font-family: 'Blackcraft';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/blackcraft.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Kontrabanda';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/kontrabanda.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Most Wazted';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/most-wazted.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Ura Bum Bum SP';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/urabumbumsp.woff2') format('woff2');
+}

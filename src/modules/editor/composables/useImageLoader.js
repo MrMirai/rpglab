@@ -22,5 +22,25 @@ export function useImageLoader() {
     })
   }
 
-  return { loadFromFile, loadFromUrl }
+  // Грузит удалённый ассет через fetch → blob → локальный object URL, и уже
+  // из него — HTMLImageElement. Отличие от loadFromUrl в том, что возвращается
+  // СТАБИЛЬНЫЙ objectUrl: presigned-ссылки MinIO живут 15 мин, поэтому их
+  // нельзя использовать как долгоживущий src превью (<img>) — через 15 минут
+  // ссылка протухает и картинка ломается. objectUrl живёт, пока жива вкладка
+  // (владелец обязан revoke при замене/удалении).
+  async function loadFromUrlAsBlob(url) {
+    const res = await fetch(url, { mode: 'cors' })
+    if (!res.ok) throw new Error(`Не удалось загрузить ассет (${res.status})`)
+    const blob = await res.blob()
+    const objectUrl = URL.createObjectURL(blob)
+    try {
+      const img = await loadFromUrl(objectUrl)
+      return { img, objectUrl }
+    } catch (e) {
+      URL.revokeObjectURL(objectUrl)
+      throw e
+    }
+  }
+
+  return { loadFromFile, loadFromUrl, loadFromUrlAsBlob }
 }

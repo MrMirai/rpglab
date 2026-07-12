@@ -1,9 +1,11 @@
 <script setup>
-import { ref } from 'vue'
-import { ImagePlus, X } from 'lucide-vue-next'
+import { ref, computed } from 'vue'
+import { X } from 'lucide-vue-next'
 import ColorButton from '@/shared/components/ColorButton.vue'
 import BaseButton from '@/shared/components/BaseButton.vue'
 import CollapsibleSection from '@/shared/components/CollapsibleSection.vue'
+import SelectField from '@/shared/components/SelectField.vue'
+import ImageDropzone from '@/shared/components/ImageDropzone.vue'
 import { useHandoutStore, SIZE_PRESETS } from '../store'
 import { useHandoutHistory } from '../composables/useHandoutHistory'
 import NumberField from './NumberField.vue'
@@ -14,10 +16,16 @@ const store = useHandoutStore()
 const history = useHandoutHistory()
 
 const sections = ref({ size: true, background: true })
-const textureInputRef = ref(null)
 
-function onPresetChange(e) {
-  const preset = SIZE_PRESETS.find((p) => p.id === e.target.value)
+const presetOptions = computed(() =>
+  SIZE_PRESETS.map((p) => ({
+    value: p.id,
+    label: `${p.label}${p.width ? ` — ${p.width}×${p.height}` : ''}`,
+  })),
+)
+
+function onPresetChange(id) {
+  const preset = SIZE_PRESETS.find((p) => p.id === id)
   if (!preset) return
   history.record(store)
   if (preset.id === 'custom') {
@@ -44,10 +52,7 @@ function setBgType(type) {
 // в некоторых браузерах — img.decode() надёжнее). Тот же clamp [50,4000], что
 // и у ручного ввода размера (setCustomSize) — не даём документу выйти за
 // разумные пределы холста/экспорта.
-async function onTextureFile(e) {
-  const file = e.target.files[0]
-  e.target.value = ''
-  if (!file) return
+async function onTextureFile(file) {
   const url = URL.createObjectURL(file)
   const img = new Image()
   img.src = url
@@ -79,11 +84,11 @@ function removeTexture() {
   <div class="doc-props">
     <CollapsibleSection v-model:open="sections.size" label="Размер документа">
       <div class="section-body">
-        <select class="select" :value="store.document.sizePreset" @change="onPresetChange">
-          <option v-for="p in SIZE_PRESETS" :key="p.id" :value="p.id">
-            {{ p.label }}{{ p.width ? ` — ${p.width}×${p.height}` : '' }}
-          </option>
-        </select>
+        <SelectField
+          :model-value="store.document.sizePreset"
+          :options="presetOptions"
+          @update:model-value="onPresetChange"
+        />
 
         <div class="fields-row">
           <NumberField
@@ -124,21 +129,24 @@ function removeTexture() {
         </div>
 
         <div v-else-if="store.document.background.type === 'texture'" class="bg-texture">
-          <div v-if="store.document.background.textureUrl" class="texture-preview">
-            <img :src="store.document.background.textureUrl" alt="Текстура" />
-          </div>
-          <BaseButton size="sm" full-width @click="textureInputRef?.click()">
-            <ImagePlus :size="14" />
-            {{ store.document.background.textureUrl ? 'Заменить' : 'Загрузить текстуру' }}
-          </BaseButton>
-          <BaseButton
-            v-if="store.document.background.textureUrl"
-            size="sm" full-width danger-hover
-            @click="removeTexture"
+          <ImageDropzone
+            :filled="!!store.document.background.textureUrl"
+            accept="image/*"
+            label="Загрузить текстуру"
+            hint="PNG, JPG, WebP"
+            @select="onTextureFile"
           >
-            <X :size="14" /> Убрать
-          </BaseButton>
-          <input ref="textureInputRef" type="file" accept="image/*" style="display: none" @change="onTextureFile" />
+            <template #filled>
+              <div class="texture-wrap">
+                <div class="texture-preview">
+                  <img :src="store.document.background.textureUrl" alt="Текстура" />
+                </div>
+                <BaseButton size="sm" full-width danger-hover @click="removeTexture">
+                  <X :size="14" /> Убрать
+                </BaseButton>
+              </div>
+            </template>
+          </ImageDropzone>
         </div>
       </div>
     </CollapsibleSection>
@@ -153,21 +161,6 @@ function removeTexture() {
   padding: 0 var(--space-4) var(--space-3);
 }
 
-.select {
-  width: 100%;
-  padding: var(--space-1) var(--space-2);
-  font-size: var(--text-xs);
-  background: var(--color-bg-1);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-1);
-
-  &:focus {
-    outline: none;
-    border-color: var(--color-accent);
-  }
-}
-
 .fields-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -180,6 +173,12 @@ function removeTexture() {
 }
 
 .bg-texture {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.texture-wrap {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);

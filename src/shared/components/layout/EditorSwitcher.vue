@@ -1,14 +1,17 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { ChevronDown, Layers, FileText, Home } from 'lucide-vue-next'
+import { ChevronDown, FileText, Home } from 'lucide-vue-next'
+import LogoIcon from '@/shared/components/LogoIcon.vue'
 
 // Логотип-дропдаун: переключение между редакторами (токены/раздатки) и главной.
 // Живёт в shared/ (каркас шапки), но ссылается только на пути роутера —
 // не импортирует ничего из modules/, поэтому не нарушает архитектурное правило
 // «shared — лист графа зависимостей».
+// У токенов иконка — юникод-символ ◎ «кружок в кружочке» (образ токена НРИ),
+// тот же, что и на карточке редактора на главной (HomeView), а не lucide-иконка.
 const EDITORS = [
-  { path: '/editor/token', label: 'Редактор токенов', icon: Layers },
+  { path: '/editor/token', label: 'Редактор токенов', iconChar: '◎' },
   { path: '/editor/handout', label: 'Редактор раздаток', icon: FileText },
 ]
 
@@ -38,7 +41,7 @@ onUnmounted(() => document.removeEventListener('mousedown', onClickOutside))
 <template>
   <div class="editor-switcher">
     <button ref="triggerRef" class="editor-switcher__trigger" @click="toggle">
-      <span class="editor-switcher__icon">◎</span>
+      <LogoIcon :size="22" class="editor-switcher__icon" />
       <span class="editor-switcher__text">RPGLab</span>
       <ChevronDown :size="14" class="editor-switcher__chevron" :class="{ 'is-open': isOpen }" />
     </button>
@@ -57,7 +60,8 @@ onUnmounted(() => document.removeEventListener('mousedown', onClickOutside))
         :class="{ 'is-active': route.path === editor.path }"
         @click="close"
       >
-        <component :is="editor.icon" :size="15" />
+        <span v-if="editor.iconChar" class="editor-switcher__icon-char">{{ editor.iconChar }}</span>
+        <component :is="editor.icon" v-else :size="15" />
         <span>{{ editor.label }}</span>
       </RouterLink>
     </div>
@@ -87,9 +91,7 @@ onUnmounted(() => document.removeEventListener('mousedown', onClickOutside))
 }
 
 .editor-switcher__icon {
-  font-size: 20px;
   color: var(--color-accent);
-  line-height: 1;
 }
 
 .editor-switcher__text {
@@ -127,6 +129,18 @@ onUnmounted(() => document.removeEventListener('mousedown', onClickOutside))
   height: 1px;
   background: var(--color-border);
   margin: var(--space-1) 0;
+}
+
+.editor-switcher__icon-char {
+  // Юникод-символ ◎ вместо lucide-иконки — выравниваем по её габаритам (15px),
+  // чтобы не сбивать отступы/выравнивание строки пункта
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  font-size: 15px;
+  line-height: 1;
+  flex-shrink: 0;
 }
 
 .editor-switcher__item {

@@ -29,7 +29,7 @@ function onRemove() {
       :filled="store.hasChar"
       accept="image/png,image/jpeg,image/webp"
       label="Загрузить персонажа"
-      hint="PNG, JPG или перетащи файл"
+      hint="PNG, JPG, WebP"
       @select="loadFile"
     >
       <template #icon>

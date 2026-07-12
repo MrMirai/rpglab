@@ -101,9 +101,9 @@ function handleConfirm() {
             <label class="modal__label">Изображение рамки</label>
             <ImageDropzone
               :filled="!!framePreviewUrl"
-              accept="image/png"
+              accept="image/png,image/webp"
               label="Загрузить рамку"
-              hint="PNG с прозрачностью"
+              hint="PNG или WebP с прозрачностью"
               @select="onSelectFrame"
             >
               <template #icon>

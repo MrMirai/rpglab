@@ -20,7 +20,7 @@ import { useFramesStore, SYSTEM_OWNER_ID } from '../store.js'
 const framesStore = useFramesStore()
 const editorStore = useEditorStore()
 const auth = useAuthStore()
-const { loadFromUrl } = useImageLoader()
+const { loadFromUrlAsBlob } = useImageLoader()
 
 const selectedFrameId = ref(null)
 const sectionsOpen = ref({ public: true, own: true })
@@ -111,11 +111,14 @@ onMounted(() => {
 })
 
 // Выбор пресета из галереи: грузим рамку и фон-компаньон (если есть) в редактор.
+// ВАЖНО: как превью (<img src>) в стор кладём ЛОКАЛЬНЫЙ object URL (objectUrl),
+// а не presigned frameAssetUrl/backgroundAssetUrl — последние живут 15 мин и
+// протухают, ломая превью в панели свойств при долгой сессии/возврате на страницу.
 async function selectFrame(frame) {
   selectedFrameId.value = frame.id
 
-  const img = await loadFromUrl(frame.frameAssetUrl)
-  editorStore.loadFrameImage(img, frame.frameAssetUrl)
+  const { img, objectUrl } = await loadFromUrlAsBlob(frame.frameAssetUrl)
+  editorStore.loadFrameImage(img, objectUrl)
   editorStore.frameFileName = frame.name
   // Новая рамка → сбрасываем маску на авто
   editorStore.loadMaskImage(null)
@@ -123,8 +126,8 @@ async function selectFrame(frame) {
 
   // Фон-компаньон рамки, если он задан в пресете
   if (frame.backgroundAssetUrl) {
-    const bgImg = await loadFromUrl(frame.backgroundAssetUrl)
-    editorStore.loadBgImage(bgImg, frame.backgroundAssetUrl)
+    const { img: bgImg, objectUrl: bgObjectUrl } = await loadFromUrlAsBlob(frame.backgroundAssetUrl)
+    editorStore.loadBgImage(bgImg, bgObjectUrl)
   }
 }
 

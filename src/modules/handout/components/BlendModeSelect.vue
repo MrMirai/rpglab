@@ -1,6 +1,7 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import CollapsibleSection from '@/shared/components/CollapsibleSection.vue'
+import SelectField from '@/shared/components/SelectField.vue'
 import { useHandoutStore, BLEND_MODES } from '../store'
 import { useHandoutHistory } from '../composables/useHandoutHistory'
 
@@ -15,18 +16,18 @@ const history = useHandoutHistory()
 
 const open = ref(true)
 
-function onChange(e) {
+const blendOptions = computed(() => BLEND_MODES.map((m) => ({ value: m.id, label: m.label })))
+
+function onChange(value) {
   history.record(store)
-  store.updateElement(props.element.id, { blendMode: e.target.value })
+  store.updateElement(props.element.id, { blendMode: value })
 }
 </script>
 
 <template>
   <CollapsibleSection v-model:open="open" label="Наложение">
     <div class="section-body">
-      <select class="select" :value="element.blendMode" @change="onChange">
-        <option v-for="m in BLEND_MODES" :key="m.id" :value="m.id">{{ m.label }}</option>
-      </select>
+      <SelectField :model-value="element.blendMode" :options="blendOptions" @update:model-value="onChange" />
     </div>
   </CollapsibleSection>
 </template>
@@ -34,20 +35,5 @@ function onChange(e) {
 <style lang="scss" scoped>
 .section-body {
   padding: 0 var(--space-4) var(--space-3);
-}
-
-.select {
-  width: 100%;
-  padding: var(--space-1) var(--space-2);
-  font-size: var(--text-xs);
-  background: var(--color-bg-1);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-1);
-
-  &:focus {
-    outline: none;
-    border-color: var(--color-accent);
-  }
 }
 </style>

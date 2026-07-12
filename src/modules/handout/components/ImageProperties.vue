@@ -1,9 +1,10 @@
 <script setup>
 import { ref } from 'vue'
 import { ImagePlus, RotateCcw } from 'lucide-vue-next'
-import BaseButton from '@/shared/components/BaseButton.vue'
 import SliderControl from '@/shared/components/SliderControl.vue'
 import CollapsibleSection from '@/shared/components/CollapsibleSection.vue'
+import SelectField from '@/shared/components/SelectField.vue'
+import ImageDropzone from '@/shared/components/ImageDropzone.vue'
 import { useHandoutStore } from '../store'
 import { useHandoutHistory } from '../composables/useHandoutHistory'
 import TransformSection from './TransformSection.vue'
@@ -18,23 +19,20 @@ const store = useHandoutStore()
 const history = useHandoutHistory()
 
 const sections = ref({ image: true, view: true, correction: true })
-const fileInputRef = ref(null)
 
 const FITS = [
   { id: 'contain', label: 'Вписать' },
   { id: 'cover', label: 'Заполнить' },
   { id: 'fill', label: 'Растянуть' },
 ]
+const fitOptions = FITS.map((f) => ({ value: f.id, label: f.label }))
 
 function update(patch, key = null) {
   history.record(store, key ? `img-${key}:${props.element.id}` : null)
   store.updateElement(props.element.id, patch)
 }
 
-function onReplaceFile(e) {
-  const file = e.target.files[0]
-  e.target.value = ''
-  if (!file) return
+function onReplaceFile(file) {
   update({ url: URL.createObjectURL(file), assetId: null })
 }
 
@@ -48,14 +46,17 @@ function resetFilters() {
   <div class="image-props">
     <CollapsibleSection v-model:open="sections.image" label="Изображение">
       <div class="section-body">
-        <BaseButton size="sm" full-width @click="fileInputRef?.click()">
-          <ImagePlus :size="14" /> Заменить
-        </BaseButton>
-        <input ref="fileInputRef" type="file" accept="image/*" style="display: none" @change="onReplaceFile" />
+        <ImageDropzone accept="image/*" label="Заменить изображение" hint="PNG, JPG, WebP" @select="onReplaceFile">
+          <template #icon>
+            <ImagePlus :size="20" />
+          </template>
+        </ImageDropzone>
 
-        <select class="select" :value="element.fit" @change="update({ fit: $event.target.value })">
-          <option v-for="f in FITS" :key="f.id" :value="f.id">{{ f.label }}</option>
-        </select>
+        <SelectField
+          :model-value="element.fit"
+          :options="fitOptions"
+          @update:model-value="update({ fit: $event })"
+        />
       </div>
     </CollapsibleSection>
 
@@ -123,21 +124,6 @@ function resetFilters() {
   flex-direction: column;
   gap: var(--space-2);
   padding: 0 var(--space-4) var(--space-3);
-}
-
-.select {
-  width: 100%;
-  padding: var(--space-1) var(--space-2);
-  font-size: var(--text-xs);
-  background: var(--color-bg-1);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-1);
-
-  &:focus {
-    outline: none;
-    border-color: var(--color-accent);
-  }
 }
 
 .correction-header {

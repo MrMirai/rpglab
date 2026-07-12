@@ -7,7 +7,6 @@ const store = useEditorStore()
 const { loadFromFile } = useImageLoader()
 
 async function loadFile(file) {
-  if (file.type !== 'image/png') return
   const img = await loadFromFile(file)
   const url = URL.createObjectURL(file)
   store.loadFrameImage(img, url)
@@ -27,9 +26,9 @@ function onRemove() {
   <div class="frame-upload">
     <ImageDropzone
       :filled="store.hasFrame"
-      accept="image/png"
+      accept="image/png,image/webp"
       label="Загрузить рамку"
-      hint="PNG с прозрачностью"
+      hint="PNG или WebP с прозрачностью"
       @select="loadFile"
     >
       <template #icon>

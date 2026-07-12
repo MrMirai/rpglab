@@ -26,6 +26,7 @@ const planLabels = {
           :src="auth.user.avatarUrl"
           alt=""
           class="profile-avatar"
+          @error="auth.refreshAvatarOnError"
         />
         <span v-else class="profile-avatar profile-avatar--placeholder">
           <User :size="32" />

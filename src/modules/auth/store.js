@@ -1,6 +1,14 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { api, setAccessToken, setRefreshToken, getRefreshToken } from '@/shared/composables/useApi'
+import {
+  api,
+  setAccessToken,
+  setRefreshToken,
+  getRefreshToken,
+  getRetryAfterSeconds,
+  clearTokens,
+  refreshSession,
+} from '@/shared/composables/useApi'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null) // { id, email, username, planCode, admin, ... }
@@ -39,7 +47,22 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const res = await api.post('/api/auth/login', { email, password })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.message || 'Неверный email или пароль')
+      if (!res.ok) {
+        // 429 — рейт-лимит логина (10/IP, 15/email за 15 мин). Отдаём наверх
+        // секунды из Retry-After: LoginView заводит по ним обратный отсчёт и
+        // блокирует кнопку, вместо того чтобы дать пользователю «жечь» попытки.
+        if (res.status === 429) {
+          const seconds = getRetryAfterSeconds(res)
+          const err = new Error(
+            seconds
+              ? `Слишком много попыток входа. Повторите через ${seconds} с`
+              : 'Слишком много попыток входа. Попробуйте позже',
+          )
+          err.retryAfterSeconds = seconds
+          throw err
+        }
+        throw new Error(data.message || 'Неверный email или пароль')
+      }
       setAccessToken(data.accessToken)
       setRefreshToken(data.refreshToken)
       await fetchMe()
@@ -51,10 +74,27 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function logout() {
-    setAccessToken(null)
-    setRefreshToken(null)
+  // Локальный сброс сессии (без похода на бэк) — общий путь для logout и для
+  // «сессия умерла» (401 от /refresh, см. setSessionExpiredHandler в main.js).
+  function clearSession() {
+    clearTokens()
     user.value = null
+    lastFetchedAt.value = 0
+  }
+
+  async function logout() {
+    const refresh = getRefreshToken()
+    // Гасим refresh на бэке — иначе он живёт ещё 30 дней и остаётся валидным.
+    // Идемпотентно (неизвестный токен тоже даёт 204); сбой сети не должен
+    // помешать локальному выходу, поэтому чистим пару в любом случае.
+    if (refresh) {
+      try {
+        await api.post('/api/auth/logout', { refreshToken: refresh })
+      } catch {
+        // сеть/бэк недоступны — выходим локально
+      }
+    }
+    clearSession()
   }
 
   async function fetchMe() {
@@ -90,22 +130,17 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   // Восстановление сессии при перезагрузке: по refreshToken из localStorage
-  // получаем новый accessToken и подтягиваем профиль.
+  // получаем новую пару и подтягиваем профиль. Обновление идёт через общий
+  // single-flight refreshSession() из useApi (НЕ собственный POST /refresh):
+  // refresh ротируется, и два параллельных обновления послали бы один и тот же
+  // токен дважды — бэк счёл бы это реюзом и отозвал все токены пользователя.
   async function restoreSession() {
-    const refresh = getRefreshToken()
-    if (!refresh) return
+    if (!getRefreshToken()) return
     try {
-      const res = await api.post('/api/auth/refresh', { refreshToken: refresh })
-      if (!res.ok) {
-        setRefreshToken(null)
-        return
-      }
-      const data = await res.json()
-      setAccessToken(data.accessToken)
-      setRefreshToken(data.refreshToken)
+      await refreshSession()
       await fetchMe()
     } catch {
-      setRefreshToken(null)
+      // refreshSession уже почистил токены (сессия мертва) — просто остаёмся гостем
     }
   }
 
@@ -118,6 +153,7 @@ export const useAuthStore = defineStore('auth', () => {
     register,
     login,
     logout,
+    clearSession,
     fetchMe,
     refreshProfileIfStale,
     refreshAvatarOnError,

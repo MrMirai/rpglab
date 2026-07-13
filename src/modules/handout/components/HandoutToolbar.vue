@@ -5,7 +5,7 @@ import {
   BringToFront, SendToBack, ArrowUp, ArrowDown,
   AlignStartVertical, AlignCenterVertical, AlignEndVertical,
   AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal,
-  Grid3x3,
+  Grid3x3, Magnet,
 } from 'lucide-vue-next'
 import { useHandoutStore } from '../store'
 import { useHandoutHistory } from '../composables/useHandoutHistory'
@@ -148,6 +148,15 @@ function align(mode) {
       <button class="handout-toolbar__btn" :class="{ active: store.showGrid }" @click="store.toggleGrid()">
         <span class="icon"><Grid3x3 :size="16" /></span>
         <span class="label">Сетка</span>
+      </button>
+      <button
+        class="handout-toolbar__btn"
+        :class="{ active: store.snapEnabled }"
+        title="Умные направляющие (Ctrl — временно отключить)"
+        @click="store.toggleSnap()"
+      >
+        <span class="icon"><Magnet :size="16" /></span>
+        <span class="label">Привязка</span>
       </button>
     </div>
   </div>

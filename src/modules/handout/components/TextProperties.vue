@@ -192,11 +192,11 @@ const aligns = [
       </div>
     </CollapsibleSection>
 
-    <InkEffectSection :element="element" />
+    <InkEffectSection :elements="[element]" />
 
-    <BlendModeSelect :element="element" />
+    <BlendModeSelect :elements="[element]" />
 
-    <TransformSection :element="element" />
+    <TransformSection :elements="[element]" />
   </div>
 </template>
 

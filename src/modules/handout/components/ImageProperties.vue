@@ -3,13 +3,13 @@ import { ref } from 'vue'
 import { ImagePlus, RotateCcw } from 'lucide-vue-next'
 import SliderControl from '@/shared/components/SliderControl.vue'
 import CollapsibleSection from '@/shared/components/CollapsibleSection.vue'
-import SelectField from '@/shared/components/SelectField.vue'
 import ImageDropzone from '@/shared/components/ImageDropzone.vue'
 import { useHandoutStore } from '../store'
 import { useHandoutHistory } from '../composables/useHandoutHistory'
 import TransformSection from './TransformSection.vue'
 import BlendModeSelect from './BlendModeSelect.vue'
 import InkEffectSection from './InkEffectSection.vue'
+import ImageFitSection from './ImageFitSection.vue'
 
 // Свойства выбранного изображения.
 const props = defineProps({
@@ -20,13 +20,6 @@ const store = useHandoutStore()
 const history = useHandoutHistory()
 
 const sections = ref({ image: true, view: true, correction: true })
-
-const FITS = [
-  { id: 'contain', label: 'Вписать' },
-  { id: 'cover', label: 'Заполнить' },
-  { id: 'fill', label: 'Растянуть' },
-]
-const fitOptions = FITS.map((f) => ({ value: f.id, label: f.label }))
 
 function update(patch, key = null) {
   history.record(store, key ? `img-${key}:${props.element.id}` : null)
@@ -52,14 +45,10 @@ function resetFilters() {
             <ImagePlus :size="20" />
           </template>
         </ImageDropzone>
-
-        <SelectField
-          :model-value="element.fit"
-          :options="fitOptions"
-          @update:model-value="update({ fit: $event })"
-        />
       </div>
     </CollapsibleSection>
+
+    <ImageFitSection :elements="[element]" />
 
     <CollapsibleSection v-model:open="sections.view" label="Вид">
       <div class="section-body">
@@ -113,11 +102,11 @@ function resetFilters() {
       </div>
     </CollapsibleSection>
 
-    <InkEffectSection :element="element" />
+    <InkEffectSection :elements="[element]" />
 
-    <BlendModeSelect :element="element" />
+    <BlendModeSelect :elements="[element]" />
 
-    <TransformSection :element="element" />
+    <TransformSection :elements="[element]" />
   </div>
 </template>
 

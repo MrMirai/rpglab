@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import CollapsibleSection from '@/shared/components/CollapsibleSection.vue'
 import SliderControl from '@/shared/components/SliderControl.vue'
 import { useHandoutStore } from '../store'
@@ -7,9 +7,10 @@ import { useHandoutHistory } from '../composables/useHandoutHistory'
 
 // Секция «Смешение с фоном» — эффект «нанесено на бумагу» (см. useInkEffect):
 // один слайдер силы управляет multiply-наложением, зерном бумаги, выедающим
-// краску, и рваным краем. Доступна всем типам элементов.
+// краску, и рваным краем. Доступна всем типам элементов. elements — массив,
+// поддерживает мультивыделение (среднее значение — как у общей прозрачности).
 const props = defineProps({
-  element: { type: Object, required: true },
+  elements: { type: Array, required: true },
 })
 
 const store = useHandoutStore()
@@ -17,9 +18,14 @@ const history = useHandoutHistory()
 
 const open = ref(true)
 
+const avgInkStrength = computed(() => {
+  const els = props.elements
+  return Math.round(els.reduce((s, e) => s + (e.inkStrength ?? 0), 0) / els.length)
+})
+
 function onChange(value) {
-  history.record(store, `ink:${props.element.id}`)
-  store.updateElement(props.element.id, { inkStrength: value })
+  history.record(store, 'ink-multi')
+  props.elements.forEach((el) => store.updateElement(el.id, { inkStrength: value }))
 }
 </script>
 
@@ -28,7 +34,7 @@ function onChange(value) {
     <div class="section-body">
       <SliderControl
         label="Сила"
-        :model-value="element.inkStrength ?? 0"
+        :model-value="avgInkStrength"
         :min="0" :max="100" :step="1" suffix="%"
         @update:model-value="onChange"
       />

@@ -1,10 +1,12 @@
 <script setup>
 import { ref, computed, reactive, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useHandoutStore } from '../store'
+import { getElementDefaults } from '../composables/useHandoutElements'
 import { useHandoutHistory } from '../composables/useHandoutHistory'
 import { useHandoutSelection } from '../composables/useHandoutSelection'
 import { useHandoutBridge } from '../composables/useHandoutBridge'
 import { inkGrainFilter, inkSeedFromId } from '../composables/useInkEffect'
+import { useSmartGuides, SNAP_SCREEN_THRESHOLD, GUIDE_COLOR } from '../composables/useSmartGuides'
 import { blendModeToOp } from '../store'
 import ZoomNavigator from '@/shared/components/ZoomNavigator.vue'
 import HandoutHotkeyHelp from './HandoutHotkeyHelp.vue'
@@ -13,6 +15,7 @@ const store = useHandoutStore()
 const history = useHandoutHistory()
 const { getTransformerNodes, handleStageClick, resolveElementId } = useHandoutSelection()
 const bridge = useHandoutBridge()
+const smartGuides = useSmartGuides()
 
 const containerRef = ref(null)
 const stageRef = ref(null)
@@ -334,7 +337,73 @@ const gridH = computed(() => {
   return out
 })
 
+// --- Smart Guides: конфиги отрисовки (uiLayer, не экспортируется) ---
+// Толщина/размеры делятся на viewZoom — постоянный размер на экране (паттерн сетки)
+
+// Линии выравнивания
+const guideLineConfigs = computed(() => {
+  const g = smartGuides.guides.value
+  const sw = 1 / viewZoom.value
+  const out = []
+  for (const l of g.v)
+    out.push({ points: [l.x, l.y1, l.x, l.y2], stroke: GUIDE_COLOR, strokeWidth: sw, listening: false })
+  for (const l of g.h)
+    out.push({ points: [l.x1, l.y, l.x2, l.y], stroke: GUIDE_COLOR, strokeWidth: sw, listening: false })
+  return out
+})
+
+// Индикаторы равных промежутков: линия сегмента + перпендикулярные тики на концах
+const spacingLineConfigs = computed(() => {
+  const g = smartGuides.guides.value
+  const sw = 1 / viewZoom.value
+  const tick = 4 / viewZoom.value
+  const base = { stroke: GUIDE_COLOR, strokeWidth: sw, listening: false }
+  const out = []
+  for (const s of g.spacing) {
+    for (const seg of s.segments) {
+      if (s.axis === 'x') {
+        out.push({ ...base, points: [seg.from, s.at, seg.to, s.at] })
+        out.push({ ...base, points: [seg.from, s.at - tick, seg.from, s.at + tick] })
+        out.push({ ...base, points: [seg.to, s.at - tick, seg.to, s.at + tick] })
+      } else {
+        out.push({ ...base, points: [s.at, seg.from, s.at, seg.to] })
+        out.push({ ...base, points: [s.at - tick, seg.from, s.at + tick, seg.from] })
+        out.push({ ...base, points: [s.at - tick, seg.to, s.at + tick, seg.to] })
+      }
+    }
+  }
+  return out
+})
+
+// px-подписи расстояний (Label = Tag-плашка + Text)
+const guideLabelConfigs = computed(() => {
+  const z = viewZoom.value
+  return smartGuides.guides.value.labels.map((l) => ({
+    label: { x: l.x + 4 / z, y: l.y + 4 / z, listening: false },
+    tag: { fill: GUIDE_COLOR, cornerRadius: 2 / z },
+    text: { text: l.text, fontSize: 10 / z, padding: 3 / z, fill: '#fff' },
+  }))
+})
+
 // --- Трансформер ---
+
+// Ctrl/Shift для boundBoxFunc: туда событие не приходит, отслеживаем на window
+// (Ctrl временно отключает снэп, Shift = keepRatio — со снэпом не боремся).
+let ctrlDown = false
+let shiftDown = false
+function onWinKeyDown(e) {
+  if (e.key === 'Control') ctrlDown = true
+  if (e.key === 'Shift') shiftDown = true
+}
+function onWinKeyUp(e) {
+  if (e.key === 'Control') ctrlDown = false
+  if (e.key === 'Shift') shiftDown = false
+}
+function onWinBlur() {
+  ctrlDown = false
+  shiftDown = false
+}
+
 const transformerConfig = {
   rotateEnabled: true,
   keepRatio: false,
@@ -351,9 +420,49 @@ const transformerConfig = {
   anchorFill: '#21212a',
   anchorSize: 8,
   rotateAnchorOffset: 24,
-  // Не даём схлопнуть элемент в ноль
-  boundBoxFunc: (oldBox, newBox) =>
-    Math.abs(newBox.width) < 8 || Math.abs(newBox.height) < 8 ? oldBox : newBox,
+  // Снэп движущихся кромок к таргетам (Smart Guides) + минимальный размер.
+  // oldBox/newBox — в АБСОЛЮТНЫХ (экранных) координатах (пан/зум стейджа
+  // впечён), rotation в РАДИАНАХ. Активную ручку читаем per-call — Konva может
+  // переписать bottom-*→top-* при инверсии бокса. Повёрнутые элементы и жест
+  // поворота не снэпим. Запись guides отсюда — осознанный side effect (линии
+  // отрисуются Vue кадром позже, незаметно).
+  boundBoxFunc: (oldBox, newBox) => {
+    let box = newBox
+    const tr = transformerRef.value?.getNode()
+    const anchor = tr?.getActiveAnchor()
+    const canSnap =
+      store.snapEnabled && !ctrlDown && !shiftDown &&
+      anchor && anchor !== 'rotater' && Math.abs(newBox.rotation) < 1e-4
+    if (canSnap) {
+      const stage = stageRef.value?.getStage()
+      if (stage) {
+        const inv = stage.getAbsoluteTransform().copy().invert()
+        const p = inv.point({ x: newBox.x, y: newBox.y })
+        const z = viewZoom.value
+        const edges = new Set()
+        if (anchor.includes('left')) edges.add('left')
+        if (anchor.includes('right')) edges.add('right')
+        if (anchor.includes('top')) edges.add('top')
+        if (anchor.includes('bottom')) edges.add('bottom')
+        const d = smartGuides.snapResizeEdges(
+          { x: p.x, y: p.y, width: newBox.width / z, height: newBox.height / z },
+          edges,
+          SNAP_SCREEN_THRESHOLD / z,
+        )
+        box = {
+          x: d.x * z + stage.x(),
+          y: d.y * z + stage.y(),
+          width: d.width * z,
+          height: d.height * z,
+          rotation: newBox.rotation,
+        }
+      }
+    } else {
+      smartGuides.clearGuides()
+    }
+    // Не даём схлопнуть элемент в ноль (проверка ПОСЛЕ снэпа)
+    return Math.abs(box.width) < 8 || Math.abs(box.height) < 8 ? oldBox : box
+  },
 }
 
 const ALL_ANCHORS = [
@@ -453,26 +562,120 @@ watch(
 )
 
 // --- Drag / Transform элементов ---
-function onElementDragStart() {
-  history.record(store)
-}
 
 // Конвертирует позицию Konva-узла (node.x()/y()) обратно в левый-верх el.x/el.y.
 // Схемы координат по типу:
 //  - эллипс: node origin = ЦЕНТР bbox → вычитаем половину размеров;
 //  - rect/image/text: node origin = левый-верх, но при flip позиция сдвинута
 //    на +width/+height (см. flipBlendConfig) → вычитаем сдвиг обратно.
-function nodeToTopLeft(node, el) {
+// Нерундящая версия — для bbox'ов снэпа (Smart Guides), рундящая — для коммита.
+function nodeTopLeftRaw(node, el) {
   if (el.type === 'SHAPE' && el.shapeType === 'ellipse') {
-    return { x: Math.round(node.x() - el.width / 2), y: Math.round(node.y() - el.height / 2) }
+    return { x: node.x() - el.width / 2, y: node.y() - el.height / 2 }
   }
   return {
-    x: Math.round(node.x() - (el.flipX ? el.width : 0)),
-    y: Math.round(node.y() - (el.flipY ? el.height : 0)),
+    x: node.x() - (el.flipX ? el.width : 0),
+    y: node.y() - (el.flipY ? el.height : 0),
   }
 }
 
+function nodeToTopLeft(node, el) {
+  const p = nodeTopLeftRaw(node, el)
+  return { x: Math.round(p.x), y: Math.round(p.y) }
+}
+
+// --- Smart Guides: bbox-хелперы ---
+
+// Живой axis-aligned bbox узла в док-координатах. Для неповёрнутых не-TEXT —
+// из позиции узла + сохранённых размеров: это иммунно к паддингу ink-кеша
+// (cache({offset:2}) раздувает getClientRect на ±2px) и к origin'ам эллипса/flip.
+// Повёрнутые и TEXT (авто-высота) — через getClientRect.
+function liveBBox(node, el) {
+  if (!el.rotation && el.type !== 'TEXT') {
+    const p = nodeTopLeftRaw(node, el)
+    return { x: p.x, y: p.y, width: el.width, height: el.height }
+  }
+  return node.getClientRect({
+    relativeTo: elementsLayerRef.value?.getNode(),
+    skipShadow: true,
+    skipStroke: true,
+  })
+}
+
+// bbox элемента-таргета (не перетаскиваемого) — те же правила, что liveBBox
+function elementBBox(el) {
+  if (!el.rotation && el.type !== 'TEXT') return { x: el.x, y: el.y, width: el.width, height: el.height }
+  const node = stageRef.value?.getStage()?.findOne('#' + el.id)
+  if (!node) return { x: el.x, y: el.y, width: el.width, height: el.height }
+  return node.getClientRect({
+    relativeTo: elementsLayerRef.value?.getNode(),
+    skipShadow: true,
+    skipStroke: true,
+  })
+}
+
+// Union-bbox узлов drag-сессии (мультивыделение снэпится как единое целое)
+function unionBBox(nodes) {
+  let x1 = Infinity
+  let y1 = Infinity
+  let x2 = -Infinity
+  let y2 = -Infinity
+  for (const n of nodes) {
+    const el = store.elements.find((e) => e.id === n.id())
+    if (!el) continue
+    const b = liveBBox(n, el)
+    x1 = Math.min(x1, b.x)
+    y1 = Math.min(y1, b.y)
+    x2 = Math.max(x2, b.x + b.width)
+    y2 = Math.max(y2, b.y + b.height)
+  }
+  return { x: x1, y: y1, width: x2 - x1, height: y2 - y1 }
+}
+
+// --- Smart Guides: drag-сессия ---
+// При мультидраге Konva Transformer (_proxyDrag) на первом dragmove запускает
+// нативный drag у ВСЕХ привязанных узлов — dragstart/dragmove/dragend всплывают
+// от каждого. Сессия открывается один раз на жест (guard по dragSnap), поправка
+// применяется только из dragmove PRIMARY-узла: к этому моменту позиции всех
+// драгаемых узлов за кадр уже выставлены движком DD (позиция каждого кадра
+// пересчитывается от указателя заново — поправки не аккумулируются), а рамка
+// трансформера обновляется в его собственном dragmove ПОЗЖЕ по порядку — т.е.
+// уже с учётом нашей поправки.
+let dragSnap = null // { primaryId, nodes }
+
+function onElementDragStart(e) {
+  if (dragSnap) return // dragstart сиблинга — сессия открыта (заодно чинит дубли undo-снапшотов)
+  history.record(store)
+  const trNodes = transformerRef.value?.getNode()?.nodes() ?? []
+  const nodes = trNodes.includes(e.target) ? trNodes : [e.target]
+  dragSnap = { primaryId: e.target._id, nodes }
+  if (store.snapEnabled) {
+    smartGuides.beginSession({
+      elements: store.elements,
+      excludeIds: new Set(nodes.map((n) => n.id())),
+      doc: store.document,
+      getBBox: elementBBox,
+    })
+  }
+}
+
+function onElementDragMove(e) {
+  if (!dragSnap || e.target._id !== dragSnap.primaryId) return
+  // Ctrl — временное отключение снэпа (per-event: отпустил — снэп вернулся)
+  if (!store.snapEnabled || e.evt?.ctrlKey) {
+    smartGuides.clearGuides()
+    return
+  }
+  const box = unionBBox(dragSnap.nodes)
+  const { dx, dy } = smartGuides.snapDrag(box, SNAP_SCREEN_THRESHOLD / viewZoom.value)
+  if (dx || dy) dragSnap.nodes.forEach((n) => n.setAttrs({ x: n.x() + dx, y: n.y() + dy }))
+}
+
 function onElementDragEnd(e) {
+  if (dragSnap && e.target._id === dragSnap.primaryId) {
+    dragSnap = null
+    smartGuides.endSession()
+  }
   const node = e.target
   const el = store.elements.find((x) => x.id === node.id())
   if (!el) return
@@ -549,6 +752,15 @@ function onElementLiveTransform(e) {
 
 function onTransformStart() {
   history.record(store)
+  // Таргеты снэпа строим один раз на жест (boundBoxFunc дёргается покадрово)
+  if (store.snapEnabled) {
+    smartGuides.beginSession({
+      elements: store.elements,
+      excludeIds: new Set(store.selectedIds),
+      doc: store.document,
+      getBBox: elementBBox,
+    })
+  }
   // Кеш «вписанности» — битмап фиксированного размера: живая мутация
   // width/height (onElementLiveTransform) его не перерисовывает, контент
   // отставал бы от рамки. На время жеста снимаем кеш (элемент временно без
@@ -571,6 +783,7 @@ function onTransformStart() {
 // приводим к левому-верху с тем же ЗНАКОМ (не по старому el.flipX). Эллипс
 // центр-based — flip не сдвигает позицию, только пишем флаг.
 function onTransformEnd() {
+  smartGuides.endSession()
   const tr = transformerRef.value?.getNode()
   if (!tr) return
 
@@ -713,6 +926,53 @@ function onZoomSlider(val) {
   viewZoom.value = val
 }
 
+// --- Drag&drop картинок из проводника ---
+let dragDepth = 0
+const isDraggingFiles = ref(false)
+
+function onDragEnter(e) {
+  e.preventDefault()
+  if (!e.dataTransfer?.types?.includes('Files')) return
+  dragDepth++
+  isDraggingFiles.value = true
+}
+
+function onDragOver(e) {
+  e.preventDefault()
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+}
+
+function onDragLeave(e) {
+  e.preventDefault()
+  dragDepth = Math.max(0, dragDepth - 1)
+  if (dragDepth === 0) isDraggingFiles.value = false
+}
+
+function onDropFiles(e) {
+  e.preventDefault()
+  dragDepth = 0
+  isDraggingFiles.value = false
+  const files = [...(e.dataTransfer?.files || [])].filter((f) => f.type.startsWith('image/'))
+  if (!files.length) return
+
+  const rect = containerRef.value.getBoundingClientRect()
+  const px = e.clientX - rect.left
+  const py = e.clientY - rect.top
+  const dropX = (px - viewX.value) / viewZoom.value
+  const dropY = (py - viewY.value) / viewZoom.value
+
+  history.record(store)
+  files.forEach((file, i) => {
+    const defaults = getElementDefaults('IMAGE')
+    const offset = i * 24
+    store.addElement('IMAGE', {
+      url: URL.createObjectURL(file),
+      x: Math.round(dropX - defaults.width / 2 + offset),
+      y: Math.round(dropY - defaults.height / 2 + offset),
+    })
+  })
+}
+
 let ro = null
 let onFontsLoadingDone = null
 
@@ -741,6 +1001,11 @@ onMounted(() => {
     syncInkCaches()
   }
   document.fonts?.addEventListener('loadingdone', onFontsLoadingDone)
+
+  // Ctrl/Shift для снэпа в boundBoxFunc (см. transformerConfig)
+  window.addEventListener('keydown', onWinKeyDown)
+  window.addEventListener('keyup', onWinKeyUp)
+  window.addEventListener('blur', onWinBlur)
 
   bridge.setHandlers({
     getStageForExport: () => ({
@@ -781,6 +1046,23 @@ onMounted(() => {
       history.record(store)
       store.removeSelected()
     }
+    if ((e.ctrlKey || e.metaKey) && e.code === 'KeyC' && store.selectedIds.length) {
+      e.preventDefault()
+      store.copySelected()
+    }
+    if ((e.ctrlKey || e.metaKey) && e.code === 'KeyV' && store.clipboard.length) {
+      e.preventDefault()
+      history.record(store)
+      store.pasteClipboard()
+    }
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code) && store.selectedIds.length) {
+      e.preventDefault()
+      const step = e.shiftKey ? 10 : 1
+      const dx = e.code === 'ArrowLeft' ? -step : e.code === 'ArrowRight' ? step : 0
+      const dy = e.code === 'ArrowUp' ? -step : e.code === 'ArrowDown' ? step : 0
+      history.record(store, 'nudge')
+      store.nudgeSelected(dx, dy)
+    }
     if (e.code === 'Escape') {
       store.clearSelection()
     }
@@ -812,6 +1094,7 @@ onMounted(() => {
   const elementsLayer = elementsLayerRef.value?.getNode()
   if (elementsLayer) {
     elementsLayer.on('dragstart', onElementDragStart)
+    elementsLayer.on('dragmove', onElementDragMove)
     elementsLayer.on('dragend', onElementDragEnd)
   }
   const transformerNode = transformerRef.value?.getNode()
@@ -858,6 +1141,9 @@ onMounted(() => {
 onUnmounted(() => {
   ro?.disconnect()
   if (onFontsLoadingDone) document.fonts?.removeEventListener('loadingdone', onFontsLoadingDone)
+  window.removeEventListener('keydown', onWinKeyDown)
+  window.removeEventListener('keyup', onWinKeyUp)
+  window.removeEventListener('blur', onWinBlur)
 })
 
 // Смена инструмента — курсор
@@ -867,7 +1153,15 @@ watch(() => store.activeTool, (tool) => {
 </script>
 
 <template>
-  <div ref="containerRef" class="handout-canvas">
+  <div
+    ref="containerRef"
+    class="handout-canvas"
+    :class="{ 'handout-canvas--drop-active': isDraggingFiles }"
+    @dragenter="onDragEnter"
+    @dragover="onDragOver"
+    @dragleave="onDragLeave"
+    @drop="onDropFiles"
+  >
     <v-stage
       ref="stageRef"
       :config="stageConfig"
@@ -950,6 +1244,13 @@ watch(() => store.activeTool, (tool) => {
           />
         </template>
         <v-transformer ref="transformerRef" :config="transformerConfig" />
+        <!-- Smart Guides: линии выравнивания, равные промежутки, px-подписи -->
+        <v-line v-for="(cfg, i) in guideLineConfigs" :key="'sg' + i" :config="cfg" />
+        <v-line v-for="(cfg, i) in spacingLineConfigs" :key="'sp' + i" :config="cfg" />
+        <v-label v-for="(lb, i) in guideLabelConfigs" :key="'slb' + i" :config="lb.label">
+          <v-tag :config="lb.tag" />
+          <v-text :config="lb.text" />
+        </v-label>
       </v-layer>
     </v-stage>
 
@@ -971,9 +1272,14 @@ watch(() => store.activeTool, (tool) => {
       @update:zoom="onZoomSlider"
       @zoom-in="onZoomSlider(Math.min(8, viewZoom * 1.2))"
       @zoom-out="onZoomSlider(Math.max(0.05, viewZoom / 1.2))"
+      @reset="centerView"
     />
 
     <HandoutHotkeyHelp />
+
+    <div v-if="isDraggingFiles" class="handout-canvas__drop-hint">
+      Отпустите, чтобы добавить картинки
+    </div>
   </div>
 </template>
 
@@ -992,6 +1298,24 @@ watch(() => store.activeTool, (tool) => {
   background-size: 16px 16px;
   background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
   background-color: #21212a;
+
+  &--drop-active {
+    outline: 2px dashed var(--color-accent);
+    outline-offset: -2px;
+  }
+
+  &__drop-hint {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 30;
+    font-size: var(--text-lg);
+    color: var(--color-text-1);
+    background: rgba(0, 0, 0, 0.35);
+  }
 }
 
 .text-editor {

@@ -58,8 +58,15 @@ export const useHandoutStore = defineStore('handout', () => {
   const selectedIds = ref([])
   const activeTool = ref('select') // select | hand
   const showGrid = ref(false)
+  const snapEnabled = ref(true) // умные направляющие (Ctrl — временно отключить)
   const editingElementId = ref(null) // текст в режиме textarea-редактирования
   const exportModalOpen = ref(false)
+
+  // Буфер обмена (внутренний, не системный) — массив «сырых» элементов из copy().
+  // pasteCount считает повторные Ctrl+V без нового copy — каждый paste смещает
+  // на +20px больше предыдущего, чтобы вставки не ложились друг на друга стопкой.
+  const clipboard = ref([])
+  const pasteCount = ref(0)
 
   // Вьюпорт холста — синхронизируется из HandoutCanvas, нужен для
   // добавления новых элементов в центр видимой области.
@@ -137,6 +144,45 @@ export const useHandoutStore = defineStore('handout', () => {
     return copy
   }
 
+  // Копирует выделенные элементы во внутренний буфер (не системный clipboard —
+  // хватает copy/paste в пределах одного документа/вкладки).
+  function copySelected() {
+    const els = elements.value.filter((e) => selectedIds.value.includes(e.id))
+    if (!els.length) return
+    clipboard.value = JSON.parse(JSON.stringify(els))
+    pasteCount.value = 0
+  }
+
+  // Вставляет буфер новыми элементами (новые id) со смещением +20px на шаг,
+  // накапливающимся при повторных Ctrl+V без нового copy. Относительный
+  // z-порядок и взаимное выделение скопированной группы сохраняются.
+  function pasteClipboard() {
+    if (!clipboard.value.length) return
+    pasteCount.value += 1
+    const offset = 20 * pasteCount.value
+    const copies = clipboard.value.map((el) => {
+      const copy = JSON.parse(JSON.stringify(el))
+      copy.id = generateId()
+      copy.x += offset
+      copy.y += offset
+      return copy
+    })
+    elements.value.push(...copies)
+    selectedIds.value = copies.map((c) => c.id)
+    return copies
+  }
+
+  // Точное перемещение выделения стрелками (dx/dy в px документа).
+  // Залоченные элементы пропускаем — как и остальные интерактивные правки.
+  function nudgeSelected(dx, dy) {
+    elements.value.forEach((el) => {
+      if (!el.locked && selectedIds.value.includes(el.id)) {
+        el.x += dx
+        el.y += dy
+      }
+    })
+  }
+
   // Перемещение по z-порядку. В массиве последний рисуется поверх,
   // поэтому 'up' (визуально выше) = ближе к концу массива.
   function reorderElement(id, direction) {
@@ -195,6 +241,10 @@ export const useHandoutStore = defineStore('handout', () => {
     showGrid.value = !showGrid.value
   }
 
+  function toggleSnap() {
+    snapEnabled.value = !snapEnabled.value
+  }
+
   function openExportModal() {
     exportModalOpen.value = true
   }
@@ -208,8 +258,10 @@ export const useHandoutStore = defineStore('handout', () => {
     selectedIds,
     activeTool,
     showGrid,
+    snapEnabled,
     editingElementId,
     exportModalOpen,
+    clipboard,
     viewport,
     setViewport,
     addElement,
@@ -220,6 +272,9 @@ export const useHandoutStore = defineStore('handout', () => {
     removeElement,
     removeSelected,
     duplicateElement,
+    copySelected,
+    pasteClipboard,
+    nudgeSelected,
     reorderElement,
     setSelected,
     toggleSelected,
@@ -229,6 +284,7 @@ export const useHandoutStore = defineStore('handout', () => {
     replaceDocument,
     setActiveTool,
     toggleGrid,
+    toggleSnap,
     openExportModal,
     closeExportModal,
   }

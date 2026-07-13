@@ -1314,6 +1314,7 @@ onUnmounted(() => {
       @update:zoom="onZoomSlider"
       @zoom-in="zoomIn"
       @zoom-out="zoomOut"
+      @reset="centerViewOnFrame"
     />
 
     <HotkeyHelp :tool="store.activeTool" />

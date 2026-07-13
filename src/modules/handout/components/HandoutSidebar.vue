@@ -61,6 +61,25 @@ function addEllipse() {
 // --- Список слоёв: верхний по z — первым в списке ---
 const layers = computed(() => [...store.elements].reverse())
 
+// Якорь для Shift-диапазона — индекс последнего одиночного клика в layers.
+let rangeAnchor = null
+
+function onLayerClick(el, index, e) {
+  if (e.shiftKey) {
+    const anchor = rangeAnchor ?? index
+    const [from, to] = anchor < index ? [anchor, index] : [index, anchor]
+    store.setSelected(layers.value.slice(from, to + 1).map((l) => l.id))
+    return
+  }
+  if (e.ctrlKey || e.metaKey) {
+    store.toggleSelected(el.id)
+    rangeAnchor = index
+    return
+  }
+  store.setSelected([el.id])
+  rangeAnchor = index
+}
+
 function layerName(el) {
   if (el.type === 'TEXT') return el.content.split('\n')[0].slice(0, 24) || 'Текст'
   if (el.type === 'IMAGE') return 'Картинка'
@@ -145,11 +164,11 @@ function moveLayer(el, dir) {
 
       <ul v-else class="layers-list">
         <li
-          v-for="el in layers"
+          v-for="(el, index) in layers"
           :key="el.id"
           class="layer-row"
           :class="{ active: store.selectedIds.includes(el.id) }"
-          @click="store.setSelected([el.id])"
+          @click="onLayerClick(el, index, $event)"
         >
           <component :is="layerIcon(el)" :size="14" class="layer-row__type" />
           <span class="layer-row__name">{{ layerName(el) }}</span>
@@ -298,6 +317,7 @@ function moveLayer(el, dir) {
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
   cursor: pointer;
+  user-select: none;
   transition: background-color var(--transition-fast);
 
   &:hover {

@@ -1,5 +1,5 @@
 <script setup>
-import { Plus, Minus } from 'lucide-vue-next'
+import { Plus, Minus, Maximize } from 'lucide-vue-next'
 import BaseButton from './BaseButton.vue'
 
 defineProps({
@@ -7,7 +7,7 @@ defineProps({
   minZoom: { type: Number, default: 0.1 },
   maxZoom: { type: Number, default: 8 },
 })
-defineEmits(['update:zoom', 'zoom-in', 'zoom-out'])
+defineEmits(['update:zoom', 'zoom-in', 'zoom-out', 'reset'])
 </script>
 
 <template>
@@ -29,6 +29,9 @@ defineEmits(['update:zoom', 'zoom-in', 'zoom-out'])
     </div>
     <BaseButton size="sm" square @click="$emit('zoom-out')">
       <Minus :size="14" />
+    </BaseButton>
+    <BaseButton size="sm" square title="Сбросить приближение" @click="$emit('reset')">
+      <Maximize :size="14" />
     </BaseButton>
     <span class="zoom-nav__label">{{ Math.round(zoom * 100) }}%</span>
   </div>

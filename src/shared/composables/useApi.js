@@ -26,9 +26,17 @@ export function getRefreshToken() {
   return localStorage.getItem('refreshToken')
 }
 
-// Флаг «идёт обновление» + очередь запросов, ждущих новый токен
-let isRefreshing = false
-let refreshQueue = []
+export function clearTokens() {
+  setAccessToken(null)
+  setRefreshToken(null)
+}
+
+// Колбэк «сессия умерла» (401 от /refresh): его ставит приложение — сбрасывает
+// пользователя в сторе и уводит на экран входа. useApi про роутер/стор не знает.
+let onSessionExpired = null
+export function setSessionExpiredHandler(fn) {
+  onSessionExpired = fn
+}
 
 // Троттлинг: сколько раз повторять запрос, отбитый рейт-лимитером
 const RATE_LIMIT_RETRIES = 3
@@ -50,26 +58,60 @@ function isAuthPath(path) {
   return path.startsWith('/api/auth/')
 }
 
-async function refreshAccessToken() {
-  const refresh = getRefreshToken()
-  if (!refresh) throw new Error('No refresh token')
+// 401 на этих путях НЕ значит «протух access» и обновляться по нему бессмысленно:
+// login — неверные креды, refresh/logout/register сами про токены. Обновление
+// здесь дало бы лишний /refresh (и, при гонке, ложный «повторный» refresh → ресет).
+// /api/auth/me в список НЕ входит: его 401 — обычное протухание access.
+const NO_REFRESH_RETRY = [
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/refresh',
+  '/api/auth/logout',
+]
 
-  const res = await fetch(resolveUrl('/api/auth/refresh'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken: refresh }),
-  })
+// Single-flight обновление пары токенов.
+//
+// КРИТИЧНО: бэк РОТИРУЕТ refresh — каждый /api/auth/refresh гасит предъявленный
+// токен и выдаёт НОВУЮ пару. Повторная отправка уже использованного refresh
+// трактуется бэком как кража: он отзывает ВСЕ токены пользователя (разлогин со
+// всех устройств). Отсюда два правила:
+//   1) после ответа перезаписываем ОБА токена значениями из ответа;
+//   2) обновление — одно на всех: параллельные 401 ждут один и тот же промис,
+//      иначе второй ушёл бы со старым (только что погашенным) refresh → реюз → разлогин.
+// Этот же промис переиспользует restoreSession() в authStore — чтобы восстановление
+// сессии на старте и 401 от параллельного запроса не устроили два /refresh подряд.
+let refreshPromise = null
 
-  if (!res.ok) {
-    setRefreshToken(null)
-    setAccessToken(null)
-    throw new Error('Refresh failed')
-  }
+export function refreshSession() {
+  if (refreshPromise) return refreshPromise
 
-  const data = await res.json()
-  setAccessToken(data.accessToken)
-  setRefreshToken(data.refreshToken)
-  return data.accessToken
+  refreshPromise = (async () => {
+    const refresh = getRefreshToken()
+    if (!refresh) throw new Error('No refresh token')
+
+    const res = await fetch(resolveUrl('/api/auth/refresh'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: refresh }),
+    })
+    if (!res.ok) throw new Error('Refresh failed')
+
+    const data = await res.json()
+    setAccessToken(data.accessToken)
+    setRefreshToken(data.refreshToken) // ротация: старый refresh уже мёртв
+    return data.accessToken
+  })()
+    .catch((err) => {
+      // Сессия мертва (refresh протух/отозван/реюз) — чистим пару и уводим на вход.
+      clearTokens()
+      onSessionExpired?.()
+      throw err
+    })
+    .finally(() => {
+      refreshPromise = null
+    })
+
+  return refreshPromise
 }
 
 export async function apiFetch(path, options = {}, attempt = 0) {
@@ -89,31 +131,19 @@ export async function apiFetch(path, options = {}, attempt = 0) {
 
   let res = await fetch(resolveUrl(path), { ...options, headers })
 
-  // 401 — пробуем обновить токен и повторить запрос
-  if (res.status === 401 && getRefreshToken()) {
-    if (isRefreshing) {
-      // Обновление уже идёт — встаём в очередь
-      return new Promise((resolve, reject) => {
-        refreshQueue.push({ resolve, reject, path, options })
-      })
-    }
-
-    isRefreshing = true
+  // 401 — access протух: обновляем пару (single-flight) и повторяем запрос ОДИН раз.
+  if (res.status === 401 && getRefreshToken() && !NO_REFRESH_RETRY.includes(path)) {
     try {
-      const newToken = await refreshAccessToken()
-      // Повторяем исходный запрос с новым токеном
+      const newToken = await refreshSession()
       res = await fetch(resolveUrl(path), {
         ...options,
         headers: { ...headers, Authorization: `Bearer ${newToken}` },
       })
-      // Разбираем очередь ожидающих
-      refreshQueue.forEach(({ resolve, path: p, options: o }) => resolve(apiFetch(p, o)))
-    } catch (err) {
-      refreshQueue.forEach(({ reject }) => reject(err))
-      throw err
-    } finally {
-      isRefreshing = false
-      refreshQueue = []
+    } catch {
+      // Обновиться не удалось: refreshSession уже почистил токены и позвал
+      // onSessionExpired (редирект на вход). Отдаём исходный 401 — вызывающий
+      // код увидит !res.ok и не свалится на необработанном исключении.
+      return res
     }
   }
 

@@ -9,6 +9,10 @@ import DocumentProperties from './DocumentProperties.vue'
 import TextProperties from './TextProperties.vue'
 import ImageProperties from './ImageProperties.vue'
 import ShapeProperties from './ShapeProperties.vue'
+import TransformSection from './TransformSection.vue'
+import BlendModeSelect from './BlendModeSelect.vue'
+import InkEffectSection from './InkEffectSection.vue'
+import ImageFitSection from './ImageFitSection.vue'
 
 // Контекстная панель свойств: содержимое зависит от выделения.
 // Ничего → документ; один элемент → свойства по типу; несколько → общие поля.
@@ -21,6 +25,10 @@ const selectedElements = computed(() =>
 
 const single = computed(() =>
   selectedElements.value.length === 1 ? selectedElements.value[0] : null,
+)
+
+const allImages = computed(() =>
+  selectedElements.value.every((e) => e.type === 'IMAGE'),
 )
 
 // Средняя прозрачность мультивыделения (для слайдера)
@@ -67,27 +75,36 @@ function removeAll() {
 
     <!-- Мультивыделение → общие поля -->
     <div v-else class="multi">
-      <p class="multi__count">Выбрано элементов: {{ selectedElements.length }}</p>
+      <div class="multi__top">
+        <p class="multi__count">Выбрано элементов: {{ selectedElements.length }}</p>
 
-      <SliderControl
-        label="Прозрачность"
-        :model-value="multiOpacity"
-        :min="0" :max="100" :step="1" suffix="%"
-        @update:model-value="setMultiOpacity"
-      />
-
-      <div class="multi__actions">
-        <BaseButton size="sm" full-width @click="toggleMultiVisible">
-          <Eye :size="14" /> Показ/скрыть
-        </BaseButton>
-        <BaseButton size="sm" full-width @click="toggleMultiLocked">
-          <Lock :size="14" /> Блокировка
-        </BaseButton>
+        <SliderControl
+          label="Прозрачность"
+          :model-value="multiOpacity"
+          :min="0" :max="100" :step="1" suffix="%"
+          @update:model-value="setMultiOpacity"
+        />
       </div>
 
-      <BaseButton size="sm" full-width danger-hover @click="removeAll">
-        <Trash2 :size="14" /> Удалить всё
-      </BaseButton>
+      <ImageFitSection v-if="allImages" :elements="selectedElements" />
+      <TransformSection :elements="selectedElements" />
+      <BlendModeSelect :elements="selectedElements" />
+      <InkEffectSection :elements="selectedElements" />
+
+      <div class="multi__bottom">
+        <div class="multi__actions">
+          <BaseButton size="sm" full-width @click="toggleMultiVisible">
+            <Eye :size="14" /> Показ/скрыть
+          </BaseButton>
+          <BaseButton size="sm" full-width @click="toggleMultiLocked">
+            <Lock :size="14" /> Блокировка
+          </BaseButton>
+        </div>
+
+        <BaseButton size="sm" full-width danger-hover @click="removeAll">
+          <Trash2 :size="14" /> Удалить всё
+        </BaseButton>
+      </div>
     </div>
   </div>
 </template>
@@ -101,7 +118,15 @@ function removeAll() {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding: var(--space-4);
+  padding: var(--space-4) 0;
+
+  &__top,
+  &__bottom {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: 0 var(--space-4);
+  }
 
   &__count {
     font-size: var(--text-sm);

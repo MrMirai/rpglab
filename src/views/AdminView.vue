@@ -1,7 +1,8 @@
 <script setup>
 import { ref } from 'vue'
-import { RouterLink } from 'vue-router'
 import { AdminNav, AdminSystemFrames } from '@/modules/admin'
+import { UserMenu } from '@/modules/auth'
+import PageHeader from '@/shared/components/layout/PageHeader.vue'
 
 // Простой собственный layout админ-секции (не AppLayout — тот заточен под
 // редактор с canvas/properties-панелью). Задел на рост: activeSection
@@ -11,10 +12,9 @@ const activeSection = ref('frames')
 
 <template>
   <div class="admin-view">
-    <header class="admin-header">
-      <RouterLink to="/" class="back-link">← Назад в редактор</RouterLink>
-      <h1>Администрирование</h1>
-    </header>
+    <PageHeader>
+      <template #user><UserMenu /></template>
+    </PageHeader>
 
     <div class="admin-body">
       <AdminNav :active="activeSection" @select="activeSection = $event" />
@@ -32,33 +32,6 @@ const activeSection = ref('frames')
   display: flex;
   flex-direction: column;
   background-color: var(--color-bg-1);
-}
-
-.admin-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-6);
-  padding: var(--space-4) var(--space-8);
-  border-bottom: 1px solid var(--color-border);
-  background-color: var(--color-bg-2);
-  flex-shrink: 0;
-
-  h1 {
-    font-size: var(--text-xl);
-    font-weight: var(--weight-semibold);
-    color: var(--color-text-1);
-  }
-}
-
-.back-link {
-  font-size: var(--text-sm);
-  color: var(--color-text-2);
-  transition: color var(--transition-fast);
-  flex-shrink: 0;
-
-  &:hover {
-    color: var(--color-accent);
-  }
 }
 
 .admin-body {

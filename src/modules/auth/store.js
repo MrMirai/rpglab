@@ -129,18 +129,30 @@ export const useAuthStore = defineStore('auth', () => {
     await fetchMe()
   }
 
+  // Промис завершения стартового восстановления сессии. Роутер-гард дожидается
+  // его перед проверкой isAuthenticated, иначе холодный заход на защищённую
+  // страницу (F5 / прямая ссылка) сработал бы ДО того, как restoreSession()
+  // подтянул профиль, и выкинул бы залогиненного пользователя на /login (гонка).
+  let sessionReadyResolve
+  const sessionReady = new Promise((resolve) => {
+    sessionReadyResolve = resolve
+  })
+
   // Восстановление сессии при перезагрузке: по refreshToken из localStorage
   // получаем новую пару и подтягиваем профиль. Обновление идёт через общий
   // single-flight refreshSession() из useApi (НЕ собственный POST /refresh):
   // refresh ротируется, и два параллельных обновления послали бы один и тот же
   // токен дважды — бэк счёл бы это реюзом и отозвал все токены пользователя.
   async function restoreSession() {
-    if (!getRefreshToken()) return
     try {
+      if (!getRefreshToken()) return
       await refreshSession()
       await fetchMe()
     } catch {
       // refreshSession уже почистил токены (сессия мертва) — просто остаёмся гостем
+    } finally {
+      // В любом исходе (восстановились / гость / нет токена) разблокируем гард.
+      sessionReadyResolve()
     }
   }
 
@@ -158,5 +170,6 @@ export const useAuthStore = defineStore('auth', () => {
     refreshProfileIfStale,
     refreshAvatarOnError,
     restoreSession,
+    sessionReady,
   }
 })

@@ -2,7 +2,7 @@
 import { RouterLink } from 'vue-router'
 import { FileText, ArrowRight } from 'lucide-vue-next'
 import { UserMenu, useAuthStore } from '@/modules/auth'
-import LogoIcon from '@/shared/components/LogoIcon.vue'
+import PageHeader from '@/shared/components/layout/PageHeader.vue'
 
 // Главная страница: рассказывает о сервисе и ведёт в редакторы.
 // Собственная лёгкая шапка (не AppLayout — тот заточен под canvas-редактор
@@ -30,13 +30,9 @@ const EDITORS = [
 
 <template>
   <div class="home">
-    <header class="home-header">
-      <div class="home-header__logo">
-        <LogoIcon :size="26" class="logo-icon" />
-        <span class="logo-text">RPGLab</span>
-      </div>
-      <UserMenu />
-    </header>
+    <PageHeader>
+      <template #user><UserMenu /></template>
+    </PageHeader>
 
     <main class="home-content">
       <section class="hero">
@@ -87,33 +83,6 @@ const EDITORS = [
   display: flex;
   flex-direction: column;
   background-color: var(--color-bg-1);
-}
-
-.home-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 64px;
-  flex-shrink: 0;
-  padding: 0 var(--space-8);
-  border-bottom: 1px solid var(--color-border);
-  background-color: var(--color-bg-2);
-}
-
-.home-header__logo {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-
-  .logo-icon {
-    color: var(--color-accent);
-  }
-
-  .logo-text {
-    font-size: var(--text-lg);
-    font-weight: var(--weight-semibold);
-    color: var(--color-accent);
-  }
 }
 
 .home-content {

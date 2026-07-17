@@ -1,8 +1,8 @@
 <script setup>
 import { ref } from 'vue'
-import { RouterLink } from 'vue-router'
 import { User, Trash2 } from 'lucide-vue-next'
-import { useAuthStore } from '@/modules/auth'
+import { useAuthStore, UserMenu } from '@/modules/auth'
+import PageHeader from '@/shared/components/layout/PageHeader.vue'
 import ImageDropzone from '@/shared/components/ImageDropzone.vue'
 import BaseButton from '@/shared/components/BaseButton.vue'
 
@@ -41,12 +41,13 @@ async function onRemoveAvatar() {
 
 <template>
   <div class="settings-view">
-    <header class="settings-header">
-      <RouterLink to="/" class="back-link">← Назад в редактор</RouterLink>
-      <h1>Настройки</h1>
-    </header>
+    <PageHeader>
+      <template #user><UserMenu /></template>
+    </PageHeader>
 
     <main class="settings-content">
+      <h1 class="settings-title">Настройки</h1>
+
       <section class="settings-section">
         <h2>Аватар</h2>
 
@@ -95,29 +96,14 @@ async function onRemoveAvatar() {
   flex-direction: column;
 }
 
-.settings-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-6);
-  padding: var(--space-4) var(--space-8);
-  border-bottom: 1px solid var(--color-border);
-  background-color: var(--color-bg-2);
-}
-
-.back-link {
-  font-size: var(--text-sm);
-  color: var(--color-text-2);
-  transition: color var(--transition-fast);
-  flex-shrink: 0;
-
-  &:hover {
-    color: var(--color-accent);
-  }
-}
-
 .settings-content {
   padding: var(--space-8);
   max-width: 480px;
+}
+
+.settings-title {
+  font-size: var(--text-xl);
+  margin-bottom: var(--space-6);
 }
 
 .settings-section {

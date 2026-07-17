@@ -56,8 +56,13 @@ const router = createRouter({
 
 // Защита роутов: закрытые страницы требуют авторизации,
 // авторизованного не пускаем обратно на login/register.
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const auth = useAuthStore()
+  // Ждём завершения стартового восстановления сессии (refresh + профиль), иначе
+  // при холодном заходе на защищённую страницу (F5 / прямая ссылка) гард отработал
+  // бы ДО restoreSession() и выкинул залогиненного пользователя на /login.
+  // Промис резолвится один раз и уже разрешён при последующих переходах.
+  await auth.sessionReady
   // Защищённые страницы — на логин, запомнив куда шёл пользователь
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
     return { path: '/login', query: { redirect: to.fullPath } }

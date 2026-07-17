@@ -401,7 +401,51 @@ Presigned URL в `frameAssetUrl`, `backgroundAssetUrl`, `AssetResponse.url` — 
 
 ---
 
+## Папки проектов
+
+🔒 Все эндпоинты требуют токен. Папки принадлежат пользователю, вкладываются друг
+в друга (дерево), используются для организации проектов. `parentId = null` — корень.
+
+**FolderResponse:**
+```json
+{
+  "id": "uuid",
+  "userId": "uuid",
+  "userName": "myname",
+  "name": "Кампания",
+  "parentId": "uuid | null",
+  "parentName": "string | null",
+  "createdAt": "2026-07-17T10:00:00Z",
+  "childCount": 3,
+  "children": []
+}
+```
+`children` заполняется только у `GET /api/folders/tree`; в остальных ответах — пустой массив.
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| GET | `/api/folders` | Плоский список ВСЕХ папок пользователя (без вложенности) |
+| GET | `/api/folders/tree` | Всё дерево: корневые + вложенные в `children` |
+| GET | `/api/folders/{id}` | Одна папка по id |
+| GET | `/api/folders/{id}/children` | Прямые дочерние папки |
+| GET | `/api/folders/{id}/path` | Хлебные крошки: от корня до папки включительно (массив, по порядку) |
+| POST | `/api/folders` | Создать. Body `FolderRequest { name (req), parentId? }` (null = корень) |
+| PUT | `/api/folders/{id}` | Полное обновление. Body `FolderRequest { name, parentId }` |
+| PATCH | `/api/folders/{id}` | Переименовать. Body `FolderPatchRequest { name }` |
+| POST | `/api/folders/{id}/move` | Переместить. Body `FolderMoveRequest { parentId }` (null = в корень) |
+| DELETE | `/api/folders/{id}` | Удалить папку рекурсивно вместе с содержимым |
+
+Ошибки как обычно: `400` — валидация/цикл (нельзя переместить папку в свою же ветку),
+`403` — чужая папка, `404` — папка не найдена.
+
+Фронт (страница `/projects`, `modules/projects`): корень грузится через `GET /api/folders`
+с фильтром `parentId == null`; вход в папку — `children` + `path` параллельно; drag&drop
+папок → `POST /api/folders/{id}/move`; элемент «Наверх» и хлебные крошки — тоже drop-цели.
+
+---
+
 ## Ещё не реализовано (бэклог)
 
-- `TokenProjectController` / `HandoutProjectController` — в разработке
+- `TokenProjectController` / `HandoutProjectController` — в разработке (проекты внутри
+  папок пока заглушки на фронте; папки уже рабочие)
 - Квоты по тарифу (`max_loaded_file_size` из `plans` ещё не проверяется в upload)

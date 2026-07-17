@@ -1,7 +1,8 @@
 <script setup>
 import { RouterLink } from 'vue-router'
 import { User } from 'lucide-vue-next'
-import { useAuthStore } from '@/modules/auth'
+import { useAuthStore, UserMenu } from '@/modules/auth'
+import PageHeader from '@/shared/components/layout/PageHeader.vue'
 
 const auth = useAuthStore()
 
@@ -14,12 +15,13 @@ const planLabels = {
 
 <template>
   <div class="profile-view">
-    <header class="profile-header">
-      <RouterLink to="/" class="back-link">← Назад в редактор</RouterLink>
-      <h1>Профиль</h1>
-    </header>
+    <PageHeader>
+      <template #user><UserMenu /></template>
+    </PageHeader>
 
     <main class="profile-content">
+      <h1 class="profile-title">Профиль</h1>
+
       <div class="profile-card">
         <img
           v-if="auth.user?.avatarUrl"
@@ -63,32 +65,16 @@ const planLabels = {
   flex-direction: column;
 }
 
-.profile-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-6);
-  padding: var(--space-4) var(--space-8);
-  border-bottom: 1px solid var(--color-border);
-  background-color: var(--color-bg-2);
-}
-
-.back-link {
-  font-size: var(--text-sm);
-  color: var(--color-text-2);
-  transition: color var(--transition-fast);
-  flex-shrink: 0;
-
-  &:hover {
-    color: var(--color-accent);
-  }
-}
-
 .profile-content {
   padding: var(--space-8);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
   max-width: 480px;
+}
+
+.profile-title {
+  font-size: var(--text-xl);
 }
 
 .profile-card {

@@ -67,6 +67,9 @@ const NO_REFRESH_RETRY = [
   '/api/auth/register',
   '/api/auth/refresh',
   '/api/auth/logout',
+  // 401 здесь = «токен подтверждения неизвестен/использован/просрочен», а не
+  // «протух access» (пользователь ещё гость, access-токена нет) — refresh не нужен.
+  '/api/auth/verify-email',
 ]
 
 // Single-flight обновление пары токенов.

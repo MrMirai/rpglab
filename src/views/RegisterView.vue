@@ -1,6 +1,10 @@
 <template>
   <AuthPageBackground>
-    <div class="auth-card">
+    <!-- После успешной регистрации токены НЕ выдаются: показываем экран
+         «Проверьте почту» с возможностью переотправить письмо подтверждения. -->
+    <CheckEmailCard v-if="registered" :email="email" />
+
+    <div v-else class="auth-card">
       <div class="auth-card__logo">
         <LogoIcon :size="72" class="auth-card__logo-icon" />
       </div>
@@ -66,15 +70,12 @@
 
 <script setup>
 import { ref, computed, onUnmounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { useAuthStore } from '@/modules/auth'
+import { useAuthStore, CheckEmailCard } from '@/modules/auth'
 import BaseButton from '@/shared/components/BaseButton.vue'
 import AuthPageBackground from '@/shared/components/AuthPageBackground.vue'
 import LogoIcon from '@/shared/components/LogoIcon.vue'
 
 const auth = useAuthStore()
-const router = useRouter()
-const route = useRoute()
 
 const username = ref('')
 const email = ref('')
@@ -82,6 +83,10 @@ const password = ref('')
 const confirmPassword = ref('')
 const error = ref('')
 const loading = ref(false)
+
+// После успешного register переключаемся на экран «Проверьте почту» (вход
+// закрыт, пока email не подтверждён — токенов бэк не выдал).
+const registered = ref(false)
 
 // Обратный отсчёт после 429 (rate limit) — блокирует кнопку до конца Retry-After.
 const retryIn = ref(0)
@@ -129,8 +134,8 @@ async function handleSubmit() {
   loading.value = true
   try {
     await auth.register(email.value, username.value, password.value)
-    // Возвращаемся туда, откуда пришли (если был редирект с защищённой страницы)
-    router.push(route.query.redirect || '/')
+    // Токены не выданы — ведём на экран «Проверьте почту», а не в приложение.
+    registered.value = true
   } catch (e) {
     error.value = e.message
     if (e.retryAfterSeconds) startRetryCountdown(e.retryAfterSeconds)

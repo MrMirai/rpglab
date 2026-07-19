@@ -1,6 +1,10 @@
 <template>
   <AuthPageBackground>
-    <div class="auth-card">
+    <!-- Вход вернул 403 «email не подтверждён» — показываем экран «Проверьте
+         почту» с переотправкой письма вместо «неверный пароль». -->
+    <CheckEmailCard v-if="emailNotVerified" :email="email" />
+
+    <div v-else class="auth-card">
       <div class="auth-card__logo">
         <LogoIcon :size="72" class="auth-card__logo-icon" />
       </div>
@@ -47,7 +51,7 @@
 <script setup>
 import { ref, computed, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useAuthStore } from '@/modules/auth'
+import { useAuthStore, CheckEmailCard } from '@/modules/auth'
 import BaseButton from '@/shared/components/BaseButton.vue'
 import AuthPageBackground from '@/shared/components/AuthPageBackground.vue'
 import LogoIcon from '@/shared/components/LogoIcon.vue'
@@ -60,6 +64,9 @@ const email = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
+
+// Вход вернул 403 (email не подтверждён) — переключаемся на экран «Проверьте почту».
+const emailNotVerified = ref(false)
 
 // Обратный отсчёт после 429 (rate limit) — блокирует кнопку до конца Retry-After.
 const retryIn = ref(0)
@@ -90,6 +97,11 @@ async function handleSubmit() {
     // Возвращаемся туда, откуда пришли (если был редирект с защищённой страницы)
     router.push(route.query.redirect || '/')
   } catch (e) {
+    // 403 «email не подтверждён» — не показываем ошибку, уводим на экран resend.
+    if (e.emailNotVerified) {
+      emailNotVerified.value = true
+      return
+    }
     error.value = e.message
     if (e.retryAfterSeconds) startRetryCountdown(e.retryAfterSeconds)
   } finally {

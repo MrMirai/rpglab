@@ -51,6 +51,13 @@ const router = createRouter({
       path: '/register',
       component: () => import('@/views/RegisterView.vue'),
     },
+    // Подтверждение email по ссылке из письма (?token=…). Публичный: сюда
+    // попадают ещё не залогиненные пользователи; страница сама дёргает
+    // verify-email, при успехе логинит (auto-login) и уводит в приложение.
+    {
+      path: '/verify-email',
+      component: () => import('@/views/VerifyEmailView.vue'),
+    },
   ],
 })
 

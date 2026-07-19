@@ -23,13 +23,42 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => !!user.value)
   const isAdmin = computed(() => user.value?.admin === true)
 
+  // Регистрация НЕ логинит пользователя: бэк создаёт аккаунт с emailVerified:false,
+  // токены НЕ выдаёт и шлёт на почту письмо со ссылкой подтверждения. Ответ — профиль
+  // (UserResponse). Вход открывается только после verify-email, поэтому здесь не пишем
+  // токены и не зовём fetchMe — вызывающий экран ведёт на «Проверьте почту».
   async function register(email, username, password) {
     loading.value = true
     error.value = null
     try {
       const res = await api.post('/api/auth/register', { email, username, password })
+      // Тело парсим безопасно: успешный 201 может прийти без тела/не-JSON —
+      // тогда res.json() бросил бы и завис бы «успешный» путь. Ошибку читаем
+      // из тела, только если оно есть.
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.message || 'Ошибка регистрации')
+      // data — профиль с emailVerified:false; наверх не отдаём, экран знает email сам
+    } catch (e) {
+      error.value = e.message
+      throw e
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // Подтверждение email по одноразовому токену из письма. При успехе бэк СРАЗУ
+  // выдаёт пару токенов (auto-login) — сохраняем её и тянем профиль, как после login.
+  // Токен одноразовый: экран /verify-email обязан дёрнуть это ОДИН раз (guard).
+  async function verifyEmail(token) {
+    loading.value = true
+    error.value = null
+    try {
+      const res = await api.post('/api/auth/verify-email', { token })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.message || 'Ошибка регистрации')
+      if (!res.ok) {
+        // 401 — токен неизвестен / уже использован / просрочен (TTL 24ч)
+        throw new Error(data.message || 'Ссылка подтверждения недействительна или устарела')
+      }
       setAccessToken(data.accessToken)
       setRefreshToken(data.refreshToken)
       await fetchMe()
@@ -39,6 +68,15 @@ export const useAuthStore = defineStore('auth', () => {
     } finally {
       loading.value = false
     }
+  }
+
+  // Повторная отправка письма подтверждения. Бэк ВСЕГДА отвечает 202 (даже если
+  // аккаунта нет или он уже подтверждён — анти-enumeration), поэтому по ответу
+  // не различаем «найден/не найден». Есть cooldown ~60с — экран блокирует кнопку
+  // таймером, чтобы пользователь не спамил. Ошибку наверх кидаем только на сбое сети.
+  async function resendVerification(email) {
+    const res = await api.post('/api/auth/verify-email/resend', { email })
+    if (!res.ok) throw new Error('Не удалось отправить письмо. Попробуйте позже')
   }
 
   async function login(email, password) {
@@ -59,6 +97,14 @@ export const useAuthStore = defineStore('auth', () => {
               : 'Слишком много попыток входа. Попробуйте позже',
           )
           err.retryAfterSeconds = seconds
+          throw err
+        }
+        // 403 на /login — это ИМЕННО «email не подтверждён» (пароль верный),
+        // а не «неверные креды» (это 401). Помечаем флагом, чтобы LoginView увёл
+        // на экран «Проверьте почту» с resend, а не написал «неверный пароль».
+        if (res.status === 403) {
+          const err = new Error('Подтвердите email, чтобы войти')
+          err.emailNotVerified = true
           throw err
         }
         throw new Error(data.message || 'Неверный email или пароль')
@@ -163,6 +209,8 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     isAdmin,
     register,
+    verifyEmail,
+    resendVerification,
     login,
     logout,
     clearSession,

@@ -2,6 +2,7 @@
 import { ref, computed, onUnmounted } from 'vue'
 import { User, Trash2, KeyRound } from 'lucide-vue-next'
 import { useAuthStore, UserMenu } from '@/modules/auth'
+import { useToast } from '@/shared/composables/useToast'
 import PageHeader from '@/shared/components/layout/PageHeader.vue'
 import ImageDropzone from '@/shared/components/ImageDropzone.vue'
 import BaseButton from '@/shared/components/BaseButton.vue'
@@ -12,30 +13,30 @@ import BaseButton from '@/shared/components/BaseButton.vue'
 // /reset-password. Владение почтой подтверждается письмом, поэтому текущий
 // пароль тут не спрашиваем.
 const auth = useAuthStore()
+const toast = useToast()
 
 const uploading = ref(false)
 const removing = ref(false)
-const error = ref('')
 
 async function onSelectAvatar(file) {
-  error.value = ''
   uploading.value = true
   try {
     await auth.uploadAvatar(file)
+    toast.success('Аватар обновлён')
   } catch (e) {
-    error.value = e.message
+    toast.error(e.message)
   } finally {
     uploading.value = false
   }
 }
 
 async function onRemoveAvatar() {
-  error.value = ''
   removing.value = true
   try {
     await auth.removeAvatar()
+    toast.success('Аватар убран')
   } catch (e) {
-    error.value = e.message
+    toast.error(e.message)
   } finally {
     removing.value = false
   }
@@ -44,7 +45,6 @@ async function onRemoveAvatar() {
 // --- Смена пароля: письмо со ссылкой сброса на email аккаунта ---
 const passwordSending = ref(false)
 const passwordSent = ref(false)
-const passwordError = ref('')
 
 // Тот же cooldown ~60с, что и у бэка между письмами — гасим кнопку сразу
 // после клика, чтобы пользователь не спамил.
@@ -71,14 +71,14 @@ const passwordButtonLabel = computed(() => {
 })
 
 async function onRequestPasswordChange() {
-  passwordError.value = ''
   passwordSending.value = true
   try {
     await auth.forgotPassword(auth.user.email)
     passwordSent.value = true
     startCooldown()
+    toast.success(`Письмо отправлено на ${auth.user.email}`)
   } catch (e) {
-    passwordError.value = e.message
+    toast.error(e.message)
   } finally {
     passwordSending.value = false
   }
@@ -128,7 +128,6 @@ async function onRequestPasswordChange() {
         </div>
 
         <p v-if="uploading" class="settings-hint">Загрузка...</p>
-        <p v-if="error" class="settings-error">{{ error }}</p>
       </section>
 
       <section class="settings-section">
@@ -151,7 +150,6 @@ async function onRequestPasswordChange() {
           Письмо отправлено. После смены пароля сессии на всех устройствах будут завершены —
           войти снова придётся с новым паролем.
         </p>
-        <p v-if="passwordError" class="settings-error">{{ passwordError }}</p>
       </section>
     </main>
   </div>
@@ -240,9 +238,4 @@ async function onRequestPasswordChange() {
   color: var(--color-text-3);
 }
 
-.settings-error {
-  margin-top: var(--space-3);
-  font-size: var(--text-sm);
-  color: var(--color-danger);
-}
 </style>

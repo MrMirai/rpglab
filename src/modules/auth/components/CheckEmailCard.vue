@@ -16,11 +16,6 @@
       Не пришло письмо? Проверьте папку «Спам» или отправьте его повторно.
     </p>
 
-    <p v-if="sent" class="auth-card__sent">
-      Если аккаунт существует, письмо отправлено повторно.
-    </p>
-    <p v-if="error" class="auth-card__error">{{ error }}</p>
-
     <BaseButton
       variant="accent"
       full-width
@@ -41,6 +36,7 @@ import { ref, computed, onUnmounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { MailCheck } from 'lucide-vue-next'
 import { useAuthStore } from '@/modules/auth'
+import { useToast } from '@/shared/composables/useToast'
 import BaseButton from '@/shared/components/BaseButton.vue'
 
 const props = defineProps({
@@ -48,10 +44,9 @@ const props = defineProps({
 })
 
 const auth = useAuthStore()
+const toast = useToast()
 
 const resending = ref(false)
-const sent = ref(false)
-const error = ref('')
 
 // Cooldown на повторную отправку: у бэка свой лимит ~60с, дублируем таймером,
 // чтобы кнопка гасла сразу после клика и пользователь не спамил письмами.
@@ -77,17 +72,15 @@ const resendLabel = computed(() => {
 })
 
 async function handleResend() {
-  error.value = ''
-  sent.value = false
   resending.value = true
   try {
     await auth.resendVerification(props.email)
     // Ответ всегда 202 (анти-enumeration) — не сообщаем «найден/не найден»,
     // просто нейтральное «письмо отправлено» и запускаем cooldown.
-    sent.value = true
+    toast.success('Если аккаунт существует, письмо отправлено повторно')
     startCooldown()
   } catch (e) {
-    error.value = e.message
+    toast.error(e.message)
   } finally {
     resending.value = false
   }
@@ -136,26 +129,6 @@ async function handleResend() {
     font-size: var(--text-sm);
     color: var(--color-text-2);
     margin-bottom: var(--space-6);
-  }
-
-  &__sent {
-    font-size: var(--text-sm);
-    color: var(--color-text-2);
-    padding: var(--space-2) var(--space-3);
-    background: rgba(90, 140, 90, 0.12);
-    border: 1px solid rgba(90, 140, 90, 0.3);
-    border-radius: var(--radius-md);
-    margin-bottom: var(--space-4);
-  }
-
-  &__error {
-    font-size: var(--text-sm);
-    color: var(--color-danger);
-    padding: var(--space-2) var(--space-3);
-    background: rgba(192, 84, 74, 0.1);
-    border: 1px solid rgba(192, 84, 74, 0.3);
-    border-radius: var(--radius-md);
-    margin-bottom: var(--space-4);
   }
 
   &__footer {

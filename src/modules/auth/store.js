@@ -190,6 +190,35 @@ export const useAuthStore = defineStore('auth', () => {
     lastFetchedAt.value = Date.now()
   }
 
+  // Загрузка ассета (type=avatar_image — query-параметр, бэк биндит его через
+  // @RequestParam, а НЕ как поле multipart-формы) + привязка к профилю.
+  // PUT возвращает обновлённый UserResponse — кладём его в user целиком.
+  async function uploadAvatar(file) {
+    const form = new FormData()
+    form.append('file', file)
+    const assetRes = await api.post('/api/assets?type=avatar_image', form)
+    const assetData = await assetRes.json().catch(() => ({}))
+    if (!assetRes.ok) throw new Error(assetData.message || 'Не удалось загрузить файл')
+
+    const res = await api.put('/api/auth/me/avatar', { assetId: assetData.id })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.message || 'Не удалось установить аватар')
+    user.value = data
+    // avatarUrl в ответе — свежая presigned-ссылка, значит профиль «не застоялся»
+    lastFetchedAt.value = Date.now()
+  }
+
+  // DELETE отдаёт 204 без тела — новую версию профиля бэк не возвращает,
+  // поэтому гасим avatarUrl локально патчем.
+  async function removeAvatar() {
+    const res = await api.delete('/api/auth/me/avatar')
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.message || 'Не удалось убрать аватар')
+    }
+    if (user.value) user.value = { ...user.value, avatarUrl: null }
+  }
+
   // Освежить профиль (и вместе с ним presigned avatarUrl), если данные
   // «застоялись». Зовётся при возврате фокуса на вкладку — presigned-ссылка
   // на аватар живёт 15 мин, за это время вкладка могла провисеть в фоне и
@@ -257,6 +286,8 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     clearSession,
     fetchMe,
+    uploadAvatar,
+    removeAvatar,
     refreshProfileIfStale,
     refreshAvatarOnError,
     restoreSession,

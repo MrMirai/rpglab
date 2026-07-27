@@ -83,6 +83,7 @@ import { ref } from 'vue'
 import { useRouter, useRoute, RouterLink } from 'vue-router'
 import { CircleCheck, CircleAlert } from 'lucide-vue-next'
 import { useAuthStore } from '@/modules/auth'
+import { useToast } from '@/shared/composables/useToast'
 import BaseButton from '@/shared/components/BaseButton.vue'
 import AuthPageBackground from '@/shared/components/AuthPageBackground.vue'
 import LogoIcon from '@/shared/components/LogoIcon.vue'
@@ -90,6 +91,7 @@ import LogoIcon from '@/shared/components/LogoIcon.vue'
 const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
+const toast = useToast()
 
 const token = typeof route.query.token === 'string' ? route.query.token : ''
 
@@ -134,6 +136,7 @@ async function handleSubmit() {
     // вернула бы 401 и напугала бы пользователя, хотя пароль уже сменён).
     await auth.resetPassword(token, password.value)
     status.value = 'success'
+    toast.success('Пароль изменён')
   } catch (e) {
     // 401 — ссылка мёртвая: чинится только новым письмом, а не повтором формы
     if (e.invalidToken) {

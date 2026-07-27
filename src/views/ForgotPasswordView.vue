@@ -19,8 +19,6 @@
         или отправьте его повторно.
       </p>
 
-      <p v-if="error" class="auth-card__error">{{ error }}</p>
-
       <BaseButton variant="accent" full-width :disabled="loading || cooldown > 0" @click="send">
         {{ resendLabel }}
       </BaseButton>
@@ -73,12 +71,14 @@ import { ref, computed, onUnmounted } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import { MailCheck } from 'lucide-vue-next'
 import { useAuthStore } from '@/modules/auth'
+import { useToast } from '@/shared/composables/useToast'
 import BaseButton from '@/shared/components/BaseButton.vue'
 import AuthPageBackground from '@/shared/components/AuthPageBackground.vue'
 import LogoIcon from '@/shared/components/LogoIcon.vue'
 
 const auth = useAuthStore()
 const route = useRoute()
+const toast = useToast()
 
 // Со страницы входа можем прийти с уже введённым адресом (?email=…)
 const email = ref(typeof route.query.email === 'string' ? route.query.email : '')
@@ -112,12 +112,19 @@ const resendLabel = computed(() => {
 async function send() {
   error.value = ''
   loading.value = true
+  const isResend = sent.value
   try {
     await auth.forgotPassword(email.value)
     sent.value = true
     startCooldown()
+    // Первую отправку объясняет сам экран; повтор кнопкой ничего на экране
+    // не меняет — без тоста было бы непонятно, случилось ли что-нибудь.
+    if (isResend) toast.success('Если аккаунт существует, письмо отправлено повторно')
   } catch (e) {
-    error.value = e.message
+    // На форме ошибку показываем прямо под полем, на экране «письмо отправлено»
+    // формы уже нет — там сообщаем тостом.
+    if (isResend) toast.error(e.message)
+    else error.value = e.message
   } finally {
     loading.value = false
   }
@@ -173,16 +180,6 @@ function handleSubmit() {
     font-size: var(--text-sm);
     color: var(--color-text-2);
     margin-bottom: var(--space-6);
-  }
-
-  &__error {
-    font-size: var(--text-sm);
-    color: var(--color-danger);
-    padding: var(--space-2) var(--space-3);
-    background: rgba(192, 84, 74, 0.1);
-    border: 1px solid rgba(192, 84, 74, 0.3);
-    border-radius: var(--radius-md);
-    margin-bottom: var(--space-4);
   }
 
   &__footer {

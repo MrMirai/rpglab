@@ -2,6 +2,7 @@
 import { onMounted, onUnmounted } from 'vue'
 import { RouterView } from 'vue-router'
 import { useAuthStore } from '@/modules/auth'
+import ToastHost from '@/shared/components/ToastHost.vue'
 
 // При возврате фокуса на вкладку освежаем профиль — presigned-ссылка на
 // аватар (avatarUrl) живёт 15 мин, за время простоя вкладки в фоне она могла
@@ -22,5 +23,7 @@ onUnmounted(() => document.removeEventListener('visibilitychange', onVisible))
 <template>
   <div id="app">
     <RouterView />
+    <!-- Единственный хост всплывающих уведомлений на всё приложение -->
+    <ToastHost />
   </div>
 </template>

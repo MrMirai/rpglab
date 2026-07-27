@@ -23,7 +23,13 @@
           />
         </div>
         <div class="auth-form__field">
-          <label>Пароль</label>
+          <div class="auth-form__label-row">
+            <label>Пароль</label>
+            <!-- Введённый email пробрасываем в query, чтобы не набирать заново -->
+            <RouterLink class="auth-form__link" :to="forgotPasswordLink">
+              Забыли пароль?
+            </RouterLink>
+          </div>
           <input
             v-model="password"
             type="password"
@@ -50,7 +56,7 @@
 
 <script setup>
 import { ref, computed, onUnmounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRouter, useRoute, RouterLink } from 'vue-router'
 import { useAuthStore, CheckEmailCard } from '@/modules/auth'
 import BaseButton from '@/shared/components/BaseButton.vue'
 import AuthPageBackground from '@/shared/components/AuthPageBackground.vue'
@@ -82,6 +88,11 @@ function startRetryCountdown(seconds) {
 }
 
 onUnmounted(() => clearInterval(retryTimer))
+
+const forgotPasswordLink = computed(() => ({
+  path: '/forgot-password',
+  query: email.value ? { email: email.value } : {},
+}))
 
 const submitLabel = computed(() => {
   if (loading.value) return 'Входим...'
@@ -183,6 +194,24 @@ async function handleSubmit() {
       &::placeholder {
         color: var(--color-text-3);
       }
+    }
+  }
+
+  // Строка «Пароль ... Забыли пароль?» над полем ввода
+  &__label-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-2);
+  }
+
+  &__link {
+    font-size: var(--text-sm);
+    color: var(--color-accent);
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
     }
   }
 

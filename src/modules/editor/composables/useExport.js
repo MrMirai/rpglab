@@ -1,5 +1,6 @@
 import { useAutoMask } from './useAutoMask'
 import { useAutoBackground } from './useAutoBackground'
+import { useLighting } from './useLighting'
 
 // Кэш bounding box видимой (не замаскированной кистью) части персонажа за
 // пределами рамки. Ключ — комбинация входов, которые на него влияют: скан
@@ -70,6 +71,7 @@ function getVisibleOverflowBounds(store, brushCanvas) {
 export function useExport() {
   const { generateMask } = useAutoMask()
   const { generateBackground } = useAutoBackground()
+  const { renderLightMask, applyLightToLayer } = useLighting()
 
   async function getMask(frameImg, size) {
     return generateMask(frameImg, size)
@@ -285,9 +287,23 @@ export function useExport() {
     )
 
     // Нижний силуэт (персонаж × маска1) — обрезан в размере baseSize, без сдвига.
-    const bottomSilhouette = drawMaskedSilhouette(baseSize, drawCharRelative, mask)
+    let bottomSilhouette = drawMaskedSilhouette(baseSize, drawCharRelative, mask)
     // Верхний силуэт (персонаж × brushCanvas) — сразу в размере exportSize.
-    const topSilhouette = drawMaskedSilhouette(exportSize, drawCharFull, scaledBrush)
+    let topSilhouette = drawMaskedSilhouette(exportSize, drawCharFull, scaledBrush)
+
+    // --- Освещение персонажа ---
+    // Маски света считаются в тех же координатах, что и слой, на который ложатся:
+    // нижний силуэт живёт в координатах рамки (offset=0, размер baseSize),
+    // верхний — в полных координатах экспорта (offset=exportFrameOffset).
+    const charLightBottom = renderLightMask(store, {
+      size: baseSize, offset: 0, scale, target: 'char',
+    })
+    if (charLightBottom) bottomSilhouette = applyLightToLayer(bottomSilhouette, charLightBottom)
+
+    const charLightTop = renderLightMask(store, {
+      size: exportSize, offset: exportFrameOffset, scale, target: 'char',
+    })
+    if (charLightTop) topSilhouette = applyLightToLayer(topSilhouette, charLightTop)
 
     let shadowBottom = null
     let shadowTop = null
@@ -325,8 +341,18 @@ export function useExport() {
       // 2. Тень нижнего слоя, затем сам нижний силуэт (без своей тени)
       if (shadowBottom) ctx.drawImage(shadowBottom, 0, 0)
       ctx.drawImage(bottomSilhouette, exportFrameOffset, exportFrameOffset)
-      // 3. Рамка
-      ctx.drawImage(store.frameImage, exportFrameOffset, exportFrameOffset, baseSize, baseSize)
+      // 3. Рамка (со светом, если есть источники, освещающие рамку)
+      const frameLight = renderLightMask(store, {
+        size: baseSize, offset: 0, scale, target: 'frame',
+      })
+      if (frameLight) {
+        const frameC = document.createElement('canvas')
+        frameC.width = baseSize; frameC.height = baseSize
+        frameC.getContext('2d').drawImage(store.frameImage, 0, 0, baseSize, baseSize)
+        ctx.drawImage(applyLightToLayer(frameC, frameLight), exportFrameOffset, exportFrameOffset)
+      } else {
+        ctx.drawImage(store.frameImage, exportFrameOffset, exportFrameOffset, baseSize, baseSize)
+      }
       // 4. Тень верхнего слоя, затем сам верхний силуэт (без своей тени)
       if (shadowTop) ctx.drawImage(shadowTop, 0, 0)
       ctx.drawImage(topSilhouette, 0, 0)

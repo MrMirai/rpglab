@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import ColorButton from '@/shared/components/ColorButton.vue'
 import SliderControl from '@/shared/components/SliderControl.vue'
 import CollapsibleSection from '@/shared/components/CollapsibleSection.vue'
+import CheckboxField from '@/shared/components/CheckboxField.vue'
 import { useHandoutStore } from '../store'
 import { useHandoutHistory } from '../composables/useHandoutHistory'
 import TransformSection from './TransformSection.vue'
@@ -29,14 +30,11 @@ function update(patch, key = null) {
   <div class="shape-props">
     <CollapsibleSection v-model:open="sections.fill" label="Заливка">
       <div class="section-body">
-        <label class="check">
-          <input
-            type="checkbox"
-            :checked="element.fill === 'none'"
-            @change="update({ fill: $event.target.checked ? 'none' : '#c4954a' })"
-          />
-          Без заливки
-        </label>
+        <CheckboxField
+          label="Без заливки"
+          :model-value="element.fill === 'none'"
+          @update:model-value="update({ fill: $event ? 'none' : '#c4954a' })"
+        />
         <ColorButton
           v-if="element.fill !== 'none'"
           :model-value="element.fill"
@@ -81,18 +79,5 @@ function update(patch, key = null) {
   flex-direction: column;
   gap: var(--space-2);
   padding: 0 var(--space-4) var(--space-3);
-}
-
-.check {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-xs);
-  color: var(--color-text-2);
-  cursor: pointer;
-
-  input {
-    accent-color: var(--color-accent);
-  }
 }
 </style>

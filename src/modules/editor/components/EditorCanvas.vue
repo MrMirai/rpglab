@@ -6,6 +6,7 @@ import { useBrushMask } from '../composables/useBrushMask'
 import { useAutoBackground } from '../composables/useAutoBackground'
 import { useHistory } from '../composables/useHistory'
 import { useEditorBridge } from '../composables/useEditorBridge'
+import { useLighting } from '../composables/useLighting'
 import ZoomNavigator from '@/shared/components/ZoomNavigator.vue'
 import HotkeyHelp from './HotkeyHelp.vue'
 
@@ -15,6 +16,7 @@ const { brushCanvas, paint, fillPath, setRedraw, bumpBrushVersion } = useBrushMa
 const { generateBackground } = useAutoBackground()
 const history = useHistory()
 const bridge = useEditorBridge()
+const { renderLightMask, applyLightToLayer, resolveLightPosition } = useLighting()
 
 const containerRef = ref(null)
 const stageRef = ref(null)
@@ -81,6 +83,8 @@ const charDrawY = computed(() =>
 )
 
 const bgCanvas = ref(null)
+// Рамка с наложенным светом. null — света нет, рисуем store.frameImage напрямую.
+const litFrameCanvas = ref(null)
 const charShadowBottomCanvas = ref(null)
 const charBottomCanvas = ref(null)
 const charShadowTopCanvas = ref(null)
@@ -221,6 +225,25 @@ function clipCanvas(source, maskCanvas, maskX = 0, maskY = 0, maskW = source.wid
   return out
 }
 
+// Рамка со светом. Рамка рисуется из store.frameImage напрямую, поэтому для
+// подсветки нужен отдельный canvas — свет обрезается силуэтом самой рамки,
+// чтобы не заливать сквозное окно рамки (там свет даёт слой персонажа/фона).
+function renderLitFrame() {
+  if (!store.frameImage) { litFrameCanvas.value = null; return }
+
+  const frameSize = store.canvasSize
+  // Позиции источников уже заданы в координатах рамки, а этот canvas — размером
+  // ровно с рамку, поэтому offset=0 (сдвиг клетки добавляет сам Konva-узел).
+  const lightMask = renderLightMask(store, { size: frameSize, offset: 0, target: 'frame' })
+  if (!lightMask) { litFrameCanvas.value = null; return }
+
+  const frameC = document.createElement('canvas')
+  frameC.width = frameSize; frameC.height = frameSize
+  frameC.getContext('2d').drawImage(store.frameImage, 0, 0, frameSize, frameSize)
+
+  litFrameCanvas.value = applyLightToLayer(frameC, lightMask)
+}
+
 // Кеш между кадрами кисти: во время мазка меняется только brushCanvas,
 // поэтому фон, нижний силуэт и маску тени можно не пересобирать на каждый
 // mousemove (это была основная причина лагов кисти — аллокации и композиты
@@ -239,6 +262,7 @@ function renderOffscreen(brushOnly = false) {
     // Персонажа нет (удалили, отменили действие и т.д.) — не оставляем
     // протухшие силуэт/тень с прошлого кадра.
     renderBg()
+    renderLitFrame()
     charBottomCanvas.value = null
     charTopCanvas.value = null
     charShadowBottomCanvas.value = null
@@ -286,8 +310,20 @@ function renderOffscreen(brushOnly = false) {
   ttx.drawImage(brushCanvas, 0, 0)
   ttx.globalCompositeOperation = 'source-over'
 
-  charBottomCanvas.value = cachedBottomSilhouette
-  charTopCanvas.value = topSilhouette
+  // --- Освещение ---
+  // Свет накладывается ПОСЛЕ сборки силуэтов, но до тени: тень строится от
+  // формы (альфы) силуэта, а свет меняет только цвет пикселей, не альфу.
+  // cachedBottomSilhouette не мутируется (applyLightToLayer возвращает копию),
+  // иначе свет накапливался бы на кеше от кадра к кадру.
+  const charLight = renderLightMask(store, { size: fullSize, offset, target: 'char' })
+  charBottomCanvas.value = charLight
+    ? applyLightToLayer(cachedBottomSilhouette, charLight)
+    : cachedBottomSilhouette
+  charTopCanvas.value = charLight
+    ? applyLightToLayer(topSilhouette, charLight)
+    : topSilhouette
+
+  renderLitFrame()
 
   if (!store.charShadowEnabled) {
     charShadowBottomCanvas.value = null
@@ -521,10 +557,14 @@ watchEffect(() => {
   const shOx = store.charShadowOffsetX
   const shOy = store.charShadowOffsetY
   const shOp = store.charShadowOpacity
+  // Источники света: сериализуем в строку, чтобы watchEffect отследил изменение
+  // полей внутри объектов массива (глубокое чтение реактивных свойств).
+  const lightsKey = JSON.stringify(store.lights)
 
   // renderOffscreen сама корректно очищает слои персонажа/тени, если
   // store.charImage отсутствует — здесь просто прогоняем обычный путь.
   void img
+  void lightsKey
   renderOffscreen()
   renderOverlay()
 
@@ -567,12 +607,33 @@ const charTopConfig = computed(() => ({
 }))
 
 const frameConfig = computed(() => ({
-  image: store.frameImage,
+  // Со светом рисуем подсвеченную копию рамки, без света — исходную картинку
+  image: litFrameCanvas.value || store.frameImage,
   x: store.frameOffset,
   y: store.frameOffset,
   width: store.canvasSize,
   height: store.canvasSize,
 }))
+
+// Маркеры источников света — видны только при активном инструменте «Свет».
+// Позиция в координатах полного холста (как персонаж/рамка).
+const lightMarkers = computed(() => {
+  if (store.activeTool !== 'light') return []
+  return store.lights.map((light) => {
+    const pos = resolveLightPosition(light, store)
+    return {
+      id: light.id,
+      x: store.frameOffset + pos.x,
+      y: store.frameOffset + pos.y,
+      color: light.color,
+      radius: light.radius,
+      selected: light.id === store.selectedLightId,
+      // Авто-источник не двигаем мышью — он привязан к свечению персонажа
+      draggable: light.mode === 'manual',
+      visible: light.visible,
+    }
+  })
+})
 
 // Сетка 5×5 клеток
 const gridLinesH = computed(() => {
@@ -973,6 +1034,8 @@ function getCanvasPos(stage) {
 
 let isPainting = false
 let isDragging = false
+// Драг маркера источника света (инструмент 'light')
+let draggingLightId = null
 let isPanning = false
 let isSpaceDown = false
 let dragStart = { x: 0, y: 0 }
@@ -1093,6 +1156,24 @@ onMounted(() => {
       return
     }
 
+    if (tool === 'light') {
+      // Хит-тест по маркерам вручную: радиус в экранных px делим на зум,
+      // чтобы попадание не зависело от масштаба холста (маркер рисуется так же).
+      const hitR = 14 / viewZoom.value
+      // Идём с конца — верхние маркеры перекрывают нижние
+      const hit = [...lightMarkers.value].reverse().find((m) =>
+        Math.hypot(canvasPos.x - m.x, canvasPos.y - m.y) <= hitR
+      )
+      if (hit) {
+        store.selectLight(hit.id)
+        if (hit.draggable) {
+          draggingLightId = hit.id
+          setCursor('grabbing')
+        }
+      }
+      return
+    }
+
     if (tool === 'move') {
       recordHistory()
       isDragging = true
@@ -1130,6 +1211,23 @@ onMounted(() => {
       return
     }
 
+    if (tool === 'light') {
+      if (draggingLightId) {
+        // Позиция света хранится в координатах рамки — снимаем смещение клетки
+        store.updateLight(draggingLightId, {
+          x: Math.round(canvasPos.x - store.frameOffset),
+          y: Math.round(canvasPos.y - store.frameOffset),
+        })
+      } else {
+        const hitR = 14 / viewZoom.value
+        const over = lightMarkers.value.some((m) =>
+          m.draggable && Math.hypot(canvasPos.x - m.x, canvasPos.y - m.y) <= hitR
+        )
+        setCursor(over ? 'grab' : 'default')
+      }
+      return
+    }
+
     if (tool === 'move') {
       if (!isDragging) { setCursor('grab'); return }
       store.setCharPosition(
@@ -1147,10 +1245,12 @@ onMounted(() => {
     isPanning = false
     isPainting = false
     isDragging = false
+    draggingLightId = null
     lassoDragging = null
     if (isSpaceDown) { setCursor('grab'); return }
     if (tool === 'hand') setCursor('grab')
     else if (tool === 'move') setCursor('grab')
+    else if (tool === 'light') setCursor('default')
     else setCursor('crosshair')
   })
 
@@ -1158,6 +1258,7 @@ onMounted(() => {
     isPanning = false
     isPainting = false
     isDragging = false
+    draggingLightId = null
     lassoDragging = null
     setCursor('default')
   })
@@ -1288,6 +1389,37 @@ onUnmounted(() => {
           v-if="overlayCanvas && (store.showMaskOverlay || store.showHidden)"
           :config="{ image: overlayCanvas, x: 0, y: 0, width: store.fullCanvasSize, height: store.fullCanvasSize, listening: false }"
         />
+
+        <!-- Маркеры источников света (только при инструменте «Свет»).
+             Размеры делятся на viewZoom, чтобы маркер не рос при зуме холста. -->
+        <template v-for="m in lightMarkers" :key="m.id">
+          <!-- Радиус охвата — пунктирная окружность у выбранного источника -->
+          <v-circle
+            v-if="m.selected"
+            :config="{
+              x: m.x, y: m.y, radius: m.radius,
+              stroke: m.color, strokeWidth: 1 / viewZoom,
+              dash: [6 / viewZoom, 6 / viewZoom],
+              opacity: 0.5, listening: false,
+            }"
+          />
+          <!-- Само солнышко: ореол + ядро -->
+          <v-circle
+            :config="{
+              x: m.x, y: m.y, radius: 14 / viewZoom,
+              fill: m.color, opacity: m.visible ? 0.25 : 0.1, listening: false,
+            }"
+          />
+          <v-circle
+            :config="{
+              x: m.x, y: m.y, radius: 7 / viewZoom,
+              fill: m.visible ? m.color : '#888',
+              stroke: m.selected ? '#ffffff' : 'rgba(0,0,0,0.5)',
+              strokeWidth: (m.selected ? 2 : 1) / viewZoom,
+              listening: false,
+            }"
+          />
+        </template>
       </v-layer>
 
     </v-stage>

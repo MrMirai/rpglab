@@ -79,6 +79,46 @@ export const useAuthStore = defineStore('auth', () => {
     if (!res.ok) throw new Error('Не удалось отправить письмо. Попробуйте позже')
   }
 
+  // Запрос письма со ссылкой сброса пароля. Как и resendVerification, бэк ВСЕГДА
+  // отвечает 202 (даже если аккаунта с таким email нет — анти-enumeration), поэтому
+  // по ответу не различаем «найден/не найден». Cooldown ~60с — экран блокирует кнопку
+  // таймером. Ошибку наверх кидаем только на сбое сети/бэка.
+  async function forgotPassword(email) {
+    const res = await api.post('/api/auth/forgot-password', { email })
+    if (!res.ok) throw new Error('Не удалось отправить письмо. Попробуйте позже')
+  }
+
+  // Установка нового пароля по одноразовому токену из письма (TTL 1 час).
+  // ВАЖНО: пары токенов бэк тут НЕ выдаёт (в отличие от verify-email) — успешный
+  // сброс гасит ВСЕ refresh-токены пользователя (выход со всех устройств), поэтому
+  // локальную сессию тоже чистим и ведём на вход с новым паролем.
+  async function resetPassword(token, newPassword) {
+    loading.value = true
+    error.value = null
+    try {
+      const res = await api.post('/api/auth/reset-password', { token, newPassword })
+      if (!res.ok) {
+        // 204 приходит без тела, ошибки — с JSON; парсим безопасно
+        const data = await res.json().catch(() => null)
+        if (res.status === 401) {
+          // Токен неизвестен / уже использован / просрочен — не «неверный пароль».
+          // Экран по этому флагу предлагает запросить письмо заново.
+          const err = new Error('Ссылка сброса недействительна или устарела')
+          err.invalidToken = true
+          throw err
+        }
+        throw new Error(data?.message || 'Не удалось изменить пароль')
+      }
+      // Наши refresh-токены бэк только что отозвал — держать локальную пару нельзя.
+      clearSession()
+    } catch (e) {
+      error.value = e.message
+      throw e
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function login(email, password) {
     loading.value = true
     error.value = null
@@ -211,6 +251,8 @@ export const useAuthStore = defineStore('auth', () => {
     register,
     verifyEmail,
     resendVerification,
+    forgotPassword,
+    resetPassword,
     login,
     logout,
     clearSession,

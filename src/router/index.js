@@ -58,6 +58,18 @@ const router = createRouter({
       path: '/verify-email',
       component: () => import('@/views/VerifyEmailView.vue'),
     },
+    // Запрос письма со ссылкой сброса пароля — публичный (сюда идут те, кто
+    // войти как раз не может). Всегда 202: экран не раскрывает, есть ли аккаунт.
+    {
+      path: '/forgot-password',
+      component: () => import('@/views/ForgotPasswordView.vue'),
+    },
+    // Установка нового пароля по ссылке из письма (?token=…). Публичный:
+    // сброс гасит все refresh-токены, после успеха ведём на вход.
+    {
+      path: '/reset-password',
+      component: () => import('@/views/ResetPasswordView.vue'),
+    },
   ],
 })
 

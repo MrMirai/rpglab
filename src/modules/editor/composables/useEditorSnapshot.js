@@ -50,6 +50,10 @@ export function useEditorSnapshot() {
       bgGrain: store.bgGrain,
       bgNoiseType: store.bgNoiseType,
 
+      // Источники света — простые объекты, копируем глубоко, чтобы снапшот
+      // не менялся вслед за стором
+      lights: store.lights.map((l) => ({ ...l })),
+
       brushSize: store.brushSize,
       brushHardness: store.brushHardness,
       brushMode: store.brushMode,
@@ -106,6 +110,9 @@ export function useEditorSnapshot() {
     store.bgNoiseStrength = snapshot.bgNoiseStrength ?? 15
     store.bgGrain = snapshot.bgGrain ?? 6
     store.setBgNoiseType(snapshot.bgNoiseType ?? 'perlin')
+
+    store.lights = (snapshot.lights ?? []).map((l) => ({ ...l }))
+    store.selectedLightId = store.lights.length ? store.lights[0].id : null
 
     store.brushSize = snapshot.brushSize ?? 30
     store.brushHardness = snapshot.brushHardness ?? 50

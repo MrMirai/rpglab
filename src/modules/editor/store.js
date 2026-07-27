@@ -78,6 +78,67 @@ export const useEditorStore = defineStore('editor', () => {
     charShadowOpacity.value = 60
   }
 
+  // --- Источники света ---
+  // Свет от объектов персонажа (светящийся меч, факел) должен падать на рамку и
+  // на самого персонажа. Каждый источник — радиальный градиент, который
+  // накладывается поверх слоёв в screen-режиме.
+  // Координаты x/y — в системе рамки (0..canvasSize), как charX/charY: центр
+  // рамки = (canvasSize/2, canvasSize/2). Так свет не «уезжает» при смене размера.
+  const lights = ref([])
+  let lightIdSeq = 0
+
+  // Инструмент «Свет» показывает на холсте перетаскиваемые маркеры источников
+  const selectedLightId = ref(null)
+
+  function createLight(overrides = {}) {
+    return {
+      id: `light-${++lightIdSeq}`,
+      // Позиция: 'manual' — задаётся драгом маркера/слайдерами,
+      // 'auto' — привязана к центру ярких пикселей персонажа (светящийся меч)
+      mode: 'manual',
+      x: canvasSize.value / 2,
+      y: canvasSize.value / 2,
+      color: '#ffcc66',
+      radius: 240,
+      intensity: 70,     // 0..100 %
+      falloff: 50,       // 0..100 — мягкость спада (0 — резкий край, 100 — очень плавный)
+      onFrame: true,     // подсвечивать рамку
+      onChar: true,      // подсвечивать персонажа
+      visible: true,
+      ...overrides,
+    }
+  }
+
+  function addLight(overrides = {}) {
+    const light = createLight(overrides)
+    lights.value.push(light)
+    selectedLightId.value = light.id
+    return light
+  }
+
+  function removeLight(id) {
+    const i = lights.value.findIndex((l) => l.id === id)
+    if (i === -1) return
+    lights.value.splice(i, 1)
+    if (selectedLightId.value === id) {
+      selectedLightId.value = lights.value.length ? lights.value[lights.value.length - 1].id : null
+    }
+  }
+
+  function updateLight(id, patch) {
+    const light = lights.value.find((l) => l.id === id)
+    if (light) Object.assign(light, patch)
+  }
+
+  function selectLight(id) { selectedLightId.value = id }
+
+  function clearLights() {
+    lights.value = []
+    selectedLightId.value = null
+  }
+
+  const hasLights = computed(() => lights.value.length > 0)
+
   // Сетка и превью
   const showGrid = ref(false)
   const previewMode = ref(false)
@@ -204,6 +265,8 @@ export const useEditorStore = defineStore('editor', () => {
     bgType, bgColor, bgImage, setBgType, setBgColor, loadBgImage, removeBgImage,
     bgAutoColor, bgCenterLight, bgEdgeLight, bgNoiseStrength, bgGrain, bgNoiseType,
     setBgAutoColor, setBgNoiseType,
+    lights, selectedLightId, hasLights,
+    addLight, removeLight, updateLight, selectLight, clearLights,
     showGrid, previewMode, showMaskOverlay, showHidden,
     canUndo, canRedo, setUndoRedo,
     exportModalOpen, openExportModal, closeExportModal,

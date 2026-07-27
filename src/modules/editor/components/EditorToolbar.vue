@@ -1,5 +1,5 @@
 <script setup>
-import { MousePointer2, Eraser, Paintbrush, Hand, Undo2, Redo2, Grid3x3, Eye, Layers, Ghost, Spline } from 'lucide-vue-next'
+import { MousePointer2, Eraser, Paintbrush, Hand, Undo2, Redo2, Grid3x3, Eye, Layers, Ghost, Spline, Lightbulb } from 'lucide-vue-next'
 import { useEditorStore } from '../store'
 import { useEditorBridge } from '../composables/useEditorBridge'
 
@@ -37,6 +37,13 @@ const bridge = useEditorBridge()
           <Spline :size="16" />
         </span>
         <span class="label">Лассо</span>
+      </button>
+      <button class="editor-toolbar__btn" :class="{ active: store.activeTool === 'light' }"
+        @click="store.setActiveTool('light')" title="Источники света">
+        <span class="icon">
+          <Lightbulb :size="16" />
+        </span>
+        <span class="label">Свет</span>
       </button>
     </div>
 

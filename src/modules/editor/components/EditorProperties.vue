@@ -8,6 +8,7 @@ import CharacterFilters from './CharacterFilters.vue'
 import MaskControls from './MaskControls.vue'
 import BackgroundControls from './BackgroundControls.vue'
 import BrushControls from './BrushControls.vue'
+import LightControls from './LightControls.vue'
 // Рамка живёт в отдельном модуле frames и подключается через его публичный API
 import { FrameUpload } from '@/modules/frames'
 
@@ -18,6 +19,7 @@ const sections = ref([
   { id: 'background',  label: 'Фон',        open: true  },
   { id: 'character',   label: 'Персонаж',   open: true  },
   { id: 'correction',  label: 'Коррекция',  open: false },
+  { id: 'light',       label: 'Свет',       open: false },
   { id: 'mask',        label: 'Маска',      open: true  },
   { id: 'brush',       label: 'Кисть',      open: true  },
 ])
@@ -48,6 +50,10 @@ const sections = ref([
       <template v-else-if="section.id === 'correction'">
         <CharacterFilters v-if="store.hasChar" />
         <p v-else class="placeholder-hint">Сначала загрузи персонажа</p>
+      </template>
+      <template v-else-if="section.id === 'light'">
+        <LightControls v-if="store.hasFrame" />
+        <p v-else class="placeholder-hint">Сначала загрузи рамку</p>
       </template>
       <template v-else-if="section.id === 'mask'">
         <MaskControls v-if="store.hasFrame && store.hasChar" />

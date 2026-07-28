@@ -9,6 +9,12 @@ const router = createRouter({
       path: '/',
       component: () => import('@/views/HomeView.vue'),
     },
+    // Голый /editor — не страница, а «недонабранный» адрес: уводим в редактор
+    // токенов, а не в 404 (он открывается по умолчанию из логотипа-дропдауна)
+    {
+      path: '/editor',
+      redirect: '/editor/token',
+    },
     // Редактор токенов — публичный, доступен без авторизации
     {
       path: '/editor/token',
@@ -69,6 +75,13 @@ const router = createRouter({
     {
       path: '/reset-password',
       component: () => import('@/views/ResetPasswordView.vue'),
+    },
+    // Catch-all: любой неизвестный адрес — на страницу 404. Должен идти ПОСЛЕДНИМ:
+    // маршруты матчатся по порядку объявления, выше он перехватывал бы всё подряд.
+    // Без него RouterView не рендерил ничего — пустой экран и варнинг «No match found».
+    {
+      path: '/:pathMatch(.*)*',
+      component: () => import('@/views/NotFoundView.vue'),
     },
   ],
 })

@@ -17,6 +17,8 @@
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  // Докрутив список до конца, колёсико не должно уходить «наружу» (scroll chaining)
+  overscroll-behavior: contain;
   background-color: var(--color-bg-2);
   border-right: 1px solid var(--color-border);
 }

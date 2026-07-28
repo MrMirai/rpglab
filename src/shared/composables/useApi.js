@@ -74,6 +74,7 @@ const NO_REFRESH_RETRY = [
   // (TTL 1 час, токен одноразовый). Обновлять access бессмысленно — эндпоинт
   // публичный и про access ничего не знает.
   '/api/auth/reset-password',
+  '/api/auth/reset-password/validate',
 ]
 
 // Single-flight обновление пары токенов.
@@ -196,5 +197,13 @@ export const api = {
       body: JSON.stringify(body),
       ...opts,
     }),
-  delete: (path, opts) => apiFetch(path, { method: 'DELETE', ...opts }),
+  // DELETE с телом — редкость, но бывает: удаление аккаунта подтверждается
+  // паролем в теле запроса (DELETE /api/auth/me). Без body заголовок
+  // Content-Type всё равно уходит — бэку это не мешает.
+  delete: (path, body, opts) =>
+    apiFetch(path, {
+      method: 'DELETE',
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      ...opts,
+    }),
 }

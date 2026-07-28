@@ -36,10 +36,19 @@ const slots = useSlots()
 
 <style lang="scss" scoped>
 .app-layout {
+  // Оболочка редактора выведена ИЗ ПОТОКА документа (fixed + inset: 0), а не
+  // просто height: 100vh. Причина: при 100vh страница остаётся потенциально
+  // прокручиваемой (100vh считается по layout-viewport и не совпадает с
+  // клиентской высотой при горизонтальном скроллбаре/дробном зуме, плюс любой
+  // элемент, оказавшийся ниже экрана, добавляет высоту документу) — и колёсико
+  // над зоной без своих скроллируемых элементов уводило ВЕСЬ редактор вверх:
+  // шапка с тулбаром уезжала за край экрана. Fixed-оболочка не даёт документу
+  // высоты вовсе, прокручивать нечего.
+  position: fixed;
+  inset: 0;
   display: grid;
   grid-template-rows: 48px 1fr;
   grid-template-columns: 240px 1fr 260px;
-  height: 100vh;
   overflow: hidden;
   background-color: var(--color-bg-1);
 }
@@ -66,5 +75,7 @@ const slots = useSlots()
   overflow-y: auto;
   overflow-x: hidden;
   height: 100%;
+  // Докрутив панель до конца, колёсико не должно уходить «наружу» (scroll chaining)
+  overscroll-behavior: contain;
 }
 </style>

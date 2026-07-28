@@ -88,6 +88,24 @@ export const useAuthStore = defineStore('auth', () => {
     if (!res.ok) throw new Error('Не удалось отправить письмо. Попробуйте позже')
   }
 
+  // Проверка токена сброса ДО показа формы: бэк отвечает 204, если по ссылке ещё
+  // можно менять пароль, и 401, если она неизвестна/уже использована/просрочена.
+  // Токен при этом НЕ гасится (в отличие от reset-password) — зондировать им можно.
+  // Три причины отказа бэк намеренно не различает (анти-enumeration), поэтому и
+  // сообщение наверх одно на всех. Ошибки сети/5xx отдаём БЕЗ флага invalidToken:
+  // экран из-за них не должен объявлять живую ссылку мёртвой.
+  // Глобальные loading/error не трогаем — это фоновая проверка одного экрана.
+  async function validateResetToken(token) {
+    const res = await api.post('/api/auth/reset-password/validate', { token })
+    if (res.ok) return
+    if (res.status === 401) {
+      const err = new Error('Ссылка уже использована или истёк срок её действия.')
+      err.invalidToken = true
+      throw err
+    }
+    throw new Error('Не удалось проверить ссылку')
+  }
+
   // Установка нового пароля по одноразовому токену из письма (TTL 1 час).
   // ВАЖНО: пары токенов бэк тут НЕ выдаёт (в отличие от verify-email) — успешный
   // сброс гасит ВСЕ refresh-токены пользователя (выход со всех устройств), поэтому
@@ -103,7 +121,7 @@ export const useAuthStore = defineStore('auth', () => {
         if (res.status === 401) {
           // Токен неизвестен / уже использован / просрочен — не «неверный пароль».
           // Экран по этому флагу предлагает запросить письмо заново.
-          const err = new Error('Ссылка сброса недействительна или устарела')
+          const err = new Error('Ссылка уже использована или истёк срок её действия.')
           err.invalidToken = true
           throw err
         }
@@ -187,6 +205,49 @@ export const useAuthStore = defineStore('auth', () => {
     const res = await api.get('/api/auth/me')
     if (!res.ok) return
     user.value = await res.json()
+    lastFetchedAt.value = Date.now()
+  }
+
+  // Безвозвратное удаление аккаунта со всем содержимым (рамки, проекты, папки,
+  // файлы в хранилище, все сессии). Подтверждается ТЕКУЩИМ ПАРОЛЕМ в теле
+  // запроса: одного перехваченного access-токена не должно хватать, чтобы стереть
+  // аккаунт. 401 здесь = «пароль не совпал» (протухший access apiFetch уже
+  // обновил бы и повторил запрос сам), поэтому вслепую разлогинивать нельзя —
+  // экран подсвечивает поле пароля. После 204 logout НЕ зовём: refresh-токены
+  // удалены вместе с аккаунтом, гасить нечего — просто чистим локальную пару.
+  async function deleteAccount(password) {
+    const res = await api.delete('/api/auth/me', { password })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      if (res.status === 401) {
+        const err = new Error('Неверный пароль')
+        err.invalidPassword = true
+        throw err
+      }
+      throw new Error(data.message || 'Не удалось удалить аккаунт')
+    }
+    clearSession()
+  }
+
+  // Смена отображаемого имени (3–32 символа). На аутентификацию НЕ влияет:
+  // логин идёт по email, username в токенах не участвует — перевыпускать пару
+  // после смены не нужно, достаточно положить в стор профиль из ответа.
+  // Отправка текущего имени конфликтом не считается — бэк вернёт 200 без изменений.
+  async function updateUsername(username) {
+    const res = await api.put('/api/auth/me/username', { username })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      // 409 — имя занято другим пользователем: экран подсвечивает поле, а не
+      // показывает общую ошибку (флагом отличаем от 400-валидации/сбоя).
+      if (res.status === 409) {
+        const err = new Error('Это имя уже занято')
+        err.usernameTaken = true
+        throw err
+      }
+      throw new Error(data.message || 'Не удалось изменить имя пользователя')
+    }
+    user.value = data
+    // В ответе свежая presigned-ссылка на аватар — профиль «не застоялся»
     lastFetchedAt.value = Date.now()
   }
 
@@ -281,11 +342,14 @@ export const useAuthStore = defineStore('auth', () => {
     verifyEmail,
     resendVerification,
     forgotPassword,
+    validateResetToken,
     resetPassword,
     login,
     logout,
     clearSession,
     fetchMe,
+    updateUsername,
+    deleteAccount,
     uploadAvatar,
     removeAvatar,
     refreshProfileIfStale,

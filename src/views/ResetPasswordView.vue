@@ -1,8 +1,19 @@
 <template>
   <AuthPageBackground>
+    <!-- Ссылку проверяем до показа формы: пока бэк не ответил, полей не показываем,
+         чтобы не дать ввести пароль по мёртвой ссылке. -->
+    <div v-if="status === 'checking'" class="auth-card auth-card--centered">
+      <div class="auth-card__logo">
+        <LoaderCircle :size="56" class="auth-card__logo-icon auth-card__logo-icon--spin" />
+      </div>
+
+      <h1 class="auth-card__title">Проверяем ссылку…</h1>
+      <p class="auth-card__text">Секунду, смотрим, действует ли ссылка из письма.</p>
+    </div>
+
     <!-- Пароль изменён. Пары токенов бэк тут НЕ выдаёт (в отличие от verify-email),
          к тому же все сессии отозваны — ведём на вход с новым паролем. -->
-    <div v-if="status === 'success'" class="auth-card auth-card--centered">
+    <div v-else-if="status === 'success'" class="auth-card auth-card--centered">
       <div class="auth-card__logo">
         <CircleCheck :size="56" class="auth-card__logo-icon auth-card__logo-icon--ok" />
       </div>
@@ -16,7 +27,9 @@
       <BaseButton variant="accent" full-width @click="goToLogin">Перейти ко входу</BaseButton>
     </div>
 
-    <!-- Токена нет в ссылке или бэк ответил 401 (неизвестен/использован/просрочен) -->
+    <!-- Токена нет в ссылке, либо бэк ответил 401 — на проверке при открытии или
+         на сабмите. Три причины (неизвестен/использован/просрочен) бэк намеренно
+         не различает, поэтому текст покрывает их разом. -->
     <div v-else-if="status === 'invalid'" class="auth-card auth-card--centered">
       <div class="auth-card__logo">
         <CircleAlert :size="56" class="auth-card__logo-icon auth-card__logo-icon--error" />
@@ -79,9 +92,9 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter, useRoute, RouterLink } from 'vue-router'
-import { CircleCheck, CircleAlert } from 'lucide-vue-next'
+import { CircleCheck, CircleAlert, LoaderCircle } from 'lucide-vue-next'
 import { useAuthStore } from '@/modules/auth'
 import { useToast } from '@/shared/composables/useToast'
 import BaseButton from '@/shared/components/BaseButton.vue'
@@ -95,13 +108,36 @@ const toast = useToast()
 
 const token = typeof route.query.token === 'string' ? route.query.token : ''
 
-// 'form' | 'success' | 'invalid'. Без токена в ссылке форму показывать бессмысленно.
-const status = ref(token ? 'form' : 'invalid')
+// 'checking' | 'form' | 'success' | 'invalid'. Токен одноразовый и живёт час,
+// поэтому форму показываем только после проверки ссылки на бэке (см. onMounted) —
+// иначе по мёртвой ссылке пользователь вводил бы пароль впустую и узнавал
+// об этом лишь на сабмите. Без токена в ссылке проверять нечего.
+const status = ref(token ? 'checking' : 'invalid')
 const error = ref(token ? '' : 'Ссылка не содержит токен сброса пароля.')
 
 const password = ref('')
 const confirmPassword = ref('')
 const loading = ref(false)
+
+// Проверка ссылки ОДИН раз при открытии страницы. POST /api/auth/reset-password/validate
+// токен не расходует — после успешной проверки им же меняется пароль.
+onMounted(async () => {
+  if (!token) return
+  try {
+    await auth.validateResetToken(token)
+    status.value = 'form'
+  } catch (e) {
+    if (e.invalidToken) {
+      status.value = 'invalid'
+      error.value = e.message
+      return
+    }
+    // Сеть/бэк недоступны — про саму ссылку это ничего не говорит. Показываем
+    // форму: при сабмите пользователь получит настоящий ответ бэка, а не
+    // ложное «ссылка недействительна» из-за сетевого сбоя.
+    status.value = 'form'
+  }
+})
 
 function goToLogin() {
   router.push('/login')
@@ -176,6 +212,9 @@ async function handleSubmit() {
     }
     &--error {
       color: var(--color-danger);
+    }
+    &--spin {
+      animation: reset-spin 1s linear infinite;
     }
   }
 
@@ -256,6 +295,12 @@ async function handleSubmit() {
     background: rgba(192, 84, 74, 0.1);
     border-radius: var(--radius-md);
     border: 1px solid rgba(192, 84, 74, 0.3);
+  }
+}
+
+@keyframes reset-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 </style>

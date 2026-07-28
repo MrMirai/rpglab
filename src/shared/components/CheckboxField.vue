@@ -54,6 +54,14 @@ watchEffect(() => {
   cursor: pointer;
   padding: 2px 0;
   user-select: none;
+  // ОБЯЗАТЕЛЬНО: спрятанный input внутри — absolute, и без этого его containing
+  // block стал бы .app-layout (fixed inset:0). Тогда input не едет вместе с
+  // прокруткой панели свойств и остаётся там, где был бы без скролла — в
+  // редакторе это далеко за низом экрана. Клик по метке фокусирует input,
+  // браузер тянет его в видимую область и прокручивает .app-layout (overflow:
+  // hidden скроллбары убирает, но scroll-into-view контейнер всё равно двигает)
+  // — весь редактор вместе с шапкой уезжал вверх.
+  position: relative;
 
   &--disabled {
     opacity: 0.45;

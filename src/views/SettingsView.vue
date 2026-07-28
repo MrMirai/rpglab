@@ -9,11 +9,8 @@ import AccountCard from '@/shared/components/AccountCard.vue'
 import ImageDropzone from '@/shared/components/ImageDropzone.vue'
 import BaseButton from '@/shared/components/BaseButton.vue'
 
-// Настройки аккаунта: имя пользователя, аватар и смена пароля (смену email
-// backend не поддерживает). Отдельного эндпоинта «сменить пароль изнутри
-// аккаунта» у бэка нет — пароль меняется тем же флоу, что и забытый: письмо со
-// ссылкой на /reset-password. Владение почтой подтверждается письмом, поэтому
-// текущий пароль тут не спрашиваем.
+// Настройки аккаунта: имя пользователя, аватар, смена пароля и удаление аккаунта
+// (смену email backend не поддерживает — вход идёт по нему).
 const auth = useAuthStore()
 const toast = useToast()
 const router = useRouter()
@@ -90,7 +87,59 @@ async function onRemoveAvatar() {
   }
 }
 
-// --- Смена пароля: письмо со ссылкой сброса на email аккаунта ---
+// --- Смена пароля ---
+// Основной путь — форма с текущим паролем (PUT /api/auth/me/password): бэк гасит
+// все refresh-токены, но текущему устройству выдаёт новую пару, так что из своей
+// же вкладки пользователя не выбрасывает. Письмо со ссылкой сброса остаётся
+// запасным путём для тех, кто текущий пароль не помнит (сессия живёт 30 дней —
+// забыть пароль, оставаясь залогиненным, вполне реально).
+const currentPassword = ref('')
+const newPassword = ref('')
+const confirmPassword = ref('')
+const passwordError = ref('')
+const passwordSaving = ref(false)
+
+const passwordFilled = computed(
+  () => !!currentPassword.value && !!newPassword.value && !!confirmPassword.value,
+)
+
+// Те же границы, что при регистрации (бэк: @NotBlank @Size(8, 128))
+function validatePassword() {
+  if (newPassword.value.length < 8 || newPassword.value.length > 128) {
+    return 'Новый пароль должен быть от 8 до 128 символов'
+  }
+  if (newPassword.value !== confirmPassword.value) {
+    return 'Пароли не совпадают'
+  }
+  if (newPassword.value === currentPassword.value) {
+    return 'Новый пароль должен отличаться от текущего'
+  }
+  return null
+}
+
+async function onChangePassword() {
+  const invalid = validatePassword()
+  if (invalid) {
+    passwordError.value = invalid
+    return
+  }
+  passwordError.value = ''
+  passwordSaving.value = true
+  try {
+    await auth.changePassword(currentPassword.value, newPassword.value)
+    currentPassword.value = ''
+    newPassword.value = ''
+    confirmPassword.value = ''
+    toast.success('Сессии на других устройствах завершены', { title: 'Пароль изменён' })
+  } catch (e) {
+    // Ошибка формы (в т.ч. неверный текущий пароль) — инлайном под полями
+    passwordError.value = e.message
+  } finally {
+    passwordSaving.value = false
+  }
+}
+
+// --- Запасной путь: письмо со ссылкой сброса на email аккаунта ---
 const passwordSending = ref(false)
 const passwordSent = ref(false)
 
@@ -240,23 +289,70 @@ async function onConfirmDelete(password) {
       <p v-if="uploading" class="settings-hint">Загрузка...</p>
     </AccountCard>
 
-    <AccountCard title="Пароль">
-      <p class="settings-text">
-        Мы отправим на <strong>{{ auth.user?.email }}</strong> письмо со ссылкой для установки
-        нового пароля. Ссылка действует 1 час.
-      </p>
+    <AccountCard
+      title="Пароль"
+      description="После смены сессии на других устройствах завершатся, текущая останется активной."
+    >
+      <form class="password-form" @submit.prevent="onChangePassword">
+        <label class="password-field">
+          <span>Текущий пароль</span>
+          <input
+            v-model="currentPassword"
+            type="password"
+            autocomplete="current-password"
+            :aria-invalid="!!passwordError"
+            :disabled="passwordSaving"
+          />
+        </label>
 
-      <BaseButton
-        variant="accent"
-        :disabled="passwordSending || cooldown > 0"
-        @click="onRequestPasswordChange"
-      >
-        <KeyRound :size="14" /> {{ passwordButtonLabel }}
-      </BaseButton>
+        <label class="password-field">
+          <span>Новый пароль</span>
+          <input
+            v-model="newPassword"
+            type="password"
+            autocomplete="new-password"
+            :disabled="passwordSaving"
+          />
+        </label>
+
+        <label class="password-field">
+          <span>Повторите новый пароль</span>
+          <input
+            v-model="confirmPassword"
+            type="password"
+            autocomplete="new-password"
+            :disabled="passwordSaving"
+          />
+        </label>
+
+        <p v-if="passwordError" class="password-error">{{ passwordError }}</p>
+        <p v-else class="settings-hint">От 8 до 128 символов.</p>
+
+        <div class="password-actions">
+          <BaseButton type="submit" variant="accent" :disabled="passwordSaving || !passwordFilled">
+            <KeyRound :size="14" /> {{ passwordSaving ? 'Меняем...' : 'Сменить пароль' }}
+          </BaseButton>
+        </div>
+      </form>
+
+      <!-- Запасной путь для тех, кто текущий пароль не помнит: то же письмо, что
+           и при «Забыли пароль?» на входе. Ссылка живёт 1 час и гасит ВСЕ сессии,
+           включая эту, — поэтому она не основной сценарий, а мелкая строка внизу. -->
+      <div class="password-forgot">
+        <span>Не помните текущий пароль?</span>
+        <button
+          type="button"
+          class="password-forgot__link"
+          :disabled="passwordSending || cooldown > 0"
+          @click="onRequestPasswordChange"
+        >
+          {{ passwordButtonLabel }}
+        </button>
+      </div>
 
       <p v-if="passwordSent" class="settings-hint">
-        Письмо отправлено. После смены пароля сессии на всех устройствах будут завершены — войти
-        снова придётся с новым паролем.
+        Письмо отправлено на {{ auth.user?.email }}. Ссылка действует 1 час; после смены пароля
+        по ней сессии завершатся на всех устройствах, включая это.
       </p>
     </AccountCard>
 
@@ -357,15 +453,88 @@ async function onConfirmDelete(password) {
   gap: var(--space-2);
 }
 
-.settings-text {
-  max-width: 62ch;
-  font-size: var(--text-sm);
-  color: var(--color-text-2);
-  line-height: 1.5;
-  margin-bottom: var(--space-4);
+// Поля пароля — узкой колонкой: карточка занимает всю ширину контента, но поле
+// на 700px выглядело бы полем ввода абзаца (та же логика, что у имени).
+.password-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 320px;
+}
 
-  strong {
+.password-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+
+  span {
+    font-size: var(--text-sm);
+    color: var(--color-text-2);
+  }
+
+  input {
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-bg-1);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
     color: var(--color-text-1);
+    font-family: inherit;
+    font-size: var(--text-sm);
+    outline: none;
+    transition: border-color var(--transition-fast);
+
+    &:focus {
+      border-color: var(--color-accent);
+    }
+
+    &[aria-invalid='true'] {
+      border-color: var(--color-danger);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+    }
+  }
+}
+
+.password-error {
+  font-size: var(--text-sm);
+  color: var(--color-danger);
+}
+
+// Кнопка не должна растягиваться на всю ширину колонки полей
+.password-actions {
+  display: flex;
+}
+
+.password-forgot {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--text-sm);
+  color: var(--color-text-3);
+
+  &__link {
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--color-accent);
+    font-family: inherit;
+    font-size: inherit;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      text-decoration: underline;
+    }
+
+    &:disabled {
+      color: var(--color-text-3);
+      cursor: default;
+    }
   }
 }
 

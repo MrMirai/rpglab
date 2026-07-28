@@ -251,6 +251,42 @@ export const useAuthStore = defineStore('auth', () => {
     lastFetchedAt.value = Date.now()
   }
 
+  // Смена пароля изнутри аккаунта — для тех, кто пароль ПОМНИТ (забывшим остаётся
+  // флоу с письмом: forgotPassword → resetPassword). Текущий пароль обязателен:
+  // одного перехваченного access-токена не должно хватать, чтобы отобрать аккаунт
+  // (та же логика, что у deleteAccount).
+  // ВАЖНО: успех гасит на бэке ВСЕ refresh-токены и тут же выдаёт НОВУЮ пару —
+  // её надо записать немедленно. Иначе следующий запрос уйдёт со старым refresh,
+  // а повторное предъявление погашенного трактуется как кража → отзыв всего.
+  // В отличие от resetPassword по письму, текущее устройство остаётся в системе
+  // (запрос пришёл от аутентифицированного владельца), выпадают только остальные.
+  // Профиль не меняется, поэтому fetchMe не нужен.
+  async function changePassword(currentPassword, newPassword) {
+    const res = await api.put('/api/auth/me/password', { currentPassword, newPassword })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      // 401 = НЕВЕРНЫЙ ТЕКУЩИЙ ПАРОЛЬ, а не протухший access: его apiFetch уже
+      // обновил бы и повторил запрос сам (/api/auth/me/password в NO_REFRESH_RETRY
+      // не входит). Разлогинивать вслепую нельзя — ошибка идёт к полю формы.
+      if (res.status === 401) {
+        const err = new Error('Неверный текущий пароль')
+        err.invalidPassword = true
+        throw err
+      }
+      // 400 — либо Bean Validation (8–128), либо «новый пароль совпадает с текущим».
+      // Длину экран проверяет до отправки, так что на практике это второе; молчаливым
+      // no-op бэк это не делает намеренно — иначе смена «на тот же» погасила бы сессии.
+      if (res.status === 400) {
+        const err = new Error('Новый пароль должен отличаться от текущего')
+        err.samePassword = true
+        throw err
+      }
+      throw new Error(data.message || 'Не удалось изменить пароль')
+    }
+    setAccessToken(data.accessToken)
+    setRefreshToken(data.refreshToken)
+  }
+
   // Загрузка ассета (type=avatar_image — query-параметр, бэк биндит его через
   // @RequestParam, а НЕ как поле multipart-формы) + привязка к профилю.
   // PUT возвращает обновлённый UserResponse — кладём его в user целиком.
@@ -349,6 +385,7 @@ export const useAuthStore = defineStore('auth', () => {
     clearSession,
     fetchMe,
     updateUsername,
+    changePassword,
     deleteAccount,
     uploadAvatar,
     removeAvatar,

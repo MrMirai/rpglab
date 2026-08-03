@@ -2,24 +2,24 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api } from '@/shared/composables/useApi'
 
-// Фиксированный ownerId системных (встроенных) рамок — никогда не совпадёт
+// Фиксированный ownerId системных (встроенных) рамок - никогда не совпадёт
 // с id реального пользователя. Используется и в галерее (скрыть кнопку
 // удаления чужой/системной рамки), и в админке (отфильтровать системные).
 export const SYSTEM_OWNER_ID = '00000000-0000-0000-0000-000000000000'
 
 export const useFramesStore = defineStore('frames', () => {
   // [{ id, ownerId, name, frameAssetId, frameAssetUrl, backgroundAssetId, backgroundAssetUrl|null, tags, createdAt }]
-  // frameAssetUrl/backgroundAssetUrl — presigned-ссылки (живут 15 мин, долгосрочно не кешировать).
-  // ownerId — владелец шаблона; у встроенных (системных) рамок — фиксированный UUID
+  // frameAssetUrl/backgroundAssetUrl - presigned-ссылки (живут 15 мин, долгосрочно не кешировать).
+  // ownerId - владелец шаблона; у встроенных (системных) рамок - фиксированный UUID
   // системного пользователя, который никогда не совпадёт с id текущего юзера.
-  // ВАЖНО: tags в ответе GET /api/frames — массив ИМЁН тегов (["fantasy"]), а не id;
+  // ВАЖНО: tags в ответе GET /api/frames - массив ИМЁН тегов (["fantasy"]), а не id;
   // при создании (POST /api/frames) наоборот отправляются id из справочника tags ниже.
   const frames = ref([])
   const loading = ref(false)
   const error = ref(null)
   const saving = ref(false)
 
-  // Справочник тегов — [{ id, name }], создаются только администратором.
+  // Справочник тегов - [{ id, name }], создаются только администратором.
   const tags = ref([])
   const tagsLoading = ref(false)
 
@@ -39,7 +39,7 @@ export const useFramesStore = defineStore('frames', () => {
     }
   }
 
-  // GET /api/tags — публичный, для бейджей выбора тегов в форме сохранения и фильтра галереи.
+  // GET /api/tags - публичный, для бейджей выбора тегов в форме сохранения и фильтра галереи.
   async function fetchTags() {
     tagsLoading.value = true
     try {
@@ -51,7 +51,7 @@ export const useFramesStore = defineStore('frames', () => {
     }
   }
 
-  // Универсальная загрузка файла в хранилище. type — строка бэка в snake_case
+  // Универсальная загрузка файла в хранилище. type - строка бэка в snake_case
   // (frame_image / background_image / character_image / brush_mask), передаётся
   // query-параметром (бэк биндит его через @RequestParam, а не полем формы).
   // Возвращает { id, url, type }. Дедупликация на бэке: повторная заливка того же
@@ -68,8 +68,8 @@ export const useFramesStore = defineStore('frames', () => {
   }
 
   // Сохранение пресета рамки: грузим ассеты, затем создаём рамку по их id.
-  // backgroundFile — опционален (фон-компаньон рамки).
-  // tagIds — id тегов из справочника (целые числа), необязательно.
+  // backgroundFile - опционален (фон-компаньон рамки).
+  // tagIds - id тегов из справочника (целые числа), необязательно.
   async function createFrame({ name, frameFile, backgroundFile, tagIds = [] }) {
     saving.value = true
     error.value = null

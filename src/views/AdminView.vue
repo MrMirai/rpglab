@@ -4,7 +4,7 @@ import { AdminNav, AdminSystemFrames } from '@/modules/admin'
 import { UserMenu } from '@/modules/auth'
 import PageHeader from '@/shared/components/layout/PageHeader.vue'
 
-// Простой собственный layout админ-секции (не AppLayout — тот заточен под
+// Простой собственный layout админ-секции (не AppLayout - тот заточен под
 // редактор с canvas/properties-панелью). Задел на рост: activeSection
 // переключает содержимое, следующие разделы (раздатки, тарифы) добавятся сюда же.
 const activeSection = ref('frames')

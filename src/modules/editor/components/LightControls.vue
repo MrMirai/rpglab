@@ -12,7 +12,7 @@ const selected = computed(() =>
   store.lights.find((l) => l.id === store.selectedLightId) || null
 )
 
-// Патч выбранного источника — все слайдеры пишут через него
+// Патч выбранного источника - все слайдеры пишут через него
 function patch(field, value) {
   if (selected.value) store.updateLight(selected.value.id, { [field]: value })
 }

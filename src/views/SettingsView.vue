@@ -10,7 +10,7 @@ import ImageDropzone from '@/shared/components/ImageDropzone.vue'
 import BaseButton from '@/shared/components/BaseButton.vue'
 
 // Настройки аккаунта: имя пользователя, аватар, смена пароля и удаление аккаунта
-// (смену email backend не поддерживает — вход идёт по нему).
+// (смену email backend не поддерживает - вход идёт по нему).
 const auth = useAuthStore()
 const toast = useToast()
 const router = useRouter()
@@ -21,7 +21,7 @@ const usernameError = ref('')
 const usernameSaving = ref(false)
 
 // Профиль может подъехать позже монтирования (restoreSession) или обновиться
-// извне (refreshProfileIfStale) — держим поле в синхроне с сохранённым именем.
+// извне (refreshProfileIfStale) - держим поле в синхроне с сохранённым именем.
 watch(
   () => auth.user?.username,
   (value) => {
@@ -53,7 +53,7 @@ async function onSaveUsername() {
     await auth.updateUsername(trimmedUsername.value)
     toast.success('Имя пользователя обновлено')
   } catch (e) {
-    // Ошибка относится к полю формы — показываем инлайном под ним, а не тостом
+    // Ошибка относится к полю формы - показываем инлайном под ним, а не тостом
     usernameError.value = e.message
   } finally {
     usernameSaving.value = false
@@ -88,10 +88,10 @@ async function onRemoveAvatar() {
 }
 
 // --- Смена пароля ---
-// Основной путь — форма с текущим паролем (PUT /api/auth/me/password): бэк гасит
+// Основной путь - форма с текущим паролем (PUT /api/auth/me/password): бэк гасит
 // все refresh-токены, но текущему устройству выдаёт новую пару, так что из своей
 // же вкладки пользователя не выбрасывает. Письмо со ссылкой сброса остаётся
-// запасным путём для тех, кто текущий пароль не помнит (сессия живёт 30 дней —
+// запасным путём для тех, кто текущий пароль не помнит (сессия живёт 30 дней -
 // забыть пароль, оставаясь залогиненным, вполне реально).
 const currentPassword = ref('')
 const newPassword = ref('')
@@ -132,7 +132,7 @@ async function onChangePassword() {
     confirmPassword.value = ''
     toast.success('Сессии на других устройствах завершены', { title: 'Пароль изменён' })
   } catch (e) {
-    // Ошибка формы (в т.ч. неверный текущий пароль) — инлайном под полями
+    // Ошибка формы (в т.ч. неверный текущий пароль) - инлайном под полями
     passwordError.value = e.message
   } finally {
     passwordSaving.value = false
@@ -143,7 +143,7 @@ async function onChangePassword() {
 const passwordSending = ref(false)
 const passwordSent = ref(false)
 
-// Тот же cooldown ~60с, что и у бэка между письмами — гасим кнопку сразу
+// Тот же cooldown ~60с, что и у бэка между письмами - гасим кнопку сразу
 // после клика, чтобы пользователь не спамил.
 const COOLDOWN_SECONDS = 60
 const cooldown = ref(0)
@@ -160,7 +160,7 @@ function startCooldown() {
 
 onUnmounted(() => clearInterval(cooldownTimer))
 
-// Куда и зачем уходит письмо, объясняет текст над кнопкой — на самой кнопке
+// Куда и зачем уходит письмо, объясняет текст над кнопкой - на самой кнопке
 // хватает короткого действия, иначе она разъезжается на пол-карточки.
 const passwordButtonLabel = computed(() => {
   if (passwordSending.value) return 'Отправляем...'
@@ -185,7 +185,7 @@ async function onRequestPasswordChange() {
 
 // --- Удаление аккаунта ---
 // Необратимо и подтверждается текущим паролем (требование бэка), поэтому идёт
-// через отдельную модалку с полем ввода. Email запоминаем ДО удаления — после
+// через отдельную модалку с полем ввода. Email запоминаем ДО удаления - после
 // clearSession() в сторе профиля уже нет, а сообщение про него ещё показываем.
 const deleteOpen = ref(false)
 const deleting = ref(false)
@@ -204,7 +204,7 @@ async function onConfirmDelete(password) {
     await auth.deleteAccount(password)
     deleteOpen.value = false
     // Уходим на публичную главную: страница настроек требует авторизации,
-    // а пользователя уже нет — оставаться тут нельзя.
+    // а пользователя уже нет - оставаться тут нельзя.
     router.push('/')
     toast.success(`Аккаунт ${email} удалён`)
   } catch (e) {
@@ -337,7 +337,7 @@ async function onConfirmDelete(password) {
 
       <!-- Запасной путь для тех, кто текущий пароль не помнит: то же письмо, что
            и при «Забыли пароль?» на входе. Ссылка живёт 1 час и гасит ВСЕ сессии,
-           включая эту, — поэтому она не основной сценарий, а мелкая строка внизу. -->
+           включая эту, - поэтому она не основной сценарий, а мелкая строка внизу. -->
       <div class="password-forgot">
         <span>Не помните текущий пароль?</span>
         <button
@@ -382,7 +382,7 @@ async function onConfirmDelete(password) {
 // растянутый на неё инпут выглядел бы полем ввода абзаца), кнопка рядом.
 .username-form {
   display: flex;
-  // stretch, а не center: кнопка тянется ровно по высоте поля — при разных
+  // stretch, а не center: кнопка тянется ровно по высоте поля - при разных
   // паддингах инпута и кнопки они иначе расходятся на пару пикселей
   align-items: stretch;
   gap: var(--space-2);
@@ -453,7 +453,7 @@ async function onConfirmDelete(password) {
   gap: var(--space-2);
 }
 
-// Поля пароля — узкой колонкой: карточка занимает всю ширину контента, но поле
+// Поля пароля - узкой колонкой: карточка занимает всю ширину контента, но поле
 // на 700px выглядело бы полем ввода абзаца (та же логика, что у имени).
 .password-form {
   display: flex;

@@ -1,14 +1,14 @@
 <script setup>
-// Единая переиспользуемая кнопка — заменяет разрозненные .toggle-btn/.preset-btn/
+// Единая переиспользуемая кнопка - заменяет разрозненные .toggle-btn/.preset-btn/
 // .save-btn/.modal__close и т.п., дублировавшиеся в компонентах модулей.
 // variant:
-//   outline — прозрачная, рамка var(--color-border), hover → accent (дефолт)
-//   accent  — заливка акцентом (primary-действие)
-//   danger  — заливка danger (деструктивное действие)
-//   ghost   — без рамки, только смена цвета текста на hover
+//   outline - прозрачная, рамка var(--color-border), hover → accent (дефолт)
+//   accent  - заливка акцентом (primary-действие)
+//   danger  - заливка danger (деструктивное действие)
+//   ghost   - без рамки, только смена цвета текста на hover
 // size: sm (компактно, панели свойств) | md (шапка, формы, модалки)
-// active — состояние выбранного пункта toggle/segmented-группы (фон accent-muted)
-// square — квадратная icon-only кнопка (close/delete/degree-controls)
+// active - состояние выбранного пункта toggle/segmented-группы (фон accent-muted)
+// square - квадратная icon-only кнопка (close/delete/degree-controls)
 defineProps({
   variant: { type: String, default: 'outline' }, // outline | accent | danger | ghost
   size: { type: String, default: 'md' }, // sm | md
@@ -18,7 +18,7 @@ defineProps({
   dangerHover: { type: Boolean, default: false },
   // Кнопка растягивается на всю ширину/долю флекс-контейнера (toggle-группы)
   fullWidth: { type: Boolean, default: false },
-  // 'button' (дефолт) | 'submit' — для кнопок отправки форм
+  // 'button' (дефолт) | 'submit' - для кнопок отправки форм
   type: { type: String, default: 'button' },
 })
 </script>

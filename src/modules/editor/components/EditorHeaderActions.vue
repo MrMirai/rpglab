@@ -19,7 +19,7 @@ const store = useEditorStore()
 </template>
 
 <style lang="scss" scoped>
-// Компактная высота (size=sm), но читаемый текст шапки — крупнее чем в панелях свойств
+// Компактная высота (size=sm), но читаемый текст шапки - крупнее чем в панелях свойств
 .header-btn {
   font-size: var(--text-sm);
 }

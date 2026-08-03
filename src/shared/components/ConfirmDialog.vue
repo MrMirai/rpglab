@@ -2,7 +2,7 @@
 import { X, AlertTriangle } from 'lucide-vue-next'
 import BaseButton from './BaseButton.vue'
 
-// Универсальная модалка подтверждения — без бизнес-логики, только UI и события.
+// Универсальная модалка подтверждения - без бизнес-логики, только UI и события.
 // Политику (что делать при confirm, как обрабатывать ошибку) задаёт родитель.
 defineProps({
   open: { type: Boolean, default: false },

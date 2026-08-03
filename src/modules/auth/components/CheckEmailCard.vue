@@ -75,7 +75,7 @@ async function handleResend() {
   resending.value = true
   try {
     await auth.resendVerification(props.email)
-    // Ответ всегда 202 (анти-enumeration) — не сообщаем «найден/не найден»,
+    // Ответ всегда 202 (анти-enumeration) - не сообщаем «найден/не найден»,
     // просто нейтральное «письмо отправлено» и запускаем cooldown.
     toast.success('Если аккаунт существует, письмо отправлено повторно')
     startCooldown()

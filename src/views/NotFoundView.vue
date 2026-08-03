@@ -4,7 +4,7 @@ import { UserMenu } from '@/modules/auth'
 import PageHeader from '@/shared/components/layout/PageHeader.vue'
 
 // Заглушка для несуществующих маршрутов (catch-all в router/index.js): без неё
-// RouterView не рендерил ничего — пустой белый экран и варнинг «No match found».
+// RouterView не рендерил ничего - пустой белый экран и варнинг «No match found».
 // Экран чисто информационный, без действий: вернуться можно логотипом в шапке.
 // Своя лёгкая шапка, как на главной (AppLayout заточен под canvas-редактор).
 </script>

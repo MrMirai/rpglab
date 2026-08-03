@@ -1,12 +1,12 @@
 import { SCHEMA_VERSION } from '../schema/tokenProject.js'
 
 // Растеризует HTMLImageElement/HTMLCanvasElement в ImageRef.
-// uploadImage(blob) => Promise<{ key, url }> — опциональный колбэк для загрузки
-// ассета на сервер; без него изображение сериализуется inline (data URL) —
+// uploadImage(blob) => Promise<{ key, url }> - опциональный колбэк для загрузки
+// ассета на сервер; без него изображение сериализуется inline (data URL) -
 // сценарий локального несохранённого проекта.
-// key — непрозрачный assetId, который целиком возвращает uploadImage(). Сервер
+// key - непрозрачный assetId, который целиком возвращает uploadImage(). Сервер
 // дедуплицирует файлы по SHA-256 содержимого, поэтому key НЕ конструируется
-// здесь (например, из projectId/имени файла) — предсказуемый путь на клиенте
+// здесь (например, из projectId/имени файла) - предсказуемый путь на клиенте
 // сломал бы дедупликацию на сервере.
 async function imageToRef(source, uploadImage) {
   if (!source) return null

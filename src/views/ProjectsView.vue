@@ -19,7 +19,7 @@ const store = useProjectsStore()
 const { folders, breadcrumbs, currentFolderId, parentFolderId, foldersLoading, foldersError } =
   storeToRefs(store)
 
-// Проекты внутри папок пока не реализованы (бэк проектов не готов) — показываем
+// Проекты внутри папок пока не реализованы (бэк проектов не готов) - показываем
 // только папки. Карточки проектов появятся здесь же, рядом с папками.
 
 onMounted(() => store.fetchFolders(null))
@@ -33,7 +33,7 @@ function createHandout() {
   router.push('/editor/handout')
 }
 
-// Лимит проектов по тарифу — пока заглушка (бэк квот не готов, см. API.md
+// Лимит проектов по тарифу - пока заглушка (бэк квот не готов, см. API.md
 // «Ещё не реализовано»). Значения статические, шкала не функциональна.
 const projectLimit = { used: 5, total: 10 }
 const limitRatio = computed(() =>
@@ -41,7 +41,7 @@ const limitRatio = computed(() =>
 )
 
 // ── Drag & drop состояние ──────────────────────────────────────────────────
-// id перетаскиваемой сейчас папки (null — ничего не тащим) и id папки-цели
+// id перетаскиваемой сейчас папки (null - ничего не тащим) и id папки-цели
 // под курсором (для подсветки drop-цели).
 const draggingId = ref(null)
 const dropTargetId = ref(null)
@@ -188,7 +188,7 @@ const isEmpty = computed(() => !foldersLoading.value && folders.value.length ===
         @drop-to="onDropOnCard"
       />
 
-      <!-- Лимит проектов по тарифу — заглушка (шкала не функциональна) -->
+      <!-- Лимит проектов по тарифу - заглушка (шкала не функциональна) -->
       <div class="project-limit">
         <span class="project-limit__label">Лимит проектов</span>
         <div class="project-limit__bar">
@@ -202,7 +202,7 @@ const isEmpty = computed(() => !foldersLoading.value && folders.value.length ===
       <p v-if="foldersError" class="projects-error">{{ foldersError }}</p>
 
       <div class="projects-grid">
-        <!-- Элемент «на уровень выше» — не папка, а возврат вверх по вложенности.
+        <!-- Элемент «на уровень выше» - не папка, а возврат вверх по вложенности.
              Нет в корне. Тоже drop-цель: бросок папки → переместить к родителю. -->
         <button
           v-if="currentFolderId !== null"
@@ -270,7 +270,7 @@ const isEmpty = computed(() => !foldersLoading.value && folders.value.length ===
   flex-direction: column;
 }
 
-// Символ токена ◎ (как на главной) — крупнее lucide-иконок, чтобы внутренний
+// Символ токена ◎ (как на главной) - крупнее lucide-иконок, чтобы внутренний
 // круг читался; выравниваем по базовой линии текста кнопки.
 .token-glyph {
   font-size: 17px;
@@ -347,7 +347,7 @@ const isEmpty = computed(() => !foldersLoading.value && folders.value.length ===
   border-radius: var(--radius-md);
 }
 
-// Фиксированная ширина ячеек (не 1fr) — иначе auto-fill растягивает колонки и
+// Фиксированная ширина ячеек (не 1fr) - иначе auto-fill растягивает колонки и
 // центрированные папки «разъезжаются», давая неровные промежутки между ними и
 // кнопкой «Наверх». Теперь каждая ячейка ровно по ширине папки → одинаковый шаг.
 .projects-grid {
@@ -357,7 +357,7 @@ const isEmpty = computed(() => !foldersLoading.value && folders.value.length ===
   justify-content: start;
 }
 
-// Элемент «на уровень выше» — только стрелка и подпись, без рамки.
+// Элемент «на уровень выше» - только стрелка и подпись, без рамки.
 // Структура повторяет .folder (те же паддинги/gap + иконка-зона 80px), поэтому
 // высота совпадает с папкой; align-self: start не даёт растягиваться на высоту
 // ряда (иначе при появлении первой папки кнопка меняла размер).

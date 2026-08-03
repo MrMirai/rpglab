@@ -5,10 +5,10 @@ import SliderControl from '@/shared/components/SliderControl.vue'
 import { useHandoutStore } from '../store'
 import { useHandoutHistory } from '../composables/useHandoutHistory'
 
-// Секция «Смешение с фоном» — эффект «нанесено на бумагу» (см. useInkEffect):
+// Секция «Смешение с фоном» - эффект «нанесено на бумагу» (см. useInkEffect):
 // один слайдер силы управляет multiply-наложением, зерном бумаги, выедающим
-// краску, и рваным краем. Доступна всем типам элементов. elements — массив,
-// поддерживает мультивыделение (среднее значение — как у общей прозрачности).
+// краску, и рваным краем. Доступна всем типам элементов. elements - массив,
+// поддерживает мультивыделение (среднее значение - как у общей прозрачности).
 const props = defineProps({
   elements: { type: Array, required: true },
 })

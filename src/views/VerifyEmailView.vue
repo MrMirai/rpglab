@@ -71,7 +71,7 @@ onMounted(async () => {
     await auth.verifyEmail(token)
     status.value = 'success'
     // verifyEmail уже сохранил пару токенов и подтянул профиль (auto-login).
-    // Автоматически НЕ редиректим — пользователь сам жмёт «Перейти в приложение».
+    // Автоматически НЕ редиректим - пользователь сам жмёт «Перейти в приложение».
   } catch (e) {
     status.value = 'error'
     error.value = e.message

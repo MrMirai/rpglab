@@ -5,8 +5,8 @@ import { User, FolderOpen, Settings, ShieldCheck, LogOut } from 'lucide-vue-next
 import { useAuthStore } from '../store.js'
 
 // Блок пользователя в шапке. Два состояния:
-// гость — кнопки «Войти»/«Регистрация»;
-// авторизован — кружок с аватаром/плейсхолдером, по клику дропдаун
+// гость - кнопки «Войти»/«Регистрация»;
+// авторизован - кружок с аватаром/плейсхолдером, по клику дропдаун
 // (Профиль / Проекты / Настройки / [Администрирование, если admin] / Выход).
 // Живёт в модуле auth и вставляется в editor-агностичную шапку через слот.
 const auth = useAuthStore()
@@ -56,7 +56,7 @@ onUnmounted(() => document.removeEventListener('mousedown', onClickOutside))
 async function handleLogout() {
   close()
   await auth.logout()
-  // Если текущая страница требует авторизации — уводим на логин,
+  // Если текущая страница требует авторизации - уводим на логин,
   // с публичной (редактор) остаёмся на месте.
   if (route.meta.requiresAuth) router.push('/login')
 }

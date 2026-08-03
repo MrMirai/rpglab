@@ -13,7 +13,7 @@ export function useImageLoader() {
   function loadFromUrl(url) {
     return new Promise((resolve, reject) => {
       const img = new Image()
-      // crossOrigin ДО src — иначе не действует; нужен, чтобы холст не «протух»
+      // crossOrigin ДО src - иначе не действует; нужен, чтобы холст не «протух»
       // (tainted) и работал экспорт. Ассеты MinIO и data:-URL отдают CORS/безопасны.
       img.crossOrigin = 'anonymous'
       img.onload = () => resolve(img)
@@ -23,9 +23,9 @@ export function useImageLoader() {
   }
 
   // Грузит удалённый ассет через fetch → blob → локальный object URL, и уже
-  // из него — HTMLImageElement. Отличие от loadFromUrl в том, что возвращается
+  // из него - HTMLImageElement. Отличие от loadFromUrl в том, что возвращается
   // СТАБИЛЬНЫЙ objectUrl: presigned-ссылки MinIO живут 15 мин, поэтому их
-  // нельзя использовать как долгоживущий src превью (<img>) — через 15 минут
+  // нельзя использовать как долгоживущий src превью (<img>) - через 15 минут
   // ссылка протухает и картинка ломается. objectUrl живёт, пока жива вкладка
   // (владелец обязан revoke при замене/удалении).
   async function loadFromUrlAsBlob(url) {

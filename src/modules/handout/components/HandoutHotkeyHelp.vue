@@ -4,12 +4,12 @@ import { Keyboard, ChevronDown, MouseLeft, Mouse } from 'lucide-vue-next'
 
 // Подсказка горячих клавиш редактора раздаток. В отличие от HotkeyHelp
 // редактора токенов, здесь нет разных «инструментов» с разным набором
-// хоткеев (select/hand — не про рисование) — один плоский список.
+// хоткеев (select/hand - не про рисование) - один плоский список.
 
 const open = ref(false)
 
-// Токены-действия. type: 'key' — клавиша (текст в <kbd>),
-// 'drag' — перетаскивание (ЛКМ), 'wheel' — колёсико мыши.
+// Токены-действия. type: 'key' - клавиша (текст в <kbd>),
+// 'drag' - перетаскивание (ЛКМ), 'wheel' - колёсико мыши.
 const DRAG = { type: 'drag' }
 const WHEEL = { type: 'wheel' }
 const key = (label) => ({ type: 'key', label })
@@ -100,7 +100,7 @@ const historyHints = [
     }
   }
 
-  // Панель раскрыта — стрелка повёрнута
+  // Панель раскрыта - стрелка повёрнута
   &--open &__chevron {
     transform: rotate(180deg);
   }
@@ -162,7 +162,7 @@ const historyHints = [
     white-space: nowrap;
   }
 
-  // Иконка мыши — выровнена по центру строки клавиш
+  // Иконка мыши - выровнена по центру строки клавиш
   &__mouse {
     display: inline-flex;
     align-items: center;

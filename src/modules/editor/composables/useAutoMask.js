@@ -2,10 +2,10 @@
 // Маска = прозрачные пиксели, недостижимые снаружи (внутри рамки).
 // Замкнутые области между щупальцами тоже считаются внутренними.
 
-// Кеш масок по картинке рамки: flood fill + getImageData + dilate — дорогие,
+// Кеш масок по картинке рамки: flood fill + getImageData + dilate - дорогие,
 // а generateMask дёргается на каждый кадр перерисовки (кисть, движение персонажа,
-// превью-окно, экспорт). Ключ — сам объект картинки (WeakMap: при замене рамки
-// старая запись уходит вместе с картинкой в GC), внутри — Map по размеру.
+// превью-окно, экспорт). Ключ - сам объект картинки (WeakMap: при замене рамки
+// старая запись уходит вместе с картинкой в GC), внутри - Map по размеру.
 const maskCache = new WeakMap()
 
 export function useAutoMask() {
@@ -54,7 +54,7 @@ export function useAutoMask() {
     const imageData = tc.getImageData(0, 0, size, size)
     const data = imageData.data
 
-    // Flood fill от всех 4 углов — находим внешнюю область
+    // Flood fill от всех 4 углов - находим внешнюю область
     const outerFill = new Uint8Array(size * size)
     for (const [ox, oy] of [[0, 0], [size - 1, 0], [0, size - 1], [size - 1, size - 1]]) {
       const cornerVisited = floodFill(data, size, ox, oy)
@@ -100,7 +100,7 @@ export function useAutoMask() {
         dc.drawImage(maskCanvas, dx, dy)
       }
     }
-    dc.drawImage(maskCanvas, 0, 0)  // поверх — оригинал
+    dc.drawImage(maskCanvas, 0, 0)  // поверх - оригинал
 
     if (!bySize) {
       bySize = new Map()

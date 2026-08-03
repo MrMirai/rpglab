@@ -6,11 +6,11 @@ import TagBadgeList from '@/shared/components/TagBadgeList.vue'
 import ImageDropzone from '@/shared/components/ImageDropzone.vue'
 
 // Форма создания системной рамки (POST /api/admin/frames). Отличается от
-// пользовательского FrameSaveModal форматом запроса — тут файлы выбираются
+// пользовательского FrameSaveModal форматом запроса - тут файлы выбираются
 // прямо в модалке (не берутся из уже загруженного в редактор пресета).
 defineProps({
   open: { type: Boolean, default: false },
-  tags: { type: Array, default: () => [] }, // [{ id, name }] — справочник
+  tags: { type: Array, default: () => [] }, // [{ id, name }] - справочник
   creating: { type: Boolean, default: false },
   error: { type: String, default: '' },
 })

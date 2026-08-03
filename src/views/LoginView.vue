@@ -1,6 +1,6 @@
 <template>
   <AuthPageBackground>
-    <!-- Вход вернул 403 «email не подтверждён» — показываем экран «Проверьте
+    <!-- Вход вернул 403 «email не подтверждён» - показываем экран «Проверьте
          почту» с переотправкой письма вместо «неверный пароль». -->
     <CheckEmailCard v-if="emailNotVerified" :email="email" />
 
@@ -71,10 +71,10 @@ const password = ref('')
 const error = ref('')
 const loading = ref(false)
 
-// Вход вернул 403 (email не подтверждён) — переключаемся на экран «Проверьте почту».
+// Вход вернул 403 (email не подтверждён) - переключаемся на экран «Проверьте почту».
 const emailNotVerified = ref(false)
 
-// Обратный отсчёт после 429 (rate limit) — блокирует кнопку до конца Retry-After.
+// Обратный отсчёт после 429 (rate limit) - блокирует кнопку до конца Retry-After.
 const retryIn = ref(0)
 let retryTimer = null
 
@@ -108,7 +108,7 @@ async function handleSubmit() {
     // Возвращаемся туда, откуда пришли (если был редирект с защищённой страницы)
     router.push(route.query.redirect || '/')
   } catch (e) {
-    // 403 «email не подтверждён» — не показываем ошибку, уводим на экран resend.
+    // 403 «email не подтверждён» - не показываем ошибку, уводим на экран resend.
     if (e.emailNotVerified) {
       emailNotVerified.value = true
       return

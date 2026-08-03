@@ -1,5 +1,5 @@
-// Мост HandoutCanvas ↔ тулбар/модалка экспорта. Компоненты — сиблинги в разных
-// слотах AppLayout (provide/inject не подходит), поэтому синглтон с хендлерами —
+// Мост HandoutCanvas ↔ тулбар/модалка экспорта. Компоненты - сиблинги в разных
+// слотах AppLayout (provide/inject не подходит), поэтому синглтон с хендлерами -
 // тот же паттерн, что useEditorBridge в редакторе токенов.
 
 const handlers = {
@@ -7,7 +7,7 @@ const handlers = {
   getStageForExport: null,
   centerView: null,
   // Пересборка кешей эффекта «вписанности» (см. useInkEffect). С аргументом-
-  // числом кеширует под этот pixelRatio (экспорт), без — под экранный зум.
+  // числом кеширует под этот pixelRatio (экспорт), без - под экранный зум.
   syncInkCaches: null,
 }
 

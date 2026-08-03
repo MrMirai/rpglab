@@ -24,10 +24,10 @@ const history = useHandoutHistory()
 const sections = ref({ font: true, color: true, spacing: true })
 
 // Web-safe шрифты + самохостed woff2 с поддержкой кириллицы (см.
-// shared/assets/styles/_fonts.scss) — печатная машинка и рукописные, для
+// shared/assets/styles/_fonts.scss) - печатная машинка и рукописные, для
 // тематического оформления раздаток (письма, записки, старые документы).
 // fonts: строка = font-family (label совпадает со значением) либо пара
-// [value, label], где value — точное имя font-family из @font-face, а label —
+// [value, label], где value - точное имя font-family из @font-face, а label -
 // человекочитаемое название в списке (для шрифтов с техническим именем семейства).
 const FONT_GROUPS = [
   {

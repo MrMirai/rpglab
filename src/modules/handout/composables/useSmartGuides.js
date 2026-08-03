@@ -2,7 +2,7 @@ import { ref } from 'vue'
 
 // Smart Guides (умные направляющие, как в Figma): математика примагничивания
 // при drag/resize + реактивный стейт линий для отрисовки в uiLayer.
-// Konva сюда не импортируется — канва передаёт готовые bbox'ы (док-координаты,
+// Konva сюда не импортируется - канва передаёт готовые bbox'ы (док-координаты,
 // axis-aligned) через getBBox, а полученные поправки применяет к узлам сама.
 
 export const GUIDE_COLOR = '#f24822' // красный Figma
@@ -57,7 +57,7 @@ export function bestAlignSnap(stops, ownValues, threshold) {
   return best
 }
 
-// Бокс в координатах оси: lo/hi — по главной оси, plo/phi — по перпендикулярной.
+// Бокс в координатах оси: lo/hi - по главной оси, plo/phi - по перпендикулярной.
 function axisBox(b, axis) {
   return axis === 'x'
     ? { lo: b.x, hi: b.x + b.width, plo: b.y, phi: b.y + b.height }
@@ -65,9 +65,9 @@ function axisBox(b, axis) {
 }
 
 // Равные промежутки: для каждой смежной пары соседей (перекрывающихся с
-// перетаскиваемым по перпендикулярной оси) — три кандидата: продолжить ряд
+// перетаскиваемым по перпендикулярной оси) - три кандидата: продолжить ряд
 // справа/снизу, слева/сверху, встать посередине между парой. Не Figma-полнота,
-// но покрывает главный кейс «три в ряд». segments — промежутки, которые станут
+// но покрывает главный кейс «три в ряд». segments - промежутки, которые станут
 // равными ПОСЛЕ снэпа (в координатах кандидата).
 export function bestSpacingSnap(boxes, draggedBox, axis, threshold) {
   const d = axisBox(draggedBox, axis)
@@ -88,7 +88,7 @@ export function bestSpacingSnap(boxes, draggedBox, axis, threshold) {
     const A = nbs[i]
     const B = nbs[i + 1]
     const gap = B.lo - A.hi
-    if (gap <= 0) continue // пересекаются — промежутка нет
+    if (gap <= 0) continue // пересекаются - промежутка нет
     // продолжить ряд справа/снизу: dragged.lo = B.hi + gap
     consider(B.hi + gap, gap, [
       { from: A.hi, to: B.lo },
@@ -114,7 +114,7 @@ export function bestSpacingSnap(boxes, draggedBox, axis, threshold) {
 
 export function useSmartGuides() {
   const guides = ref(emptyGuides())
-  let session = null // { targets, doc } — живёт один drag/transform-жест
+  let session = null // { targets, doc } - живёт один drag/transform-жест
 
   function beginSession({ elements, excludeIds, doc, getBBox }) {
     session = { targets: buildTargets(elements, excludeIds, doc, getBBox), doc }
@@ -133,9 +133,9 @@ export function useSmartGuides() {
 
   // Линии выравнивания строятся от УЖЕ сдвинутого бокса: показываем все стопы,
   // с которыми он фактически совпал (в т.ч. попутные совпадения при снэпе по
-  // другой оси). Дедуп по значению с объединением экстентов. Подпись — ОДНА на
+  // другой оси). Дедуп по значению с объединением экстентов. Подпись - ОДНА на
   // линию: px до БЛИЖАЙШЕГО непересекающегося вдоль линии элемента-таргета
-  // (метки до всех совпавших соседей разом — «400» и «100» на одной линии —
+  // (метки до всех совпавших соседей разом - «400» и «100» на одной линии -
   // только шумят, проверено визуально).
   function collectAlignGuides(box, g) {
     const { targets, doc } = session
@@ -211,7 +211,7 @@ export function useSmartGuides() {
 
   // Снэп при перетаскивании: box = union-bbox выделения. Возвращает поправку
   // { dx, dy }, побочно заполняет guides. Оси независимы; на каждой соревнуются
-  // выравнивание и равные промежутки — меньшая дистанция побеждает, при
+  // выравнивание и равные промежутки - меньшая дистанция побеждает, при
   // равенстве приоритет у выравнивания.
   function snapDrag(box, threshold) {
     if (!session) return { dx: 0, dy: 0 }
@@ -269,9 +269,9 @@ export function useSmartGuides() {
     return best?.stop ?? null
   }
 
-  // Снэп при ресайзе: двигаем ТОЛЬКО движущиеся кромки (edges — Set из
+  // Снэп при ресайзе: двигаем ТОЛЬКО движущиеся кромки (edges - Set из
   // 'left'/'right'/'top'/'bottom' по активной ручке трансформера).
-  // Spacing/подписи на ресайзе не делаем — только линии совпадения.
+  // Spacing/подписи на ресайзе не делаем - только линии совпадения.
   function snapResizeEdges(box, edges, threshold) {
     if (!session) return box
     const { targets, doc } = session

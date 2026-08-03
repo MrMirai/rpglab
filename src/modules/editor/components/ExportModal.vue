@@ -18,7 +18,7 @@ const isExporting = ref(false)
 const exportInfo = computed(() => {
   if (!store.isReady) return null
   const pixelSize = calcExportSize(store, exportSize.value, brushCanvas, brushVersion.value)
-  // Персонаж выходит за границу клетки рамки — итоговый размер больше выбранного
+  // Персонаж выходит за границу клетки рамки - итоговый размер больше выбранного
   const oversized = pixelSize > exportSize.value
   return { pixelSize, oversized }
 })

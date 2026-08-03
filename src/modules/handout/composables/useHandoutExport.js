@@ -6,11 +6,11 @@ import { useHandoutBridge } from './useHandoutBridge'
 const BASE_DPI = 96
 
 // Самохостed шрифты (Caveat/Marck Script/Neucha/PT Mono/Cousine/Overpass Mono,
-// см. shared/assets/styles/_fonts.scss) грузятся браузером ЛЕНИВО — только когда
+// см. shared/assets/styles/_fonts.scss) грузятся браузером ЛЕНИВО - только когда
 // какой-то узел реально запрашивает их. К моменту экспорта файл может быть ещё
 // не догружен, и toDataURL синхронно нарисует текст фолбэк-шрифтом БЕЗ ошибки
 // (в отличие от <img>, canvas не ждёт шрифт сам). document.fonts.ready ждёт
-// только уже запрошенные шрифты — на случай, если элемент с кастомным шрифтом
+// только уже запрошенные шрифты - на случай, если элемент с кастомным шрифтом
 // ещё ни разу не отрисовывался (сразу после смены fontFamily), явно просим
 // браузер загрузить его перед экспортом через document.fonts.load.
 async function ensureFontsLoaded(elements) {
@@ -38,9 +38,9 @@ export function useHandoutExport() {
     if (uiLayer) uiLayer.visible(false)
     stage.position({ x: 0, y: 0 })
     stage.scale({ x: 1, y: 1 })
-    // Кеши эффекта «вписанности» собраны под экранный зум — пересобираем под
+    // Кеши эффекта «вписанности» собраны под экранный зум - пересобираем под
     // экспортный pixelRatio, иначе зерно/текст в снимке мылятся (toDataURL
-    // растянул бы экранный битмап). В finally — обратно под экран.
+    // растянул бы экранный битмап). В finally - обратно под экран.
     bridge.syncInkCaches(dpi / BASE_DPI)
 
     try {
@@ -81,7 +81,7 @@ export function useHandoutExport() {
   }
 
   // PDF: PNG-снимок вставляется картинкой в страницу физического размера
-  // документа (мм из px при 96dpi). jspdf грузим лениво — он нужен редко.
+  // документа (мм из px при 96dpi). jspdf грузим лениво - он нужен редко.
   async function exportPdf(stage, uiLayer, doc, dpi, filename = 'handout', elements = []) {
     await ensureFontsLoaded(elements)
     const { jsPDF } = await import('jspdf')

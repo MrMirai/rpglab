@@ -1,7 +1,7 @@
 <template>
   <AuthPageBackground>
     <!-- Письмо запрошено: ответ ВСЕГДА 202 (анти-enumeration), поэтому текст
-         нейтральный — «если аккаунт существует», без «email найден/не найден». -->
+         нейтральный - «если аккаунт существует», без «email найден/не найден». -->
     <div v-if="sent" class="auth-card auth-card--centered">
       <div class="auth-card__logo">
         <MailCheck :size="56" class="auth-card__logo-icon" />
@@ -87,7 +87,7 @@ const loading = ref(false)
 const sent = ref(false)
 
 // Cooldown на повторную отправку: у бэка свой лимит ~60с (общий с повторной
-// верификацией), дублируем таймером — кнопка гаснет сразу после клика.
+// верификацией), дублируем таймером - кнопка гаснет сразу после клика.
 const COOLDOWN_SECONDS = 60
 const cooldown = ref(0)
 let cooldownTimer = null
@@ -118,11 +118,11 @@ async function send() {
     sent.value = true
     startCooldown()
     // Первую отправку объясняет сам экран; повтор кнопкой ничего на экране
-    // не меняет — без тоста было бы непонятно, случилось ли что-нибудь.
+    // не меняет - без тоста было бы непонятно, случилось ли что-нибудь.
     if (isResend) toast.success('Если аккаунт существует, письмо отправлено повторно')
   } catch (e) {
     // На форме ошибку показываем прямо под полем, на экране «письмо отправлено»
-    // формы уже нет — там сообщаем тостом.
+    // формы уже нет - там сообщаем тостом.
     if (isResend) toast.error(e.message)
     else error.value = e.message
   } finally {

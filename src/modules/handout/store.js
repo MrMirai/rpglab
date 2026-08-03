@@ -52,23 +52,23 @@ export const useHandoutStore = defineStore('handout', () => {
     },
   })
 
-  // Порядок в массиве = порядок рендера (последний — поверх всех)
+  // Порядок в массиве = порядок рендера (последний - поверх всех)
   const elements = ref([])
 
   const selectedIds = ref([])
   const activeTool = ref('select') // select | hand
   const showGrid = ref(false)
-  const snapEnabled = ref(true) // умные направляющие (Ctrl — временно отключить)
+  const snapEnabled = ref(true) // умные направляющие (Ctrl - временно отключить)
   const editingElementId = ref(null) // текст в режиме textarea-редактирования
   const exportModalOpen = ref(false)
 
-  // Буфер обмена (внутренний, не системный) — массив «сырых» элементов из copy().
-  // pasteCount считает повторные Ctrl+V без нового copy — каждый paste смещает
+  // Буфер обмена (внутренний, не системный) - массив «сырых» элементов из copy().
+  // pasteCount считает повторные Ctrl+V без нового copy - каждый paste смещает
   // на +20px больше предыдущего, чтобы вставки не ложились друг на друга стопкой.
   const clipboard = ref([])
   const pasteCount = ref(0)
 
-  // Вьюпорт холста — синхронизируется из HandoutCanvas, нужен для
+  // Вьюпорт холста - синхронизируется из HandoutCanvas, нужен для
   // добавления новых элементов в центр видимой области.
   const viewport = ref({ x: 0, y: 0, zoom: 1, w: 0, h: 0 })
 
@@ -144,7 +144,7 @@ export const useHandoutStore = defineStore('handout', () => {
     return copy
   }
 
-  // Копирует выделенные элементы во внутренний буфер (не системный clipboard —
+  // Копирует выделенные элементы во внутренний буфер (не системный clipboard -
   // хватает copy/paste в пределах одного документа/вкладки).
   function copySelected() {
     const els = elements.value.filter((e) => selectedIds.value.includes(e.id))
@@ -173,7 +173,7 @@ export const useHandoutStore = defineStore('handout', () => {
   }
 
   // Точное перемещение выделения стрелками (dx/dy в px документа).
-  // Залоченные элементы пропускаем — как и остальные интерактивные правки.
+  // Залоченные элементы пропускаем - как и остальные интерактивные правки.
   function nudgeSelected(dx, dy) {
     elements.value.forEach((el) => {
       if (!el.locked && selectedIds.value.includes(el.id)) {

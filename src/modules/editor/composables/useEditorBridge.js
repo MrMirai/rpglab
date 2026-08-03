@@ -1,6 +1,6 @@
 // Singleton-мост между EditorCanvas и компонентами-сиблингами (AppHeader,
 // MaskControls). Они не предок/потомок EditorCanvas, поэтому provide/inject
-// не работает — EditorCanvas регистрирует обработчики через setHandlers().
+// не работает - EditorCanvas регистрирует обработчики через setHandlers().
 
 const handlers = {
   performUndo: null,

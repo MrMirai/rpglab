@@ -240,7 +240,7 @@ function onHexInput(val) {
 }
 
 function onHexBlur() {
-  // При потере фокуса — восстанавливаем валидное значение
+  // При потере фокуса - восстанавливаем валидное значение
   hexInput.value = currentHex.value
 }
 

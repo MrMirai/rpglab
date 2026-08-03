@@ -80,7 +80,7 @@ onUnmounted(() => document.removeEventListener('mousedown', onClickOutside))
   gap: var(--space-2);
 
   &__popup {
-    // Фон/рамку/радиус задаёт сам ColorPicker — здесь только тень попапа
+    // Фон/рамку/радиус задаёт сам ColorPicker - здесь только тень попапа
     box-shadow: var(--shadow-popup);
     border-radius: var(--radius-lg);
   }

@@ -17,7 +17,7 @@ export function useHandoutSelection() {
     return nodes
   }
 
-  // Поднимается от e.target к предку, чей id — известный элемент
+  // Поднимается от e.target к предку, чей id - известный элемент
   // (текст внутри label, картинка внутри группы и т.п.)
   function resolveElementId(target, knownIds) {
     let node = target
@@ -29,7 +29,7 @@ export function useHandoutSelection() {
     return null
   }
 
-  // Клик по стейджу: элемент → выделить (shift — toggle), пусто → сбросить.
+  // Клик по стейджу: элемент → выделить (shift - toggle), пусто → сбросить.
   function handleStageClick(e, store) {
     const knownIds = new Set(store.elements.map((el) => el.id))
     const id = resolveElementId(e.target, knownIds)

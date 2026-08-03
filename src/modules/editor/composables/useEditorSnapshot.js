@@ -3,7 +3,7 @@ import { useBrushMask } from './useBrushMask.js'
 
 // Снимок состояния редактора для сохранения/восстановления проекта.
 // Возвращает/принимает "сырые" значения стора (HTMLImageElement/HTMLCanvasElement/
-// примитивы) — без UI/computed-полей. Ничего не знает про JSON/ImageRef/MinIO,
+// примитивы) - без UI/computed-полей. Ничего не знает про JSON/ImageRef/MinIO,
 // этим занимается модуль projects (см. useProjectSerializer/useProjectDeserializer).
 export function useEditorSnapshot() {
   const store = useEditorStore()
@@ -50,7 +50,7 @@ export function useEditorSnapshot() {
       bgGrain: store.bgGrain,
       bgNoiseType: store.bgNoiseType,
 
-      // Источники света — простые объекты, копируем глубоко, чтобы снапшот
+      // Источники света - простые объекты, копируем глубоко, чтобы снапшот
       // не менялся вслед за стором
       lights: store.lights.map((l) => ({ ...l })),
 

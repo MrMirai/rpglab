@@ -3,16 +3,16 @@ import { useAutoBackground } from './useAutoBackground'
 import { useLighting } from './useLighting'
 
 // Кэш bounding box видимой (не замаскированной кистью) части персонажа за
-// пределами рамки. Ключ — комбинация входов, которые на него влияют: скан
+// пределами рамки. Ключ - комбинация входов, которые на него влияют: скан
 // alpha-пикселей дорогой, а calcOverflow дёргается на каждое открытие модалки
 // экспорта / смену размера, хотя персонаж и кисть между этим не меняются.
 let overflowBoundsCache = null
 let overflowBoundsCacheKey = ''
 
-// Видимая часть персонажа за пределами рамки — это alpha персонажа, пересечённая
+// Видимая часть персонажа за пределами рамки - это alpha персонажа, пересечённая
 // с brushCanvas (кисть "восстановить"/"стереть"). Части фигуры, выступающие за
 // рамку, но скрытые кистью (не проявленные), в экспорт не входят и не должны
-// раздувать его размер — поэтому bounding box считаем не по всему PNG персонажа,
+// раздувать его размер - поэтому bounding box считаем не по всему PNG персонажа,
 // а по факту того, что реально останется видно на верхнем слое.
 function getVisibleOverflowBounds(store, brushCanvas) {
   const charImg = store.charImage
@@ -22,8 +22,8 @@ function getVisibleOverflowBounds(store, brushCanvas) {
   const imgLeft = frameSize / 2 + store.charX - charW / 2
   const imgTop  = frameSize / 2 + store.charY - charH / 2
 
-  // Область сканирования — bbox персонажа, расширенный до границ рамки (на случай,
-  // если персонаж целиком внутри рамки — тогда overflow = 0 без сканирования).
+  // Область сканирования - bbox персонажа, расширенный до границ рамки (на случай,
+  // если персонаж целиком внутри рамки - тогда overflow = 0 без сканирования).
   const scanLeft   = Math.min(imgLeft, 0)
   const scanTop    = Math.min(imgTop, 0)
   const scanRight  = Math.max(imgLeft + charW, frameSize)
@@ -132,7 +132,7 @@ export function useExport() {
   }
 
   // Рисует drawFn на временном canvas размером size×size и обрезает маской.
-  // Возвращает обрезанный (не сдвинутый) силуэт — без тени.
+  // Возвращает обрезанный (не сдвинутый) силуэт - без тени.
   function drawMaskedSilhouette(size, drawFn, maskCanvas, maskX = 0, maskY = 0, maskSize = size) {
     const tmp = document.createElement('canvas')
     tmp.width = size
@@ -145,7 +145,7 @@ export function useExport() {
     return tmp
   }
 
-  // Строит canvas ТОЛЬКО с тенью (без самого силуэта) от переданной формы —
+  // Строит canvas ТОЛЬКО с тенью (без самого силуэта) от переданной формы -
   // тень персонажа целиком, до разрезания по маскам нижнего/верхнего слоя
   // (см. тот же приём в EditorCanvas.vue: buildShadowLayer).
   function buildShadowLayer(store, fullSilhouette, scale) {
@@ -187,7 +187,7 @@ export function useExport() {
   // Вычисляет запас (в px, в масштабе рамки frameSize) с каждой стороны,
   // необходимый чтобы вместить выступающие за рамку части персонажа, которые
   // реально видны (проявлены кистью «Восстановить»). Части персонажа, выступающие
-  // за рамку, но скрытые кистью, не входят — иначе экспорт раздувается на пустое
+  // за рамку, но скрытые кистью, не входят - иначе экспорт раздувается на пустое
   // прозрачное место, даже когда на итоговой картинке там ничего не видно.
   function calcOverflow(store, brushCanvas, brushVersion) {
     if (!store.charImage) return 0
@@ -204,7 +204,7 @@ export function useExport() {
     const overBottom = Math.max(0, bounds.bottom - frameSize)
 
     const maxOver = Math.max(overLeft, overTop, overRight, overBottom)
-    // Лимит запаса — 2 клетки на сторону (кисть покрывает unbounded-холст 5×5)
+    // Лимит запаса - 2 клетки на сторону (кисть покрывает unbounded-холст 5×5)
     const overflow = Math.min(maxOver, frameSize * 2)
 
     overflowBoundsCacheKey = key
@@ -212,10 +212,10 @@ export function useExport() {
     return overflow
   }
 
-  // Итоговый множитель экспорта — минимальная степень двойки (1, 2, 4...), при
+  // Итоговый множитель экспорта - минимальная степень двойки (1, 2, 4...), при
   // которой выступающие части персонажа умещаются в холст. Рамка остаётся по
   // центру, поэтому запас с каждой стороны = baseSize*(mult-1)/2 должен покрыть
-  // overflow. Множитель степенями двойки — чтобы итоговый размер был кратен
+  // overflow. Множитель степенями двойки - чтобы итоговый размер был кратен
   // базовому (512→1024→2048), а не произвольным числом пикселей.
   function calcExportMultiplier(store, baseSize, brushCanvas, brushVersion) {
     const frameSize = store.canvasSize
@@ -224,7 +224,7 @@ export function useExport() {
     let mult = 1
     // Запас с каждой стороны при данном множителе: baseSize*(mult-1)/2.
     // Кисть покрывает максимум 2 клетки запаса вокруг рамки (unbounded-холст 5×5),
-    // поэтому множитель ограничен ×4 — дальше был бы пустой прозрачный запас.
+    // поэтому множитель ограничен ×4 - дальше был бы пустой прозрачный запас.
     while (baseSize * (mult - 1) / 2 < exportOverflow && mult < 4) mult *= 2
     return mult
   }
@@ -237,7 +237,7 @@ export function useExport() {
     const scale = baseSize / frameSize
     const mult = calcExportMultiplier(store, baseSize, brushCanvas, brushVersion)
     const exportSize = baseSize * mult
-    // Смещение рамки (по центру) в px экспорта и в масштабе рамки — для геометрии кисти
+    // Смещение рамки (по центру) в px экспорта и в масштабе рамки - для геометрии кисти
     const exportFrameOffset = (exportSize - baseSize) / 2
     const overflow = exportFrameOffset / scale
 
@@ -273,9 +273,9 @@ export function useExport() {
         expCharW, expCharH,
       ))
 
-    // brushCanvas занимает весь unbounded-холст (frameOffset..+frameSize — клетка рамки).
+    // brushCanvas занимает весь unbounded-холст (frameOffset..+frameSize - клетка рамки).
     // Вырезаем область точно по запасу overflow вокруг рамки (в исходном масштабе холста)
-    // и масштабируем её на exportSize — соответствие с expCharX/Y (тот же scale).
+    // и масштабируем её на exportSize - соответствие с expCharX/Y (тот же scale).
     const brushSrcSize = frameSize + overflow * 2
     const brushSrcOffset = store.frameOffset - overflow
     const scaledBrush = document.createElement('canvas')
@@ -286,15 +286,15 @@ export function useExport() {
       0, 0, exportSize, exportSize,
     )
 
-    // Нижний силуэт (персонаж × маска1) — обрезан в размере baseSize, без сдвига.
+    // Нижний силуэт (персонаж × маска1) - обрезан в размере baseSize, без сдвига.
     let bottomSilhouette = drawMaskedSilhouette(baseSize, drawCharRelative, mask)
-    // Верхний силуэт (персонаж × brushCanvas) — сразу в размере exportSize.
+    // Верхний силуэт (персонаж × brushCanvas) - сразу в размере exportSize.
     let topSilhouette = drawMaskedSilhouette(exportSize, drawCharFull, scaledBrush)
 
     // --- Освещение персонажа ---
     // Маски света считаются в тех же координатах, что и слой, на который ложатся:
     // нижний силуэт живёт в координатах рамки (offset=0, размер baseSize),
-    // верхний — в полных координатах экспорта (offset=exportFrameOffset).
+    // верхний - в полных координатах экспорта (offset=exportFrameOffset).
     const charLightBottom = renderLightMask(store, {
       size: baseSize, offset: 0, scale, target: 'char',
     })
@@ -309,7 +309,7 @@ export function useExport() {
     let shadowTop = null
     if (store.charShadowEnabled) {
       // Объединяем оба силуэта в общих координатах exportSize и отбрасываем
-      // тень ОДИН раз от целой формы — иначе на границе масок получается
+      // тень ОДИН раз от целой формы - иначе на границе масок получается
       // разрыв/задвоение тени (см. тот же приём в EditorCanvas.vue).
       const combined = document.createElement('canvas')
       combined.width = exportSize; combined.height = exportSize
@@ -319,18 +319,18 @@ export function useExport() {
 
       const fullShadow = buildShadowLayer(store, combined, scale)
 
-      // Нижняя часть тени — видна только в окне рамки (маска1), под рамкой.
+      // Нижняя часть тени - видна только в окне рамки (маска1), под рамкой.
       const maskFullCanvas = document.createElement('canvas')
       maskFullCanvas.width = exportSize; maskFullCanvas.height = exportSize
       maskFullCanvas.getContext('2d').drawImage(mask, exportFrameOffset, exportFrameOffset, baseSize, baseSize)
       shadowBottom = clipCanvas(fullShadow, maskFullCanvas)
 
-      // Верхняя часть тени — видна там же, где вылезающий персонаж (scaledBrush), над рамкой.
+      // Верхняя часть тени - видна там же, где вылезающий персонаж (scaledBrush), над рамкой.
       shadowTop = clipCanvas(fullShadow, scaledBrush)
     }
 
     if (mode === 'full') {
-      // 1. Фон × маска1 (только в области рамки) — без тени
+      // 1. Фон × маска1 (только в области рамки) - без тени
       if (store.bgType !== 'none') {
         const bgFn = getBgDrawFn(store, baseSize)
         if (bgFn) {
@@ -383,7 +383,7 @@ export function useExport() {
     downloadCanvas(canvas, filename.replace(/\.png$/, ''), 'png')
   }
 
-  // Итоговый размер экспортного холста (px) для заданного базового размера —
+  // Итоговый размер экспортного холста (px) для заданного базового размера -
   // базовый размер, умноженный на степень двойки (×1/×2/×4), достаточную чтобы
   // вместить выступающие за рамку части персонажа.
   function calcExportSize(store, baseSize, brushCanvas, brushVersion) {

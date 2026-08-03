@@ -27,7 +27,7 @@ const canAlign = computed(() => selectedElements.value.length > 0)
 function reorder(direction) {
   if (!hasSelection.value) return
   history.record(store)
-  // Для top: применяем в порядке выделения; для bottom — в обратном,
+  // Для top: применяем в порядке выделения; для bottom - в обратном,
   // чтобы взаимный порядок выбранных элементов сохранился.
   const ids = direction === 'bottom' ? [...store.selectedIds].reverse() : store.selectedIds
   ids.forEach((id) => store.reorderElement(id, direction))

@@ -2,18 +2,18 @@
 // генерация id, дефолты по типу, позиционирование в центре видимой области.
 
 export function generateId() {
-  // crypto.randomUUID доступен в secure context (localhost — ок)
+  // crypto.randomUUID доступен в secure context (localhost - ок)
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
   // Фолбэк на случай http-окружения
   return 'el-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10)
 }
 
 // Базовые поля, общие для всех элементов.
-// flipX/flipY — зеркальное отражение (Konva реализуем через scale + offset).
-// blendMode — режим наложения (globalCompositeOperation), доступен всем типам.
-// inkStrength — «вписанность» в бумагу 0..100 (см. useInkEffect): multiply +
+// flipX/flipY - зеркальное отражение (Konva реализуем через scale + offset).
+// blendMode - режим наложения (globalCompositeOperation), доступен всем типам.
+// inkStrength - «вписанность» в бумагу 0..100 (см. useInkEffect): multiply +
 // зерно бумаги выедает краску + растекание краёв. У старых/загруженных
-// элементов поля может не быть — читать через `?? 0`.
+// элементов поля может не быть - читать через `?? 0`.
 function baseDefaults() {
   return {
     x: 0,
@@ -30,7 +30,7 @@ function baseDefaults() {
 }
 
 // Дефолтные свойства нового элемента по типу.
-// width/height здесь — стартовые размеры при добавлении на холст.
+// width/height здесь - стартовые размеры при добавлении на холст.
 export function getElementDefaults(type) {
   switch (type) {
     case 'TEXT':
@@ -85,8 +85,8 @@ export function getElementDefaults(type) {
 }
 
 // Координаты (x, y) элемента w×h, центрированного в видимой области холста.
-// viewState: { x, y, zoom, w, h } — pan/zoom вьюпорта и размеры контейнера.
-// Если вьюпорт ещё не измерен — центрируем относительно документа.
+// viewState: { x, y, zoom, w, h } - pan/zoom вьюпорта и размеры контейнера.
+// Если вьюпорт ещё не измерен - центрируем относительно документа.
 export function centerInViewport(w, h, viewState, doc) {
   if (viewState && viewState.w > 0 && viewState.h > 0 && viewState.zoom > 0) {
     const cx = (viewState.w / 2 - viewState.x) / viewState.zoom

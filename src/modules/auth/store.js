@@ -15,7 +15,7 @@ export const useAuthStore = defineStore('auth', () => {
   const loading = ref(false)
   const error = ref(null)
 
-  // Когда в последний раз тянули профиль. avatarUrl в UserResponse —
+  // Когда в последний раз тянули профиль. avatarUrl в UserResponse -
   // presigned-ссылка MinIO (живёт 15 мин), поэтому при долгой сессии/возврате
   // на вкладку её надо освежать перефетчем профиля (refreshProfileIfStale).
   const lastFetchedAt = ref(0)
@@ -24,20 +24,20 @@ export const useAuthStore = defineStore('auth', () => {
   const isAdmin = computed(() => user.value?.admin === true)
 
   // Регистрация НЕ логинит пользователя: бэк создаёт аккаунт с emailVerified:false,
-  // токены НЕ выдаёт и шлёт на почту письмо со ссылкой подтверждения. Ответ — профиль
+  // токены НЕ выдаёт и шлёт на почту письмо со ссылкой подтверждения. Ответ - профиль
   // (UserResponse). Вход открывается только после verify-email, поэтому здесь не пишем
-  // токены и не зовём fetchMe — вызывающий экран ведёт на «Проверьте почту».
+  // токены и не зовём fetchMe - вызывающий экран ведёт на «Проверьте почту».
   async function register(email, username, password) {
     loading.value = true
     error.value = null
     try {
       const res = await api.post('/api/auth/register', { email, username, password })
-      // Тело парсим безопасно: успешный 201 может прийти без тела/не-JSON —
+      // Тело парсим безопасно: успешный 201 может прийти без тела/не-JSON -
       // тогда res.json() бросил бы и завис бы «успешный» путь. Ошибку читаем
       // из тела, только если оно есть.
       const data = await res.json().catch(() => null)
       if (!res.ok) throw new Error(data?.message || 'Ошибка регистрации')
-      // data — профиль с emailVerified:false; наверх не отдаём, экран знает email сам
+      // data - профиль с emailVerified:false; наверх не отдаём, экран знает email сам
     } catch (e) {
       error.value = e.message
       throw e
@@ -47,7 +47,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   // Подтверждение email по одноразовому токену из письма. При успехе бэк СРАЗУ
-  // выдаёт пару токенов (auto-login) — сохраняем её и тянем профиль, как после login.
+  // выдаёт пару токенов (auto-login) - сохраняем её и тянем профиль, как после login.
   // Токен одноразовый: экран /verify-email обязан дёрнуть это ОДИН раз (guard).
   async function verifyEmail(token) {
     loading.value = true
@@ -56,7 +56,7 @@ export const useAuthStore = defineStore('auth', () => {
       const res = await api.post('/api/auth/verify-email', { token })
       const data = await res.json()
       if (!res.ok) {
-        // 401 — токен неизвестен / уже использован / просрочен (TTL 24ч)
+        // 401 - токен неизвестен / уже использован / просрочен (TTL 24ч)
         throw new Error(data.message || 'Ссылка подтверждения недействительна или устарела')
       }
       setAccessToken(data.accessToken)
@@ -71,8 +71,8 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   // Повторная отправка письма подтверждения. Бэк ВСЕГДА отвечает 202 (даже если
-  // аккаунта нет или он уже подтверждён — анти-enumeration), поэтому по ответу
-  // не различаем «найден/не найден». Есть cooldown ~60с — экран блокирует кнопку
+  // аккаунта нет или он уже подтверждён - анти-enumeration), поэтому по ответу
+  // не различаем «найден/не найден». Есть cooldown ~60с - экран блокирует кнопку
   // таймером, чтобы пользователь не спамил. Ошибку наверх кидаем только на сбое сети.
   async function resendVerification(email) {
     const res = await api.post('/api/auth/verify-email/resend', { email })
@@ -80,8 +80,8 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   // Запрос письма со ссылкой сброса пароля. Как и resendVerification, бэк ВСЕГДА
-  // отвечает 202 (даже если аккаунта с таким email нет — анти-enumeration), поэтому
-  // по ответу не различаем «найден/не найден». Cooldown ~60с — экран блокирует кнопку
+  // отвечает 202 (даже если аккаунта с таким email нет - анти-enumeration), поэтому
+  // по ответу не различаем «найден/не найден». Cooldown ~60с - экран блокирует кнопку
   // таймером. Ошибку наверх кидаем только на сбое сети/бэка.
   async function forgotPassword(email) {
     const res = await api.post('/api/auth/forgot-password', { email })
@@ -90,11 +90,11 @@ export const useAuthStore = defineStore('auth', () => {
 
   // Проверка токена сброса ДО показа формы: бэк отвечает 204, если по ссылке ещё
   // можно менять пароль, и 401, если она неизвестна/уже использована/просрочена.
-  // Токен при этом НЕ гасится (в отличие от reset-password) — зондировать им можно.
+  // Токен при этом НЕ гасится (в отличие от reset-password) - зондировать им можно.
   // Три причины отказа бэк намеренно не различает (анти-enumeration), поэтому и
   // сообщение наверх одно на всех. Ошибки сети/5xx отдаём БЕЗ флага invalidToken:
   // экран из-за них не должен объявлять живую ссылку мёртвой.
-  // Глобальные loading/error не трогаем — это фоновая проверка одного экрана.
+  // Глобальные loading/error не трогаем - это фоновая проверка одного экрана.
   async function validateResetToken(token) {
     const res = await api.post('/api/auth/reset-password/validate', { token })
     if (res.ok) return
@@ -107,7 +107,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   // Установка нового пароля по одноразовому токену из письма (TTL 1 час).
-  // ВАЖНО: пары токенов бэк тут НЕ выдаёт (в отличие от verify-email) — успешный
+  // ВАЖНО: пары токенов бэк тут НЕ выдаёт (в отличие от verify-email) - успешный
   // сброс гасит ВСЕ refresh-токены пользователя (выход со всех устройств), поэтому
   // локальную сессию тоже чистим и ведём на вход с новым паролем.
   async function resetPassword(token, newPassword) {
@@ -116,10 +116,10 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const res = await api.post('/api/auth/reset-password', { token, newPassword })
       if (!res.ok) {
-        // 204 приходит без тела, ошибки — с JSON; парсим безопасно
+        // 204 приходит без тела, ошибки - с JSON; парсим безопасно
         const data = await res.json().catch(() => null)
         if (res.status === 401) {
-          // Токен неизвестен / уже использован / просрочен — не «неверный пароль».
+          // Токен неизвестен / уже использован / просрочен - не «неверный пароль».
           // Экран по этому флагу предлагает запросить письмо заново.
           const err = new Error('Ссылка уже использована или истёк срок её действия.')
           err.invalidToken = true
@@ -127,7 +127,7 @@ export const useAuthStore = defineStore('auth', () => {
         }
         throw new Error(data?.message || 'Не удалось изменить пароль')
       }
-      // Наши refresh-токены бэк только что отозвал — держать локальную пару нельзя.
+      // Наши refresh-токены бэк только что отозвал - держать локальную пару нельзя.
       clearSession()
     } catch (e) {
       error.value = e.message
@@ -144,7 +144,7 @@ export const useAuthStore = defineStore('auth', () => {
       const res = await api.post('/api/auth/login', { email, password })
       const data = await res.json()
       if (!res.ok) {
-        // 429 — рейт-лимит логина (10/IP, 15/email за 15 мин). Отдаём наверх
+        // 429 - рейт-лимит логина (10/IP, 15/email за 15 мин). Отдаём наверх
         // секунды из Retry-After: LoginView заводит по ним обратный отсчёт и
         // блокирует кнопку, вместо того чтобы дать пользователю «жечь» попытки.
         if (res.status === 429) {
@@ -157,7 +157,7 @@ export const useAuthStore = defineStore('auth', () => {
           err.retryAfterSeconds = seconds
           throw err
         }
-        // 403 на /login — это ИМЕННО «email не подтверждён» (пароль верный),
+        // 403 на /login - это ИМЕННО «email не подтверждён» (пароль верный),
         // а не «неверные креды» (это 401). Помечаем флагом, чтобы LoginView увёл
         // на экран «Проверьте почту» с resend, а не написал «неверный пароль».
         if (res.status === 403) {
@@ -178,7 +178,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Локальный сброс сессии (без похода на бэк) — общий путь для logout и для
+  // Локальный сброс сессии (без похода на бэк) - общий путь для logout и для
   // «сессия умерла» (401 от /refresh, см. setSessionExpiredHandler в main.js).
   function clearSession() {
     clearTokens()
@@ -188,14 +188,14 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function logout() {
     const refresh = getRefreshToken()
-    // Гасим refresh на бэке — иначе он живёт ещё 30 дней и остаётся валидным.
+    // Гасим refresh на бэке - иначе он живёт ещё 30 дней и остаётся валидным.
     // Идемпотентно (неизвестный токен тоже даёт 204); сбой сети не должен
     // помешать локальному выходу, поэтому чистим пару в любом случае.
     if (refresh) {
       try {
         await api.post('/api/auth/logout', { refreshToken: refresh })
       } catch {
-        // сеть/бэк недоступны — выходим локально
+        // сеть/бэк недоступны - выходим локально
       }
     }
     clearSession()
@@ -212,9 +212,9 @@ export const useAuthStore = defineStore('auth', () => {
   // файлы в хранилище, все сессии). Подтверждается ТЕКУЩИМ ПАРОЛЕМ в теле
   // запроса: одного перехваченного access-токена не должно хватать, чтобы стереть
   // аккаунт. 401 здесь = «пароль не совпал» (протухший access apiFetch уже
-  // обновил бы и повторил запрос сам), поэтому вслепую разлогинивать нельзя —
+  // обновил бы и повторил запрос сам), поэтому вслепую разлогинивать нельзя -
   // экран подсвечивает поле пароля. После 204 logout НЕ зовём: refresh-токены
-  // удалены вместе с аккаунтом, гасить нечего — просто чистим локальную пару.
+  // удалены вместе с аккаунтом, гасить нечего - просто чистим локальную пару.
   async function deleteAccount(password) {
     const res = await api.delete('/api/auth/me', { password })
     if (!res.ok) {
@@ -230,14 +230,14 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   // Смена отображаемого имени (3–32 символа). На аутентификацию НЕ влияет:
-  // логин идёт по email, username в токенах не участвует — перевыпускать пару
+  // логин идёт по email, username в токенах не участвует - перевыпускать пару
   // после смены не нужно, достаточно положить в стор профиль из ответа.
-  // Отправка текущего имени конфликтом не считается — бэк вернёт 200 без изменений.
+  // Отправка текущего имени конфликтом не считается - бэк вернёт 200 без изменений.
   async function updateUsername(username) {
     const res = await api.put('/api/auth/me/username', { username })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
-      // 409 — имя занято другим пользователем: экран подсвечивает поле, а не
+      // 409 - имя занято другим пользователем: экран подсвечивает поле, а не
       // показывает общую ошибку (флагом отличаем от 400-валидации/сбоя).
       if (res.status === 409) {
         const err = new Error('Это имя уже занято')
@@ -247,15 +247,15 @@ export const useAuthStore = defineStore('auth', () => {
       throw new Error(data.message || 'Не удалось изменить имя пользователя')
     }
     user.value = data
-    // В ответе свежая presigned-ссылка на аватар — профиль «не застоялся»
+    // В ответе свежая presigned-ссылка на аватар - профиль «не застоялся»
     lastFetchedAt.value = Date.now()
   }
 
-  // Смена пароля изнутри аккаунта — для тех, кто пароль ПОМНИТ (забывшим остаётся
+  // Смена пароля изнутри аккаунта - для тех, кто пароль ПОМНИТ (забывшим остаётся
   // флоу с письмом: forgotPassword → resetPassword). Текущий пароль обязателен:
   // одного перехваченного access-токена не должно хватать, чтобы отобрать аккаунт
   // (та же логика, что у deleteAccount).
-  // ВАЖНО: успех гасит на бэке ВСЕ refresh-токены и тут же выдаёт НОВУЮ пару —
+  // ВАЖНО: успех гасит на бэке ВСЕ refresh-токены и тут же выдаёт НОВУЮ пару -
   // её надо записать немедленно. Иначе следующий запрос уйдёт со старым refresh,
   // а повторное предъявление погашенного трактуется как кража → отзыв всего.
   // В отличие от resetPassword по письму, текущее устройство остаётся в системе
@@ -267,15 +267,15 @@ export const useAuthStore = defineStore('auth', () => {
     if (!res.ok) {
       // 401 = НЕВЕРНЫЙ ТЕКУЩИЙ ПАРОЛЬ, а не протухший access: его apiFetch уже
       // обновил бы и повторил запрос сам (/api/auth/me/password в NO_REFRESH_RETRY
-      // не входит). Разлогинивать вслепую нельзя — ошибка идёт к полю формы.
+      // не входит). Разлогинивать вслепую нельзя - ошибка идёт к полю формы.
       if (res.status === 401) {
         const err = new Error('Неверный текущий пароль')
         err.invalidPassword = true
         throw err
       }
-      // 400 — либо Bean Validation (8–128), либо «новый пароль совпадает с текущим».
+      // 400 - либо Bean Validation (8–128), либо «новый пароль совпадает с текущим».
       // Длину экран проверяет до отправки, так что на практике это второе; молчаливым
-      // no-op бэк это не делает намеренно — иначе смена «на тот же» погасила бы сессии.
+      // no-op бэк это не делает намеренно - иначе смена «на тот же» погасила бы сессии.
       if (res.status === 400) {
         const err = new Error('Новый пароль должен отличаться от текущего')
         err.samePassword = true
@@ -287,9 +287,9 @@ export const useAuthStore = defineStore('auth', () => {
     setRefreshToken(data.refreshToken)
   }
 
-  // Загрузка ассета (type=avatar_image — query-параметр, бэк биндит его через
+  // Загрузка ассета (type=avatar_image - query-параметр, бэк биндит его через
   // @RequestParam, а НЕ как поле multipart-формы) + привязка к профилю.
-  // PUT возвращает обновлённый UserResponse — кладём его в user целиком.
+  // PUT возвращает обновлённый UserResponse - кладём его в user целиком.
   async function uploadAvatar(file) {
     const form = new FormData()
     form.append('file', file)
@@ -301,11 +301,11 @@ export const useAuthStore = defineStore('auth', () => {
     const data = await res.json().catch(() => ({}))
     if (!res.ok) throw new Error(data.message || 'Не удалось установить аватар')
     user.value = data
-    // avatarUrl в ответе — свежая presigned-ссылка, значит профиль «не застоялся»
+    // avatarUrl в ответе - свежая presigned-ссылка, значит профиль «не застоялся»
     lastFetchedAt.value = Date.now()
   }
 
-  // DELETE отдаёт 204 без тела — новую версию профиля бэк не возвращает,
+  // DELETE отдаёт 204 без тела - новую версию профиля бэк не возвращает,
   // поэтому гасим avatarUrl локально патчем.
   async function removeAvatar() {
     const res = await api.delete('/api/auth/me/avatar')
@@ -317,9 +317,9 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   // Освежить профиль (и вместе с ним presigned avatarUrl), если данные
-  // «застоялись». Зовётся при возврате фокуса на вкладку — presigned-ссылка
+  // «застоялись». Зовётся при возврате фокуса на вкладку - presigned-ссылка
   // на аватар живёт 15 мин, за это время вкладка могла провисеть в фоне и
-  // ссылка протухла бы, ломая <img>. Порог 10 мин < 15 мин TTL — обновляемся
+  // ссылка протухла бы, ломая <img>. Порог 10 мин < 15 мин TTL - обновляемся
   // с запасом до истечения, но не дёргаем API на каждое переключение вкладки.
   async function refreshProfileIfStale(maxAgeMs = 10 * 60 * 1000) {
     if (!user.value) return
@@ -329,7 +329,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   // Реакция на фактически протухшую presigned-ссылку аватара: <img @error>.
   // Если вкладка провисела активной >15 мин без visibilitychange, ссылка
-  // истекает и картинка не грузится — тогда рефетчим профиль за свежей ссылкой.
+  // истекает и картинка не грузится - тогда рефетчим профиль за свежей ссылкой.
   // Троттлим (не чаще раза в 30с), чтобы битая картинка не устроила шторм
   // запросов: если и НОВАЯ ссылка не загрузится (реально удалённый ассет,
   // сеть), @error сработает снова, но повторный fetchMe отсечётся по времени.
@@ -354,14 +354,14 @@ export const useAuthStore = defineStore('auth', () => {
   // получаем новую пару и подтягиваем профиль. Обновление идёт через общий
   // single-flight refreshSession() из useApi (НЕ собственный POST /refresh):
   // refresh ротируется, и два параллельных обновления послали бы один и тот же
-  // токен дважды — бэк счёл бы это реюзом и отозвал все токены пользователя.
+  // токен дважды - бэк счёл бы это реюзом и отозвал все токены пользователя.
   async function restoreSession() {
     try {
       if (!getRefreshToken()) return
       await refreshSession()
       await fetchMe()
     } catch {
-      // refreshSession уже почистил токены (сессия мертва) — просто остаёмся гостем
+      // refreshSession уже почистил токены (сессия мертва) - просто остаёмся гостем
     } finally {
       // В любом исходе (восстановились / гость / нет токена) разблокируем гард.
       sessionReadyResolve()

@@ -1,7 +1,7 @@
 import { useImageLoader } from '@/modules/editor'
 
 // Загружает ImageRef обратно в HTMLImageElement.
-// inline — из data URL напрямую; remote — по url (MinIO), с crossOrigin для
+// inline - из data URL напрямую; remote - по url (MinIO), с crossOrigin для
 // последующего чтения пикселей (getImageData) в маске/экспорте/кисти.
 async function refToImage(ref) {
   if (!ref) return null

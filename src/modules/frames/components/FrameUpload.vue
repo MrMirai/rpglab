@@ -11,7 +11,7 @@ async function loadFile(file) {
   const url = URL.createObjectURL(file)
   store.loadFrameImage(img, url)
   store.frameFileName = file.name
-  // Сбрасываем кастомную маску — рамка новая, нужна новая авто-маска
+  // Сбрасываем кастомную маску - рамка новая, нужна новая авто-маска
   store.loadMaskImage(null)
   store.useCustomMask = false
 }

@@ -22,7 +22,7 @@ export const useEditorStore = defineStore('editor', () => {
   const frameImage = ref(null)     // HTMLImageElement
   const frameFileName = ref('')
 
-  // Превью URL (object URLs) — в сторе, чтобы не терялись при размонтировании компонентов
+  // Превью URL (object URLs) - в сторе, чтобы не терялись при размонтировании компонентов
   const charPreviewUrl = ref(null)
   const framePreviewUrl = ref(null)
   const bgPreviewUrl = ref(null)
@@ -45,8 +45,8 @@ export const useEditorStore = defineStore('editor', () => {
   const brushMode = ref('restore')  // 'restore' | 'erase'
   function setBrushMode(mode) { brushMode.value = mode }
 
-  // Лассо (безье-контур): 'add' — заливает область в маску (как «Восстановить»),
-  // 'subtract' — вырезает (как «Стереть»)
+  // Лассо (безье-контур): 'add' - заливает область в маску (как «Восстановить»),
+  // 'subtract' - вырезает (как «Стереть»)
   const lassoMode = ref('add')     // 'add' | 'subtract'
   function setLassoMode(mode) { lassoMode.value = mode }
 
@@ -80,9 +80,9 @@ export const useEditorStore = defineStore('editor', () => {
 
   // --- Источники света ---
   // Свет от объектов персонажа (светящийся меч, факел) должен падать на рамку и
-  // на самого персонажа. Каждый источник — радиальный градиент, который
+  // на самого персонажа. Каждый источник - радиальный градиент, который
   // накладывается поверх слоёв в screen-режиме.
-  // Координаты x/y — в системе рамки (0..canvasSize), как charX/charY: центр
+  // Координаты x/y - в системе рамки (0..canvasSize), как charX/charY: центр
   // рамки = (canvasSize/2, canvasSize/2). Так свет не «уезжает» при смене размера.
   const lights = ref([])
   let lightIdSeq = 0
@@ -93,15 +93,15 @@ export const useEditorStore = defineStore('editor', () => {
   function createLight(overrides = {}) {
     return {
       id: `light-${++lightIdSeq}`,
-      // Позиция: 'manual' — задаётся драгом маркера/слайдерами,
-      // 'auto' — привязана к центру ярких пикселей персонажа (светящийся меч)
+      // Позиция: 'manual' - задаётся драгом маркера/слайдерами,
+      // 'auto' - привязана к центру ярких пикселей персонажа (светящийся меч)
       mode: 'manual',
       x: canvasSize.value / 2,
       y: canvasSize.value / 2,
       color: '#ffcc66',
       radius: 240,
       intensity: 70,     // 0..100 %
-      falloff: 50,       // 0..100 — мягкость спада (0 — резкий край, 100 — очень плавный)
+      falloff: 50,       // 0..100 - мягкость спада (0 - резкий край, 100 - очень плавный)
       onFrame: true,     // подсвечивать рамку
       onChar: true,      // подсвечивать персонажа
       visible: true,

@@ -4,7 +4,7 @@ import { Check, Minus } from 'lucide-vue-next'
 
 // Кастомный чекбокс: нативный input[type=checkbox] не стилизуется
 // кроссбраузерно (системный синий цвет, свой размер), поэтому реальный input
-// прячем визуально, но оставляем в DOM — на нём держатся доступность и
+// прячем визуально, но оставляем в DOM - на нём держатся доступность и
 // клавиатура (Tab/Space), а рисуем свой бокс через :checked-соседа.
 // Роль та же, что у ColorButton/SelectField: shared-UI без бизнес-логики,
 // решение «что значит отмечено» принимает родитель.
@@ -12,12 +12,12 @@ const props = defineProps({
   modelValue: { type: Boolean, default: false },
   label: { type: String, default: '' },
   disabled: { type: Boolean, default: false },
-  // Промежуточное состояние (часть выбранного) — для мультивыделений
+  // Промежуточное состояние (часть выбранного) - для мультивыделений
   indeterminate: { type: Boolean, default: false },
 })
 const emit = defineEmits(['update:modelValue'])
 
-// indeterminate — DOM-СВОЙСТВО, а не атрибут: через :indeterminate в шаблоне
+// indeterminate - DOM-СВОЙСТВО, а не атрибут: через :indeterminate в шаблоне
 // оно не выставится, и CSS-селектор :indeterminate никогда не сработает.
 // Поэтому пишем его на узел вручную.
 const inputRef = ref(null)
@@ -54,13 +54,13 @@ watchEffect(() => {
   cursor: pointer;
   padding: 2px 0;
   user-select: none;
-  // ОБЯЗАТЕЛЬНО: спрятанный input внутри — absolute, и без этого его containing
+  // ОБЯЗАТЕЛЬНО: спрятанный input внутри - absolute, и без этого его containing
   // block стал бы .app-layout (fixed inset:0). Тогда input не едет вместе с
-  // прокруткой панели свойств и остаётся там, где был бы без скролла — в
+  // прокруткой панели свойств и остаётся там, где был бы без скролла - в
   // редакторе это далеко за низом экрана. Клик по метке фокусирует input,
   // браузер тянет его в видимую область и прокручивает .app-layout (overflow:
   // hidden скроллбары убирает, но scroll-into-view контейнер всё равно двигает)
-  // — весь редактор вместе с шапкой уезжал вверх.
+  // - весь редактор вместе с шапкой уезжал вверх.
   position: relative;
 
   &--disabled {
@@ -95,7 +95,7 @@ watchEffect(() => {
     border-color var(--transition-fast),
     color var(--transition-fast);
 
-  // Галочка появляется только когда отмечено — в остальное время
+  // Галочка появляется только когда отмечено - в остальное время
   // иконка прозрачная, чтобы бокс не «прыгал» по размеру
   svg {
     display: block;
@@ -119,7 +119,7 @@ watchEffect(() => {
   }
 }
 
-// Отмеченное / промежуточное состояние — заливка акцентом
+// Отмеченное / промежуточное состояние - заливка акцентом
 .checkbox-field__input:checked + .checkbox-field__box,
 .checkbox-field__input:indeterminate + .checkbox-field__box {
   background: var(--color-accent);
@@ -127,7 +127,7 @@ watchEffect(() => {
   color: var(--color-bg-1);
 }
 
-// Клавиатурный фокус — кольцо только при навигации с клавиатуры
+// Клавиатурный фокус - кольцо только при навигации с клавиатуры
 .checkbox-field__input:focus-visible + .checkbox-field__box {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;

@@ -19,8 +19,8 @@ const toolLabel = computed(() => {
   }
 })
 
-// Токены-действия. type: 'key' — клавиша (текст в <kbd>),
-// 'drag' — перетаскивание (ЛКМ), 'wheel' — колёсико мыши.
+// Токены-действия. type: 'key' - клавиша (текст в <kbd>),
+// 'drag' - перетаскивание (ЛКМ), 'wheel' - колёсико мыши.
 const DRAG = { type: 'drag' }
 const WHEEL = { type: 'wheel' }
 const key = (label) => ({ type: 'key', label })
@@ -131,7 +131,7 @@ const globalHints = [
     }
   }
 
-  // Панель раскрыта — стрелка повёрнута
+  // Панель раскрыта - стрелка повёрнута
   &--open &__chevron {
     transform: rotate(180deg);
   }
@@ -193,7 +193,7 @@ const globalHints = [
     white-space: nowrap;
   }
 
-  // Иконка мыши — выровнена по центру строки клавиш
+  // Иконка мыши - выровнена по центру строки клавиш
   &__mouse {
     display: inline-flex;
     align-items: center;

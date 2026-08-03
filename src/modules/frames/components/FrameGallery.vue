@@ -14,8 +14,8 @@ import { useFramesStore, SYSTEM_OWNER_ID } from '../store.js'
 
 // Галерея сохранённых пресетов рамок, разделена на секции «Общедоступные»
 // (системные, ownerId === SYSTEM_OWNER_ID) и «Свои» (ownerId === текущий юзер).
-// Выбор пресета — подгружает его ассеты (рамка + фон) в редактор.
-// «Сохранить рамку» — сохраняет текущие ассеты редактора (рамка + фон, если задан) как новый пресет,
+// Выбор пресета - подгружает его ассеты (рамка + фон) в редактор.
+// «Сохранить рамку» - сохраняет текущие ассеты редактора (рамка + фон, если задан) как новый пресет,
 // с названием и тегами через FrameSaveModal.
 const framesStore = useFramesStore()
 const editorStore = useEditorStore()
@@ -25,8 +25,8 @@ const { loadFromUrlAsBlob } = useImageLoader()
 const selectedFrameId = ref(null)
 const sectionsOpen = ref({ public: true, own: true })
 
-// Фильтр по тегам галереи — мультивыбор бейджей над списком.
-// tags в GET /api/frames — массив ИМЁН (не id), фильтруем по имени напрямую.
+// Фильтр по тегам галереи - мультивыбор бейджей над списком.
+// tags в GET /api/frames - массив ИМЁН (не id), фильтруем по имени напрямую.
 const activeTagFilters = ref([])
 
 function toggleTagFilter(name) {
@@ -35,7 +35,7 @@ function toggleTagFilter(name) {
   else activeTagFilters.value.splice(i, 1)
 }
 
-// Теги, реально встречающиеся среди загруженных рамок (не весь справочник —
+// Теги, реально встречающиеся среди загруженных рамок (не весь справочник -
 // нет смысла показывать фильтр по тегу, которым ничего не помечено).
 const availableFilterTags = computed(() => {
   const names = new Set()
@@ -61,11 +61,11 @@ const presetName = ref('')
 const selectedTagIds = ref([])
 const saveError = ref('')
 
-// Удаление рамки — подтверждение через ConfirmDialog. Кнопка удаления видна
+// Удаление рамки - подтверждение через ConfirmDialog. Кнопка удаления видна
 // только для frame.ownerId === auth.user.id (см. шаблон), поэтому запрос на
 // чужую/системную рамку в норме не должен уйти. Обработка ошибки остаётся
 // как подстраховка на случай гонки данных (например, владение сменилось,
-// пока список рамок ещё не перезапросили) — бэк всё равно перепроверяет
+// пока список рамок ещё не перезапросили) - бэк всё равно перепроверяет
 // владение в frameService.deleteFrame(id, userId).
 const frameToDelete = ref(null)
 const deleteError = ref('')
@@ -97,7 +97,7 @@ async function confirmDelete() {
   }
 }
 
-// Бэк не дедупит рамки — POST с тем же именем создаёт дубликат. Ищем существующий
+// Бэк не дедупит рамки - POST с тем же именем создаёт дубликат. Ищем существующий
 // пресет с таким же именем, чтобы вместо дубля предложить замену.
 const duplicate = computed(() => {
   const name = presetName.value.trim().toLowerCase()
@@ -112,7 +112,7 @@ onMounted(() => {
 
 // Выбор пресета из галереи: грузим рамку и фон-компаньон (если есть) в редактор.
 // ВАЖНО: как превью (<img src>) в стор кладём ЛОКАЛЬНЫЙ object URL (objectUrl),
-// а не presigned frameAssetUrl/backgroundAssetUrl — последние живут 15 мин и
+// а не presigned frameAssetUrl/backgroundAssetUrl - последние живут 15 мин и
 // протухают, ломая превью в панели свойств при долгой сессии/возврате на страницу.
 async function selectFrame(frame) {
   selectedFrameId.value = frame.id
@@ -173,7 +173,7 @@ async function saveFrame() {
     }
 
     // Пресет с таким именем уже есть → заменяем (удаляем старый, затем создаём),
-    // чтобы не плодить дубликаты. Это осознанное действие — кнопка «Заменить».
+    // чтобы не плодить дубликаты. Это осознанное действие - кнопка «Заменить».
     const existing = duplicate.value
     if (existing) {
       await framesStore.deleteFrame(existing.id)
@@ -184,7 +184,7 @@ async function saveFrame() {
     if (selectedFrameId.value === existing?.id) selectedFrameId.value = null
   } catch (e) {
     // Рейт-лимитер бэка (429, Retry-After) уже переживается ретраями
-    // в useApi; если всё же не пробились — показываем понятную подсказку.
+    // в useApi; если всё же не пробились - показываем понятную подсказку.
     saveError.value = /too many requests|rate.?limit/i.test(e.message)
       ? 'Слишком много запросов подряд. Подождите пару секунд и попробуйте снова.'
       : e.message
@@ -205,7 +205,7 @@ async function saveFrame() {
     </p>
 
     <template v-else>
-      <!-- Фильтр по тегам — мультивыбор, сужает списки в обеих секциях ниже -->
+      <!-- Фильтр по тегам - мультивыбор, сужает списки в обеих секциях ниже -->
       <TagBadgeList
         v-if="availableFilterTags.length"
         class="tag-filter"
@@ -309,7 +309,13 @@ async function saveFrame() {
 }
 
 .sidebar-header {
-  padding: var(--space-3) var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  // Та же высота, что у шапки редактора и у полосы табов в раздатках -
+  // сайдбар и канвас начинаются на одной линии
+  height: 44px;
+  padding: 0 var(--space-4);
   border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
 

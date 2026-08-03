@@ -4,12 +4,12 @@ import { ChevronDown, Check } from 'lucide-vue-next'
 
 // Кастомный select: та же роль, что у нативного <select>, но стилизуемый
 // список опций (нативный <select> не даёт стилизовать выпадающую панель
-// кроссбраузерно). Паттерн — как у ColorButton/UserMenu: Teleport в body +
+// кроссбраузерно). Паттерн - как у ColorButton/UserMenu: Teleport в body +
 // fixed-позиционирование по getBoundingClientRect + закрытие по клику вне.
 //
-// options — плоский массив [{ value, label }] ИЛИ массив групп
+// options - плоский массив [{ value, label }] ИЛИ массив групп
 // [{ label, options: [{ value, label }] }] (авто-определяется по наличию
-// поля options у элемента) — нужно для группировки шрифтов (optgroup).
+// поля options у элемента) - нужно для группировки шрифтов (optgroup).
 const props = defineProps({
   modelValue: { type: [String, Number], default: null },
   options: { type: Array, default: () => [] },

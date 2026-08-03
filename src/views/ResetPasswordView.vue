@@ -12,7 +12,7 @@
     </div>
 
     <!-- Пароль изменён. Пары токенов бэк тут НЕ выдаёт (в отличие от verify-email),
-         к тому же все сессии отозваны — ведём на вход с новым паролем. -->
+         к тому же все сессии отозваны - ведём на вход с новым паролем. -->
     <div v-else-if="status === 'success'" class="auth-card auth-card--centered">
       <div class="auth-card__logo">
         <CircleCheck :size="56" class="auth-card__logo-icon auth-card__logo-icon--ok" />
@@ -27,7 +27,7 @@
       <BaseButton variant="accent" full-width @click="goToLogin">Перейти ко входу</BaseButton>
     </div>
 
-    <!-- Токена нет в ссылке, либо бэк ответил 401 — на проверке при открытии или
+    <!-- Токена нет в ссылке, либо бэк ответил 401 - на проверке при открытии или
          на сабмите. Три причины (неизвестен/использован/просрочен) бэк намеренно
          не различает, поэтому текст покрывает их разом. -->
     <div v-else-if="status === 'invalid'" class="auth-card auth-card--centered">
@@ -109,7 +109,7 @@ const toast = useToast()
 const token = typeof route.query.token === 'string' ? route.query.token : ''
 
 // 'checking' | 'form' | 'success' | 'invalid'. Токен одноразовый и живёт час,
-// поэтому форму показываем только после проверки ссылки на бэке (см. onMounted) —
+// поэтому форму показываем только после проверки ссылки на бэке (см. onMounted) -
 // иначе по мёртвой ссылке пользователь вводил бы пароль впустую и узнавал
 // об этом лишь на сабмите. Без токена в ссылке проверять нечего.
 const status = ref(token ? 'checking' : 'invalid')
@@ -120,7 +120,7 @@ const confirmPassword = ref('')
 const loading = ref(false)
 
 // Проверка ссылки ОДИН раз при открытии страницы. POST /api/auth/reset-password/validate
-// токен не расходует — после успешной проверки им же меняется пароль.
+// токен не расходует - после успешной проверки им же меняется пароль.
 onMounted(async () => {
   if (!token) return
   try {
@@ -132,7 +132,7 @@ onMounted(async () => {
       error.value = e.message
       return
     }
-    // Сеть/бэк недоступны — про саму ссылку это ничего не говорит. Показываем
+    // Сеть/бэк недоступны - про саму ссылку это ничего не говорит. Показываем
     // форму: при сабмите пользователь получит настоящий ответ бэка, а не
     // ложное «ссылка недействительна» из-за сетевого сбоя.
     status.value = 'form'
@@ -147,7 +147,7 @@ function goToForgot() {
   router.push('/forgot-password')
 }
 
-// Клиентская валидация до отправки — те же границы, что у бэка (400 иначе)
+// Клиентская валидация до отправки - те же границы, что у бэка (400 иначе)
 function validate() {
   if (password.value.length < 8 || password.value.length > 128) {
     return 'Пароль должен быть от 8 до 128 символов'
@@ -174,7 +174,7 @@ async function handleSubmit() {
     status.value = 'success'
     toast.success('Пароль изменён')
   } catch (e) {
-    // 401 — ссылка мёртвая: чинится только новым письмом, а не повтором формы
+    // 401 - ссылка мёртвая: чинится только новым письмом, а не повтором формы
     if (e.invalidToken) {
       status.value = 'invalid'
     }

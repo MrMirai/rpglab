@@ -5,12 +5,12 @@ import BaseButton from '@/shared/components/BaseButton.vue'
 import TagBadgeList from '@/shared/components/TagBadgeList.vue'
 
 // Модальное окно сохранения пресета рамки: название + выбор тегов-бейджей
-// (только из справочника, создавать свои нельзя). Без бизнес-логики сохранения —
+// (только из справочника, создавать свои нельзя). Без бизнес-логики сохранения -
 // саму загрузку ассетов и дедуп по имени делает родитель (FrameGallery).
 const props = defineProps({
   open: { type: Boolean, default: false },
   name: { type: String, default: '' },
-  tags: { type: Array, default: () => [] }, // [{ id, name }] — справочник
+  tags: { type: Array, default: () => [] }, // [{ id, name }] - справочник
   selectedTagIds: { type: Array, default: () => [] },
   duplicateName: { type: String, default: '' },
   saving: { type: Boolean, default: false },

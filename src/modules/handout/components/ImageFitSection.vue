@@ -5,8 +5,8 @@ import SelectField from '@/shared/components/SelectField.vue'
 import { useHandoutStore } from '../store'
 import { useHandoutHistory } from '../composables/useHandoutHistory'
 
-// Секция «Вписывание» — режим fit (contain/cover/fill) для картинок.
-// elements — массив, поддерживает мультивыделение (только среди IMAGE):
+// Секция «Вписывание» - режим fit (contain/cover/fill) для картинок.
+// elements - массив, поддерживает мультивыделение (только среди IMAGE):
 // если fit у выбранных отличается, показываем placeholder вместо значения.
 const props = defineProps({
   elements: { type: Array, required: true },

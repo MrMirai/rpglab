@@ -6,7 +6,7 @@ export const useAdminStore = defineStore('admin', () => {
   const creating = ref(false)
   const error = ref(null)
 
-  // POST /api/admin/frames — создать системную рамку. multipart/form-data,
+  // POST /api/admin/frames - создать системную рамку. multipart/form-data,
   // отличается от обычного createFrame в modules/frames: файлы и метаданные
   // уходят одним запросом (не через /api/assets), поле backgroundImage
   // не отправляем вовсе, если фон не выбран (бэк трактует его как «нет фона»
@@ -24,7 +24,7 @@ export const useAdminStore = defineStore('admin', () => {
       const res = await api.post('/api/admin/frames', form)
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        // 403 — роль admin отозвали в другой вкладке между загрузкой страницы и отправкой формы
+        // 403 - роль admin отозвали в другой вкладке между загрузкой страницы и отправкой формы
         const message =
           res.status === 403
             ? 'Недостаточно прав. Возможно, роль администратора была отозвана.'
@@ -41,7 +41,7 @@ export const useAdminStore = defineStore('admin', () => {
   }
 
   // Управление справочником тегов. Само чтение (GET /api/tags) живёт
-  // в modules/frames (useFramesStore.tags/fetchTags) — переиспользуется и
+  // в modules/frames (useFramesStore.tags/fetchTags) - переиспользуется и
   // галереей, и админкой; здесь только мутации, доступные лишь администратору.
   const tagActionPending = ref(false)
   const tagActionError = ref(null)
@@ -53,7 +53,7 @@ export const useAdminStore = defineStore('admin', () => {
       const res = await api.post('/api/admin/tags', { name })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        // 409 — тег с таким именем уже существует
+        // 409 - тег с таким именем уже существует
         throw new Error(data.message || 'Не удалось создать тег')
       }
       return data
@@ -72,7 +72,7 @@ export const useAdminStore = defineStore('admin', () => {
       const res = await api.put(`/api/admin/tags/${id}`, { name })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        // 404 — тег не найден, 409 — новое имя уже занято другим тегом
+        // 404 - тег не найден, 409 - новое имя уже занято другим тегом
         throw new Error(data.message || 'Не удалось переименовать тег')
       }
       return data

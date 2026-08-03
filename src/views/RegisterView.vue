@@ -85,10 +85,10 @@ const error = ref('')
 const loading = ref(false)
 
 // После успешного register переключаемся на экран «Проверьте почту» (вход
-// закрыт, пока email не подтверждён — токенов бэк не выдал).
+// закрыт, пока email не подтверждён - токенов бэк не выдал).
 const registered = ref(false)
 
-// Обратный отсчёт после 429 (rate limit) — блокирует кнопку до конца Retry-After.
+// Обратный отсчёт после 429 (rate limit) - блокирует кнопку до конца Retry-After.
 const retryIn = ref(0)
 let retryTimer = null
 
@@ -134,7 +134,7 @@ async function handleSubmit() {
   loading.value = true
   try {
     await auth.register(email.value, username.value, password.value)
-    // Токены не выданы — ведём на экран «Проверьте почту», а не в приложение.
+    // Токены не выданы - ведём на экран «Проверьте почту», а не в приложение.
     registered.value = true
   } catch (e) {
     error.value = e.message

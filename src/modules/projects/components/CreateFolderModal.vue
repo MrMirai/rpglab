@@ -4,7 +4,7 @@ import { X } from 'lucide-vue-next'
 import BaseButton from '@/shared/components/BaseButton.vue'
 
 // Модалка создания папки (Teleport, паттерн как FrameSaveModal): одно поле имени.
-// Сам сабмит (POST /api/folders) делает родитель — модалка только собирает имя.
+// Сам сабмит (POST /api/folders) делает родитель - модалка только собирает имя.
 const props = defineProps({
   open: { type: Boolean, default: false },
   saving: { type: Boolean, default: false },

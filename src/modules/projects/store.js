@@ -5,13 +5,13 @@ import { api } from '@/shared/composables/useApi'
 // Папка на бэке (FolderResponse):
 // { id, userId, userName, name, parentId|null, parentName|null, createdAt, childCount, children[] }
 // Эндпоинты (см. API.md):
-//   GET    /api/folders                 — плоский список ВСЕХ папок пользователя (без вложенности)
-//   GET    /api/folders/{id}/children   — прямые дочерние папки
-//   GET    /api/folders/{id}/path       — хлебные крошки от корня до папки включительно
-//   POST   /api/folders                 { name, parentId? }  — создать (parentId null = корень)
-//   PATCH  /api/folders/{id}            { name }             — переименовать
-//   POST   /api/folders/{id}/move       { parentId }         — переместить (null = в корень)
-//   DELETE /api/folders/{id}                                 — удалить (рекурсивно с содержимым)
+//   GET    /api/folders                 - плоский список ВСЕХ папок пользователя (без вложенности)
+//   GET    /api/folders/{id}/children   - прямые дочерние папки
+//   GET    /api/folders/{id}/path       - хлебные крошки от корня до папки включительно
+//   POST   /api/folders                 { name, parentId? }  - создать (parentId null = корень)
+//   PATCH  /api/folders/{id}            { name }             - переименовать
+//   POST   /api/folders/{id}/move       { parentId }         - переместить (null = в корень)
+//   DELETE /api/folders/{id}                                 - удалить (рекурсивно с содержимым)
 
 export const useProjectsStore = defineStore('projects', () => {
   // ── Текущий сохранённый проект (задел под сохранение проектов токенов) ──
@@ -31,7 +31,7 @@ export const useProjectsStore = defineStore('projects', () => {
   }
 
   // ── Папки проектов ──────────────────────────────────────────────────────
-  // currentFolderId === null — корень (папки верхнего уровня, элемента «вверх» нет).
+  // currentFolderId === null - корень (папки верхнего уровня, элемента «вверх» нет).
   const currentFolderId = ref(null)
   // Дочерние папки текущей папки (или корневые, если currentFolderId === null).
   const folders = ref([])
@@ -41,13 +41,13 @@ export const useProjectsStore = defineStore('projects', () => {
   const foldersError = ref(null)
 
   // parentId родителя текущей папки (для элемента «на уровень выше»).
-  // null, если мы на первом уровне вложенности (родитель — корень).
+  // null, если мы на первом уровне вложенности (родитель - корень).
   const parentFolderId = computed(() => {
     if (breadcrumbs.value.length < 2) return null
     return breadcrumbs.value[breadcrumbs.value.length - 2].id
   })
 
-  // Загружает содержимое папки folderId (null — корень) + хлебные крошки.
+  // Загружает содержимое папки folderId (null - корень) + хлебные крошки.
   async function fetchFolders(folderId = null) {
     foldersLoading.value = true
     foldersError.value = null
@@ -108,7 +108,7 @@ export const useProjectsStore = defineStore('projects', () => {
     if (item) item.name = updated?.name ?? name
   }
 
-  // Переместить папку id в папку targetParentId (null — в корень).
+  // Переместить папку id в папку targetParentId (null - в корень).
   async function moveFolder(id, targetParentId) {
     const res = await api.post(`/api/folders/${id}/move`, {
       parentId: targetParentId,
@@ -117,7 +117,7 @@ export const useProjectsStore = defineStore('projects', () => {
       const data = await res.json().catch(() => ({}))
       throw new Error(data.message || 'Не удалось переместить папку')
     }
-    // Папка ушла из текущего списка — убираем её из текущего представления.
+    // Папка ушла из текущего списка - убираем её из текущего представления.
     folders.value = folders.value.filter((f) => f.id !== id)
     return res.json().catch(() => null)
   }

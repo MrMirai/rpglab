@@ -5,8 +5,8 @@ import SelectField from '@/shared/components/SelectField.vue'
 import { useHandoutStore, BLEND_MODES } from '../store'
 import { useHandoutHistory } from '../composables/useHandoutHistory'
 
-// Секция «Наложение» — выбор режима смешивания (globalCompositeOperation).
-// Доступна всем типам элементов (как слой-blend в Figma). elements — массив,
+// Секция «Наложение» - выбор режима смешивания (globalCompositeOperation).
+// Доступна всем типам элементов (как слой-blend в Figma). elements - массив,
 // поддерживает мультивыделение: если режимы у выбранных элементов различаются,
 // показываем placeholder вместо конкретного значения (SelectField modelValue=null).
 const props = defineProps({

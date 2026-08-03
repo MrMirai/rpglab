@@ -10,7 +10,7 @@ import AdminFrameCreateModal from './AdminFrameCreateModal.vue'
 
 // Экран «Системные рамки»: список встроенных рамок (видны всем без токена)
 // + форма создания новой через POST /api/admin/frames + управление
-// справочником тегов (сворачиваемый блок сверху — теги относятся к рамкам,
+// справочником тегов (сворачиваемый блок сверху - теги относятся к рамкам,
 // отдельная вкладка под них была избыточна).
 const framesStore = useFramesStore()
 const adminStore = useAdminStore()
@@ -43,7 +43,7 @@ async function handleCreate(payload) {
     showCreateModal.value = false
     createModalRef.value?.reset()
   } catch {
-    // Ошибка уже сохранена в adminStore.error и показана в модалке — здесь просто не закрываем её
+    // Ошибка уже сохранена в adminStore.error и показана в модалке - здесь просто не закрываем её
   }
 }
 

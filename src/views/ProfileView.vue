@@ -5,7 +5,7 @@ import { useAuthStore, UserMenu } from '@/modules/auth'
 import AccountLayout from '@/shared/components/layout/AccountLayout.vue'
 import AccountCard from '@/shared/components/AccountCard.vue'
 
-// Профиль — только чтение: сменить username/email бэкенд не поддерживает,
+// Профиль - только чтение: сменить username/email бэкенд не поддерживает,
 // изменяемое (аватар, пароль) живёт во вкладке «Настройки».
 const auth = useAuthStore()
 
@@ -24,7 +24,7 @@ const planLabel = computed(
   () => planLabels[auth.user?.planCode] || auth.user?.planCode || '—',
 )
 
-// Даты приходят в ISO (UTC) — показываем в локали пользователя без времени.
+// Даты приходят в ISO (UTC) - показываем в локали пользователя без времени.
 function formatDate(iso) {
   if (!iso) return '—'
   const date = new Date(iso)
@@ -75,7 +75,7 @@ function formatDate(iso) {
           <dt>Тариф</dt>
           <dd>{{ planLabel }}</dd>
         </div>
-        <!-- Период и дата окончания есть только у платных тарифов (у free — null) -->
+        <!-- Период и дата окончания есть только у платных тарифов (у free - null) -->
         <div v-if="auth.user?.billingPeriod" class="profile-field">
           <dt>Период оплаты</dt>
           <dd>{{ periodLabels[auth.user.billingPeriod] || auth.user.billingPeriod }}</dd>
@@ -95,7 +95,7 @@ function formatDate(iso) {
   flex-direction: column;
 }
 
-// Строка «подпись — значение»: подпись фиксированной ширины слева,
+// Строка «подпись - значение»: подпись фиксированной ширины слева,
 // разделители между строками (кроме последней).
 .profile-field {
   display: grid;

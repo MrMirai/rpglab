@@ -4,28 +4,28 @@ import { useAuthStore } from '@/modules/auth'
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    // Главная страница — информация о сервисе и переход к редакторам
+    // Главная страница - информация о сервисе и переход к редакторам
     {
       path: '/',
       component: () => import('@/views/HomeView.vue'),
     },
-    // Голый /editor — не страница, а «недонабранный» адрес: уводим в редактор
+    // Голый /editor - не страница, а «недонабранный» адрес: уводим в редактор
     // токенов, а не в 404 (он открывается по умолчанию из логотипа-дропдауна)
     {
       path: '/editor',
       redirect: '/editor/token',
     },
-    // Редактор токенов — публичный, доступен без авторизации
+    // Редактор токенов - публичный, доступен без авторизации
     {
       path: '/editor/token',
       component: () => import('@/views/EditorView.vue'),
     },
-    // Редактор раздаточных материалов (handouts) — тоже публичный
+    // Редактор раздаточных материалов (handouts) - тоже публичный
     {
       path: '/editor/handout',
       component: () => import('@/views/HandoutEditorView.vue'),
     },
-    // Проекты — требуют аккаунта
+    // Проекты - требуют аккаунта
     {
       path: '/projects',
       component: () => import('@/views/ProjectsView.vue'),
@@ -41,7 +41,7 @@ const router = createRouter({
       component: () => import('@/views/SettingsView.vue'),
       meta: { requiresAuth: true },
     },
-    // Административная секция — доступна только user.admin === true.
+    // Административная секция - доступна только user.admin === true.
     // Задел на рост: следующие разделы (теги, тарифы) добавятся как новые
     // маршруты /admin/... с тем же requiresAdmin, внутри общего AdminView.
     {
@@ -64,7 +64,7 @@ const router = createRouter({
       path: '/verify-email',
       component: () => import('@/views/VerifyEmailView.vue'),
     },
-    // Запрос письма со ссылкой сброса пароля — публичный (сюда идут те, кто
+    // Запрос письма со ссылкой сброса пароля - публичный (сюда идут те, кто
     // войти как раз не может). Всегда 202: экран не раскрывает, есть ли аккаунт.
     {
       path: '/forgot-password',
@@ -76,9 +76,9 @@ const router = createRouter({
       path: '/reset-password',
       component: () => import('@/views/ResetPasswordView.vue'),
     },
-    // Catch-all: любой неизвестный адрес — на страницу 404. Должен идти ПОСЛЕДНИМ:
+    // Catch-all: любой неизвестный адрес - на страницу 404. Должен идти ПОСЛЕДНИМ:
     // маршруты матчатся по порядку объявления, выше он перехватывал бы всё подряд.
-    // Без него RouterView не рендерил ничего — пустой экран и варнинг «No match found».
+    // Без него RouterView не рендерил ничего - пустой экран и варнинг «No match found».
     {
       path: '/:pathMatch(.*)*',
       component: () => import('@/views/NotFoundView.vue'),
@@ -95,11 +95,11 @@ router.beforeEach(async (to) => {
   // бы ДО restoreSession() и выкинул залогиненного пользователя на /login.
   // Промис резолвится один раз и уже разрешён при последующих переходах.
   await auth.sessionReady
-  // Защищённые страницы — на логин, запомнив куда шёл пользователь
+  // Защищённые страницы - на логин, запомнив куда шёл пользователь
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
     return { path: '/login', query: { redirect: to.fullPath } }
   }
-  // Админ-раздел — не-админа (или роль отозвали) отправляем на главную
+  // Админ-раздел - не-админа (или роль отозвали) отправляем на главную
   if (to.meta.requiresAdmin && !auth.isAdmin) {
     return '/'
   }

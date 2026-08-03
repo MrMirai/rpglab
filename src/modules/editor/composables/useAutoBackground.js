@@ -162,9 +162,9 @@ export function useAutoBackground() {
 
       // Маска: прозрачно в центре → непрозрачно к краям
       const radMask = mctx.createRadialGradient(cx, cy, 0, cx, cy, size / 2)
-      radMask.addColorStop(0, 'rgba(0,0,0,0)')      // центр — шум не виден
+      radMask.addColorStop(0, 'rgba(0,0,0,0)')      // центр - шум не виден
       radMask.addColorStop(0.4, 'rgba(0,0,0,0.3)')  // плавный переход
-      radMask.addColorStop(1, 'rgba(0,0,0,1)')      // край — полный шум
+      radMask.addColorStop(1, 'rgba(0,0,0,1)')      // край - полный шум
       mctx.globalCompositeOperation = 'destination-in'
       mctx.fillStyle = radMask
       mctx.fillRect(0, 0, size, size)

@@ -20,8 +20,8 @@ const { renderLightMask, applyLightToLayer, resolveLightPosition } = useLighting
 
 const containerRef = ref(null)
 const stageRef = ref(null)
-// Каждый Konva-слой — отдельный <canvas> в DOM (рекомендация Konva: ≤3-5 слоёв).
-// Весь статичный контент (фон/тени/персонаж/рамка/сетка) живёт в одном sceneLayer —
+// Каждый Konva-слой - отдельный <canvas> в DOM (рекомендация Konva: ≤3-5 слоёв).
+// Весь статичный контент (фон/тени/персонаж/рамка/сетка) живёт в одном sceneLayer -
 // порядок отрисовки задаётся порядком узлов внутри слоя; оверлей отдельно.
 const sceneLayer = ref(null)
 const overlayLayer = ref(null)
@@ -83,7 +83,7 @@ const charDrawY = computed(() =>
 )
 
 const bgCanvas = ref(null)
-// Рамка с наложенным светом. null — света нет, рисуем store.frameImage напрямую.
+// Рамка с наложенным светом. null - света нет, рисуем store.frameImage напрямую.
 const litFrameCanvas = ref(null)
 const charShadowBottomCanvas = ref(null)
 const charBottomCanvas = ref(null)
@@ -185,7 +185,7 @@ function renderCharWithFilters(targetCtx, x, y, w, h) {
   targetCtx.restore()
 }
 
-// Строит canvas ТОЛЬКО с тенью (без самого силуэта) от переданной формы —
+// Строит canvas ТОЛЬКО с тенью (без самого силуэта) от переданной формы -
 // тень персонажа целиком, до разрезания по маскам нижнего/верхнего слоя.
 // Приём: рисуем силуэт с ctx.shadow* (даёт тень+силуэт), затем вырезаем сам
 // силуэт через destination-out, оставляя только тень позади него.
@@ -226,13 +226,13 @@ function clipCanvas(source, maskCanvas, maskX = 0, maskY = 0, maskW = source.wid
 }
 
 // Рамка со светом. Рамка рисуется из store.frameImage напрямую, поэтому для
-// подсветки нужен отдельный canvas — свет обрезается силуэтом самой рамки,
+// подсветки нужен отдельный canvas - свет обрезается силуэтом самой рамки,
 // чтобы не заливать сквозное окно рамки (там свет даёт слой персонажа/фона).
 function renderLitFrame() {
   if (!store.frameImage) { litFrameCanvas.value = null; return }
 
   const frameSize = store.canvasSize
-  // Позиции источников уже заданы в координатах рамки, а этот canvas — размером
+  // Позиции источников уже заданы в координатах рамки, а этот canvas - размером
   // ровно с рамку, поэтому offset=0 (сдвиг клетки добавляет сам Konva-узел).
   const lightMask = renderLightMask(store, { size: frameSize, offset: 0, target: 'frame' })
   if (!lightMask) { litFrameCanvas.value = null; return }
@@ -246,12 +246,12 @@ function renderLitFrame() {
 
 // Кеш между кадрами кисти: во время мазка меняется только brushCanvas,
 // поэтому фон, нижний силуэт и маску тени можно не пересобирать на каждый
-// mousemove (это была основная причина лагов кисти — аллокации и композиты
+// mousemove (это была основная причина лагов кисти - аллокации и композиты
 // холстов fullCanvasSize² на каждое событие мыши).
 let cachedBottomSilhouette = null
 let cachedShadowMask = null // маска1, развёрнутая в полные координаты (для обрезки тени)
 
-// brushOnly=true — быстрый путь для мазка кисти/лассо: переиспользует кеш
+// brushOnly=true - быстрый путь для мазка кисти/лассо: переиспользует кеш
 // нижнего силуэта и фона, пересобирает только зависящее от brushCanvas.
 function renderOffscreen(brushOnly = false) {
   const fullSize = store.fullCanvasSize
@@ -259,7 +259,7 @@ function renderOffscreen(brushOnly = false) {
   const offset = store.frameOffset
 
   if (!store.charImage) {
-    // Персонажа нет (удалили, отменили действие и т.д.) — не оставляем
+    // Персонажа нет (удалили, отменили действие и т.д.) - не оставляем
     // протухшие силуэт/тень с прошлого кадра.
     renderBg()
     renderLitFrame()
@@ -331,7 +331,7 @@ function renderOffscreen(brushOnly = false) {
     return
   }
 
-  // Объединённый силуэт (нижний ∪ верхний) — тень строится от него ЦЕЛИКОМ,
+  // Объединённый силуэт (нижний ∪ верхний) - тень строится от него ЦЕЛИКОМ,
   // чтобы на границе масок не было разрыва/задвоения. Затем тень (не сам
   // силуэт) разрезаем обратно по тем же маскам для раздельной отрисовки
   // под рамкой (нижняя часть) и над рамкой (верхняя, вылезающая часть).
@@ -343,17 +343,17 @@ function renderOffscreen(brushOnly = false) {
 
   const fullShadow = buildShadowLayer(combined)
 
-  // Нижняя часть тени — видна только в окне рамки (маска1), рисуется под рамкой.
+  // Нижняя часть тени - видна только в окне рамки (маска1), рисуется под рамкой.
   charShadowBottomCanvas.value = cachedShadowMask ? clipCanvas(fullShadow, cachedShadowMask) : null
 
-  // Верхняя часть тени — видна там же, где вылезающий персонаж (brushCanvas), рисуется над рамкой.
+  // Верхняя часть тени - видна там же, где вылезающий персонаж (brushCanvas), рисуется над рамкой.
   charShadowTopCanvas.value = clipCanvas(fullShadow, brushCanvas)
 }
 
 function renderOverlay() {
   const fullSize = store.fullCanvasSize
 
-  // Ни один режим отображения не активен — не аллоцируем холст fullSize² зря
+  // Ни один режим отображения не активен - не аллоцируем холст fullSize² зря
   // (renderOverlay дёргается на каждый кадр кисти через redrawAll).
   if (!store.showMaskOverlay && !(store.showHidden && store.charImage)) {
     overlayCanvas.value = null
@@ -373,7 +373,7 @@ function renderOverlay() {
     octx.drawImage(brushCanvas, 0, 0)
     octx.globalCompositeOperation = 'source-over'
   } else if (store.showHidden && store.charImage) {
-    // Режим «Скрытое» — призрак частей персонажа, скрытых масками (для навигации).
+    // Режим «Скрытое» - призрак частей персонажа, скрытых масками (для навигации).
     // Скрытое = полный силуэт персонажа МИНУС видимое (нижний ∪ верхний слои).
 
     // 1. Полный персонаж (с фильтрами, без тени) на весь холст.
@@ -393,7 +393,7 @@ function renderOverlay() {
     octx.drawImage(full, 0, 0)
     octx.globalAlpha = 1
 
-    // 4. Лёгкая синяя подкраска скрытых зон — чтобы отличать от обычного вида.
+    // 4. Лёгкая синяя подкраска скрытых зон - чтобы отличать от обычного вида.
     octx.globalCompositeOperation = 'source-atop'
     octx.fillStyle = 'rgba(90, 150, 220, 0.35)'
     octx.fillRect(0, 0, fullSize, fullSize)
@@ -414,8 +414,8 @@ function redrawAll(brushOnly = false) {
 }
 
 // Троттлинг перерисовки кисти: mousemove приходит чаще, чем кадры экрана,
-// а renderOffscreen (даже brushOnly) — недешёвый. Мазки копятся в brushCanvas
-// синхронно (paint), а пересборка слоёв — максимум раз за кадр.
+// а renderOffscreen (даже brushOnly) - недешёвый. Мазки копятся в brushCanvas
+// синхронно (paint), а пересборка слоёв - максимум раз за кадр.
 let brushRedrawScheduled = false
 function scheduleBrushRedraw() {
   if (brushRedrawScheduled) return
@@ -507,12 +507,12 @@ watch(
   () => renderOverlay(),
 )
 
-// При загрузке рамки — возвращаемся к виду рамки
+// При загрузке рамки - возвращаемся к виду рамки
 watch(() => store.frameImage, (img) => {
   if (img) nextTick(() => centerViewOnFrame())
 })
 
-// Смена инструмента — запускаем/останавливаем визуализацию курсора кисти.
+// Смена инструмента - запускаем/останавливаем визуализацию курсора кисти.
 // Размер/жёсткость читаются из store прямо в анимационном loop, отдельный watch не нужен.
 watch(() => store.activeTool, (tool) => {
   if (tool === 'brush') {
@@ -546,7 +546,7 @@ watchEffect(() => {
   const bns = store.bgNoiseStrength
   const bgr = store.bgGrain
   const bnt = store.bgNoiseType
-  // Фильтры персонажа — пересобираем слои при изменении
+  // Фильтры персонажа - пересобираем слои при изменении
   const fHue = store.charHue
   const fSat = store.charSaturation
   const fBri = store.charBrightness
@@ -562,7 +562,7 @@ watchEffect(() => {
   const lightsKey = JSON.stringify(store.lights)
 
   // renderOffscreen сама корректно очищает слои персонажа/тени, если
-  // store.charImage отсутствует — здесь просто прогоняем обычный путь.
+  // store.charImage отсутствует - здесь просто прогоняем обычный путь.
   void img
   void lightsKey
   renderOffscreen()
@@ -607,7 +607,7 @@ const charTopConfig = computed(() => ({
 }))
 
 const frameConfig = computed(() => ({
-  // Со светом рисуем подсвеченную копию рамки, без света — исходную картинку
+  // Со светом рисуем подсвеченную копию рамки, без света - исходную картинку
   image: litFrameCanvas.value || store.frameImage,
   x: store.frameOffset,
   y: store.frameOffset,
@@ -615,7 +615,7 @@ const frameConfig = computed(() => ({
   height: store.canvasSize,
 }))
 
-// Маркеры источников света — видны только при активном инструменте «Свет».
+// Маркеры источников света - видны только при активном инструменте «Свет».
 // Позиция в координатах полного холста (как персонаж/рамка).
 const lightMarkers = computed(() => {
   if (store.activeTool !== 'light') return []
@@ -628,7 +628,7 @@ const lightMarkers = computed(() => {
       color: light.color,
       radius: light.radius,
       selected: light.id === store.selectedLightId,
-      // Авто-источник не двигаем мышью — он привязан к свечению персонажа
+      // Авто-источник не двигаем мышью - он привязан к свечению персонажа
       draggable: light.mode === 'manual',
       visible: light.visible,
     }
@@ -669,7 +669,7 @@ const centerCellConfig = computed(() => ({
 function setCursor(cursor) {
   if (!containerRef.value) return
   const tool = store.activeTool
-  // В режиме кисти системный курсор скрыт — рисуем свой
+  // В режиме кисти системный курсор скрыт - рисуем свой
   if (tool === 'brush') {
     containerRef.value.style.cursor = 'none'
     return
@@ -683,7 +683,7 @@ function setCursor(cursor) {
 
 // --- Лассо (безье-контур) ---
 // Узел пути: точка p + безье-ручки hIn/hOut (смещения относительно p, в координатах
-// холста). Прямые сегменты — когда ручки нулевые. Всё состояние UI-путь держим локально,
+// холста). Прямые сегменты - когда ручки нулевые. Всё состояние UI-путь держим локально,
 // в стор идёт только activeTool='lasso' и режим add/subtract.
 const lassoCanvasRef = ref(null)
 let lassoNodes = []            // [{ p:{x,y}, hIn:{x,y}, hOut:{x,y} }]
@@ -746,7 +746,7 @@ function drawLasso() {
   ctx.clearRect(0, 0, canvas.width, canvas.height)
   if (store.activeTool !== 'lasso' || lassoNodes.length === 0) return
 
-  // Цвет отражает эффективный режим с учётом Alt: янтарный — показать, красный — скрыть.
+  // Цвет отражает эффективный режим с учётом Alt: янтарный - показать, красный - скрыть.
   const subtract = lassoEffectiveSubtract()
   const col = subtract ? 'rgba(192, 84, 74, 1)' : 'rgba(196, 149, 74, 1)'
   const fill = subtract ? 'rgba(192, 84, 74, 0.18)' : 'rgba(196, 149, 74, 0.18)'
@@ -786,7 +786,7 @@ function drawLasso() {
     ctx.fill(path)
   }
 
-  // Сам контур — анимированный пунктир
+  // Сам контур - анимированный пунктир
   ctx.strokeStyle = col
   ctx.lineWidth = 1.5
   ctx.setLineDash([5, 4])
@@ -812,7 +812,7 @@ function drawLasso() {
     }
   }
 
-  // Узлы — квадраты; первый выделен (для замыкания)
+  // Узлы - квадраты; первый выделен (для замыкания)
   n.forEach((node, i) => {
     const p = canvasToScreen(node.p.x, node.p.y)
     const size = i === 0 ? 5 : 4
@@ -842,14 +842,14 @@ function stopLassoAnim() {
 }
 
 // Применяет замкнутый контур к маске вылезания и сбрасывает путь.
-// Режим (показать/скрыть) берём из lassoEffectiveSubtract() — с учётом Alt.
+// Режим (показать/скрыть) берём из lassoEffectiveSubtract() - с учётом Alt.
 function applyLasso() {
   if (!lassoClosed || lassoNodes.length < 2) return
   const path = buildLassoPath()
   if (!path) return
   recordHistory()
   fillPath(path, lassoEffectiveSubtract())
-  // Лассо меняет только brushCanvas — быстрый путь без пересборки фона/нижнего слоя
+  // Лассо меняет только brushCanvas - быстрый путь без пересборки фона/нижнего слоя
   redrawAll(true)
   lassoReset()
 }
@@ -874,11 +874,11 @@ function lassoHitTest(sx, sy) {
   return null
 }
 
-// canvasPos — координаты холста; screenPos — экранные (для hit-теста).
+// canvasPos - координаты холста; screenPos - экранные (для hit-теста).
 function onLassoMouseDown(canvasPos, screenPos) {
   lassoMouse = { ...canvasPos }
 
-  // Уже замкнут — режим редактирования: тащим узел/ручку под курсором.
+  // Уже замкнут - режим редактирования: тащим узел/ручку под курсором.
   if (lassoClosed) {
     const hit = lassoHitTest(screenPos.x, screenPos.y)
     if (hit) lassoDragging = hit
@@ -892,7 +892,7 @@ function onLassoMouseDown(canvasPos, screenPos) {
     Math.hypot(screenPos.x - lassoLastDown.x, screenPos.y - lassoLastDown.y) <= DBLCLICK_DIST
   lassoLastDown = { t: now, x: screenPos.x, y: screenPos.y }
 
-  // Двойной клик — замкнуть контур (первый клик пары уже добавил узел, убираем его).
+  // Двойной клик - замкнуть контур (первый клик пары уже добавил узел, убираем его).
   if (isDbl && lassoNodes.length >= 3) {
     lassoNodes.pop()
     lassoClosed = true
@@ -901,7 +901,7 @@ function onLassoMouseDown(canvasPos, screenPos) {
     return
   }
 
-  // Клик рядом с первой точкой (и есть ≥2 узлов) — замыкаем контур.
+  // Клик рядом с первой точкой (и есть ≥2 узлов) - замыкаем контур.
   if (lassoNodes.length >= 2) {
     const first = canvasToScreen(lassoNodes[0].p.x, lassoNodes[0].p.y)
     if (Math.hypot(first.x - screenPos.x, first.y - screenPos.y) <= NODE_HIT_R) {
@@ -912,7 +912,7 @@ function onLassoMouseDown(canvasPos, screenPos) {
     }
   }
 
-  // Иначе — добавляем новый узел; последующий drag тянет его безье-ручку.
+  // Иначе - добавляем новый узел; последующий drag тянет его безье-ручку.
   const node = { p: { ...canvasPos }, hIn: { x: 0, y: 0 }, hOut: { x: 0, y: 0 } }
   lassoNodes.push(node)
   lassoDragging = { kind: 'newHandle', index: lassoNodes.length - 1 }
@@ -931,7 +931,7 @@ function onLassoMouseMove(canvasPos, screenPos) {
     } else if (lassoDragging.kind === 'handle') {
       const h = { x: canvasPos.x - node.p.x, y: canvasPos.y - node.p.y }
       node[lassoDragging.key] = h
-      // Зеркалим противоположную ручку — гладкий узел.
+      // Зеркалим противоположную ручку - гладкий узел.
       const other = lassoDragging.key === 'hOut' ? 'hIn' : 'hOut'
       node[other] = { x: -h.x, y: -h.y }
     } else if (lassoDragging.kind === 'node') {
@@ -974,7 +974,7 @@ function drawBrushCursor(x, y) {
   const hard = store.brushHardness / 100
   const coreR = screenR * hard
 
-  // Градиентное ядро — зона жёсткости
+  // Градиентное ядро - зона жёсткости
   if (coreR > 1) {
     const grad = ctx.createRadialGradient(x, y, 0, x, y, screenR)
     if (store.brushMode === 'restore') {
@@ -992,7 +992,7 @@ function drawBrushCursor(x, y) {
     ctx.fill()
   }
 
-  // Пунктирная граница — полный радиус кисти
+  // Пунктирная граница - полный радиус кисти
   ctx.beginPath()
   ctx.arc(x, y, screenR, 0, Math.PI * 2)
   ctx.strokeStyle = store.brushMode === 'restore'
@@ -1083,7 +1083,7 @@ onMounted(() => {
       e.preventDefault()
       performRedo()
     }
-    // Лассо: Enter — применить, Esc — отменить/сбросить путь
+    // Лассо: Enter - применить, Esc - отменить/сбросить путь
     if (store.activeTool === 'lasso' && lassoNodes.length > 0) {
       if (e.code === 'Enter') {
         e.preventDefault()
@@ -1160,7 +1160,7 @@ onMounted(() => {
       // Хит-тест по маркерам вручную: радиус в экранных px делим на зум,
       // чтобы попадание не зависело от масштаба холста (маркер рисуется так же).
       const hitR = 14 / viewZoom.value
-      // Идём с конца — верхние маркеры перекрывают нижние
+      // Идём с конца - верхние маркеры перекрывают нижние
       const hit = [...lightMarkers.value].reverse().find((m) =>
         Math.hypot(canvasPos.x - m.x, canvasPos.y - m.y) <= hitR
       )
@@ -1183,7 +1183,7 @@ onMounted(() => {
     } else if ((tool === 'brush') && store.isReady) {
       recordHistory()
       isPainting = true
-      // brushCanvas теперь занимает весь холст — координаты передаём как есть
+      // brushCanvas теперь занимает весь холст - координаты передаём как есть
       paint(canvasPos.x, canvasPos.y, store.brushSize, store.brushHardness, store.brushMode === 'erase')
       scheduleBrushRedraw()
     }
@@ -1213,7 +1213,7 @@ onMounted(() => {
 
     if (tool === 'light') {
       if (draggingLightId) {
-        // Позиция света хранится в координатах рамки — снимаем смещение клетки
+        // Позиция света хранится в координатах рамки - снимаем смещение клетки
         store.updateLight(draggingLightId, {
           x: Math.round(canvasPos.x - store.frameOffset),
           y: Math.round(canvasPos.y - store.frameOffset),
@@ -1270,13 +1270,13 @@ onMounted(() => {
 
     if (e.evt.ctrlKey || e.evt.metaKey) {
       if (tool === 'brush') {
-        // Ctrl+колёсико в режиме кисти — меняем размер кисти
+        // Ctrl+колёсико в режиме кисти - меняем размер кисти
         const dir = e.evt.deltaY > 0 ? -1 : 1
         const step = Math.max(1, Math.round(store.brushSize * 0.08))
         store.brushSize = Math.min(200, Math.max(5, store.brushSize + dir * step))
         drawBrushCursor(cursorX, cursorY)
       } else {
-        // Ctrl+колёсико в остальных инструментах — zoom вьюпорта
+        // Ctrl+колёсико в остальных инструментах - zoom вьюпорта
         const zoomFactor = e.evt.deltaY > 0 ? 0.9 : 1.1
         const newZoom = Math.min(8, Math.max(0.1, viewZoom.value * zoomFactor))
         viewX.value = pos.x - (pos.x - viewX.value) * (newZoom / viewZoom.value)
@@ -1284,21 +1284,21 @@ onMounted(() => {
         viewZoom.value = newZoom
       }
     } else if (e.evt.shiftKey && (tool === 'brush')) {
-      // Shift+колёсико в режиме кисти — меняем жёсткость кисти.
+      // Shift+колёсико в режиме кисти - меняем жёсткость кисти.
       // При зажатом Shift браузер может отдавать скролл в deltaX вместо deltaY.
       const delta = e.evt.deltaY || e.evt.deltaX
       const dir = delta > 0 ? -1 : 1
       store.brushHardness = Math.min(100, Math.max(0, store.brushHardness + dir * 5))
       drawBrushCursor(cursorX, cursorY)
     } else if (isSpaceDown || tool === 'hand') {
-      // Пробел+колёсико или hand tool — zoom вьюпорта
+      // Пробел+колёсико или hand tool - zoom вьюпорта
       const zoomFactor = e.evt.deltaY > 0 ? 0.9 : 1.1
       const newZoom = Math.min(8, Math.max(0.1, viewZoom.value * zoomFactor))
       viewX.value = pos.x - (pos.x - viewX.value) * (newZoom / viewZoom.value)
       viewY.value = pos.y - (pos.y - viewY.value) * (newZoom / viewZoom.value)
       viewZoom.value = newZoom
     } else if (tool === 'move') {
-      // Колёсико без модификаторов в move — zoom персонажа
+      // Колёсико без модификаторов в move - zoom персонажа
       const delta = e.evt.deltaY > 0 ? -0.1 : 0.1
       const newScale = Math.min(10, Math.max(0.05, store.charScale + delta))
       store.setCharScale(Math.round(newScale * 100) / 100)
@@ -1339,7 +1339,7 @@ onUnmounted(() => {
     <v-stage :config="stageConfig" ref="stageRef">
 
       <!-- Единый слой сцены. Konva-слой = отдельный <canvas> в DOM (рекомендация ≤3-5),
-           поэтому весь статичный контент в одном слое — порядок узлов задаёт z-order:
+           поэтому весь статичный контент в одном слое - порядок узлов задаёт z-order:
            фон → тень-низ → персонаж-низ → рамка → сетка → тень-верх → персонаж-верх -->
       <v-layer ref="sceneLayer">
         <v-image
@@ -1382,7 +1382,7 @@ onUnmounted(() => {
         />
       </v-layer>
 
-      <!-- Оверлей режимов отображения (Маска/Скрытое) — отдельный слой,
+      <!-- Оверлей режимов отображения (Маска/Скрытое) - отдельный слой,
            чтобы не перерисовывать сцену при переключении режимов -->
       <v-layer ref="overlayLayer">
         <v-image
@@ -1393,7 +1393,7 @@ onUnmounted(() => {
         <!-- Маркеры источников света (только при инструменте «Свет»).
              Размеры делятся на viewZoom, чтобы маркер не рос при зуме холста. -->
         <template v-for="m in lightMarkers" :key="m.id">
-          <!-- Радиус охвата — пунктирная окружность у выбранного источника -->
+          <!-- Радиус охвата - пунктирная окружность у выбранного источника -->
           <v-circle
             v-if="m.selected"
             :config="{

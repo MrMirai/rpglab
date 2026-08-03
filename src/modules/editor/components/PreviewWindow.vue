@@ -40,7 +40,7 @@ const { brushCanvas } = useBrushMask()
 
 const previewCanvasRef = ref(null)
 
-// Внутренний холст рендера — полная сетка 3×3
+// Внутренний холст рендера - полная сетка 3×3
 const RENDER_SIZE = 1500
 const CELL_SIZE = RENDER_SIZE / 3     // 500px на клетку
 // Отступ вокруг центральной клетки в пикселях рендер-холста
@@ -200,7 +200,7 @@ function drawToken(ctx, size) {
 
   ctx.drawImage(store.frameImage, tokenX, tokenY, tokenSize, tokenSize)
 
-  // brushCanvas — весь unbounded-холст; вырезаем только клетку рамки (frameOffset..+canvasSize)
+  // brushCanvas - весь unbounded-холст; вырезаем только клетку рамки (frameOffset..+canvasSize)
   const scaledBrush = document.createElement('canvas')
   scaledBrush.width = tokenSize; scaledBrush.height = tokenSize
   scaledBrush.getContext('2d').drawImage(
@@ -221,7 +221,7 @@ async function renderPreview() {
   const canvas = previewCanvasRef.value
   if (!canvas) return
 
-  // Размер canvas по физическим пикселям экрана — чёткость на Retina
+  // Размер canvas по физическим пикселям экрана - чёткость на Retina
   const dpr = window.devicePixelRatio || 1
   const displayPx = Math.round(320 * dpr)
   canvas.width = displayPx

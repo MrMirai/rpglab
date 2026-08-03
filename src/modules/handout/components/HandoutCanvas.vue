@@ -45,7 +45,7 @@ function centerView() {
   viewY.value = (containerH.value - store.document.height * viewZoom.value) / 2
 }
 
-// Синхронизируем вьюпорт в стор — addElement центрирует новые элементы по нему
+// Синхронизируем вьюпорт в стор - addElement центрирует новые элементы по нему
 watch([viewX, viewY, viewZoom, containerW, containerH], () => {
   store.setViewport({
     x: viewX.value, y: viewY.value, zoom: viewZoom.value,
@@ -53,7 +53,7 @@ watch([viewX, viewY, viewZoom, containerW, containerH], () => {
   })
 }, { immediate: true })
 
-// Смена размера документа — перецентрируем вид
+// Смена размера документа - перецентрируем вид
 watch(() => [store.document.width, store.document.height], () => nextTick(centerView))
 
 const stageConfig = computed(() => ({
@@ -90,7 +90,7 @@ const docBorderConfig = computed(() => ({
   listening: false,
 }))
 
-// Непрозрачный фон только для type==='color' — для 'texture' НЕ красим area
+// Непрозрачный фон только для type==='color' - для 'texture' НЕ красим area
 // сплошным цветом: прозрачные пиксели картинки должны остаться прозрачными
 // (и на экране, и при экспорте в PNG/WebP), а не запекаться в белый.
 const bgRectConfig = computed(() => ({
@@ -119,20 +119,20 @@ const bgTextureConfig = computed(() => {
 const draggableFor = (el) => !el.locked && store.activeTool === 'select'
 
 // Эффективный режим наложения: «вписанность» (inkStrength) при обычном режиме
-// автоматически переводит элемент в multiply — краска затемняет бумагу и её
+// автоматически переводит элемент в multiply - краска затемняет бумагу и её
 // фактура просвечивает сквозь элемент (главное слагаемое эффекта, см.
-// useInkEffect). Явно выбранный не-normal режим уважаем — не перебиваем.
+// useInkEffect). Явно выбранный не-normal режим уважаем - не перебиваем.
 function effectiveBlendOp(el) {
   if ((el.inkStrength ?? 0) > 0 && el.blendMode === 'normal') return 'multiply'
   return blendModeToOp(el.blendMode)
 }
 
-// Отражение + режим наложения — общие для прямоугольных типов (rect/image/text).
-// Узел позиционируется ЛЕВЫМ-ВЕРХОМ (как el.x/el.y и как ждёт Konva Transformer —
+// Отражение + режим наложения - общие для прямоугольных типов (rect/image/text).
+// Узел позиционируется ЛЕВЫМ-ВЕРХОМ (как el.x/el.y и как ждёт Konva Transformer -
 // поэтому поворот/ресайз не кривят). flip = scaleX/scaleY = -1: Konva отражает
 // вокруг origin узла (x=0), сдвигая контент на -width; компенсируем позицию
 // сдвигом на +width, чтобы отражение было «на месте». rotation Konva применяет
-// вокруг origin (левый-верх) — совпадает с рамкой Transformer.
+// вокруг origin (левый-верх) - совпадает с рамкой Transformer.
 function flipBlendConfig(el, bboxW, bboxH) {
   return {
     x: el.x + (el.flipX ? bboxW : 0),
@@ -145,7 +145,7 @@ function flipBlendConfig(el, bboxW, bboxH) {
 }
 
 // TEXT рендерится как Konva.Label (Group: Tag-фон + Text).
-// height берём фактическую (текст авто-высоты) — приблизим через fontSize*lineHeight,
+// height берём фактическую (текст авто-высоты) - приблизим через fontSize*lineHeight,
 // но для центрирования offset важна ширина; по высоте центрируем по el.height.
 function textLabelConfig(el) {
   return {
@@ -176,7 +176,7 @@ function textTextConfig(el) {
 }
 
 // IMAGE: группа с клипом (скругление + обрезка contain/cover) + картинка внутри.
-// width/height заданы как РЕАЛЬНЫЕ атрибуты узла (не только в замыкании clipFunc) —
+// width/height заданы как РЕАЛЬНЫЕ атрибуты узла (не только в замыкании clipFunc) -
 // иначе Transformer не видит размер группы и живой ресайз (onElementLiveTransform)
 // не может впечь scale в width/height.
 function imageGroupConfig(el) {
@@ -188,7 +188,7 @@ function imageGroupConfig(el) {
     opacity: el.opacity,
     visible: el.visible,
     draggable: draggableFor(el),
-    // shape — сам узел (группа): читаем ЖИВУЮ геометрию, а не el.width/height из
+    // shape - сам узел (группа): читаем ЖИВУЮ геометрию, а не el.width/height из
     // замыкания (при live-ресайзе мутируется узел, конфиг догоняет через Vue позже).
     clipFunc: (ctx, shape) => {
       const w = shape.width(), h = shape.height()
@@ -230,15 +230,15 @@ function imageInnerConfig(el) {
   const filter = imageCssFilter(el)
 
   // sceneFunc даёт хук на ctx.filter (Konva-конфиг image такого не умеет).
-  // Тень/hitFunc не задаём — картинка внутри клип-группы, клики ловит хит-rect группы.
+  // Тень/hitFunc не задаём - картинка внутри клип-группы, клики ловит хит-rect группы.
   // Геометрию (w/h) и режим fit пересчитываем ВНУТРИ sceneFunc от ЖИВОГО размера
-  // родителя-группы — при ресайзе мутируется группа (onElementLiveTransform), и
+  // родителя-группы - при ресайзе мутируется группа (onElementLiveTransform), и
   // картинка перекладывается по contain/cover в этом же кадре, без растяжения
   // (собственные width/height v-image через Vue могут ещё не обновиться).
   return {
     name: 'img-inner',
     listening: false,
-    // Собственные width/height — чтобы у sceneFunc-шейпа был ненулевой getSelfRect
+    // Собственные width/height - чтобы у sceneFunc-шейпа был ненулевой getSelfRect
     // (иначе Transformer не измерит его в getClientRect группы). Живой ресайз
     // мутирует их синхронно (onElementLiveTransform), поэтому geometry sceneFunc
     // берёт с САМОГО шейпа (shape.width()/height()), а не с родителя.
@@ -298,7 +298,7 @@ function rectConfig(el) {
 }
 
 // Эллипс: Konva Ellipse уже рисуется от собственного центра (0,0), поэтому
-// origin в центре без offset — flip (scale ±1) и rotation работают вокруг
+// origin в центре без offset - flip (scale ±1) и rotation работают вокруг
 // центра естественно. x/y = центр bbox.
 function ellipseConfig(el) {
   return {
@@ -338,7 +338,7 @@ const gridH = computed(() => {
 })
 
 // --- Smart Guides: конфиги отрисовки (uiLayer, не экспортируется) ---
-// Толщина/размеры делятся на viewZoom — постоянный размер на экране (паттерн сетки)
+// Толщина/размеры делятся на viewZoom - постоянный размер на экране (паттерн сетки)
 
 // Линии выравнивания
 const guideLineConfigs = computed(() => {
@@ -388,7 +388,7 @@ const guideLabelConfigs = computed(() => {
 // --- Трансформер ---
 
 // Ctrl/Shift для boundBoxFunc: туда событие не приходит, отслеживаем на window
-// (Ctrl временно отключает снэп, Shift = keepRatio — со снэпом не боремся).
+// (Ctrl временно отключает снэп, Shift = keepRatio - со снэпом не боремся).
 let ctrlDown = false
 let shiftDown = false
 function onWinKeyDown(e) {
@@ -410,7 +410,7 @@ const transformerConfig = {
   // Не переворачиваем элемент перетаскиванием ручки за противоположную сторону:
   // Konva иначе даёт отрицательный scale, а decompose трактует горизонтальный
   // флип как «поворот 180° + вертикальный флип» (неоднозначность знака
-  // детерминанта) — рамка глючила и переворачивалась не по той оси. Отражение —
+  // детерминанта) - рамка глючила и переворачивалась не по той оси. Отражение -
   // только кнопками H/V в тулбаре (store.flipElement). flipEnabled:false
   // клампит ресайз у границы вместо зеркалирования.
   flipEnabled: false,
@@ -421,10 +421,10 @@ const transformerConfig = {
   anchorSize: 8,
   rotateAnchorOffset: 24,
   // Снэп движущихся кромок к таргетам (Smart Guides) + минимальный размер.
-  // oldBox/newBox — в АБСОЛЮТНЫХ (экранных) координатах (пан/зум стейджа
-  // впечён), rotation в РАДИАНАХ. Активную ручку читаем per-call — Konva может
+  // oldBox/newBox - в АБСОЛЮТНЫХ (экранных) координатах (пан/зум стейджа
+  // впечён), rotation в РАДИАНАХ. Активную ручку читаем per-call - Konva может
   // переписать bottom-*→top-* при инверсии бокса. Повёрнутые элементы и жест
-  // поворота не снэпим. Запись guides отсюда — осознанный side effect (линии
+  // поворота не снэпим. Запись guides отсюда - осознанный side effect (линии
   // отрисуются Vue кадром позже, незаметно).
   boundBoxFunc: (oldBox, newBox) => {
     let box = newBox
@@ -470,7 +470,7 @@ const ALL_ANCHORS = [
   'middle-left', 'middle-right',
   'bottom-left', 'bottom-center', 'bottom-right',
 ]
-// У текста высота авто (перетекает) — вертикальный ресайз бессмыслен,
+// У текста высота авто (перетекает) - вертикальный ресайз бессмыслен,
 // оставляем только горизонтальные ручки.
 const TEXT_ANCHORS = ['middle-left', 'middle-right']
 
@@ -494,7 +494,7 @@ watch(
 )
 
 // Свойства картинки, влияющие ТОЛЬКО на sceneFunc (fit + цветокоррекция), не
-// меняют ни один Konva-attr узла — vue-konva видит лишь новую ссылку sceneFunc и
+// меняют ни один Konva-attr узла - vue-konva видит лишь новую ссылку sceneFunc и
 // не всегда перерисовывает слой сам. Подписываемся на их сигнатуру и форсим
 // batchDraw слоя элементов, чтобы смена «Вписать/Заполнить/Растянуть» и фильтры
 // отражались на холсте сразу.
@@ -508,17 +508,17 @@ watch(
 )
 
 // --- Эффект «вписанности» в бумагу (inkStrength, см. useInkEffect) ---
-// Konva-фильтры (зерно + растекание) работают только на закешированном узле —
+// Konva-фильтры (зерно + растекание) работают только на закешированном узле -
 // кеш надо пересобирать руками при каждом изменении внешности элемента.
 
 // pixelRatio кеша: подгоняем под зум ступенями 0.5, иначе при увеличении
 // закешированный текст мылится (битмап растягивается), а плавный зум
-// перекешировал бы на каждый кадр. Потолок 3 — хватает и на 300dpi экспорт.
+// перекешировал бы на каждый кадр. Потолок 3 - хватает и на 300dpi экспорт.
 const inkCacheRatio = computed(() => Math.min(3, Math.max(1, Math.round(viewZoom.value * 2) / 2)))
 
 // Пересобирает кеши/фильтры всех «вписанных» элементов (и снимает с остальных).
-// ratioOverride — для экспорта: перед снимком кеш пересобирается под экспортный
-// pixelRatio, после — обратно под экранный (см. useHandoutExport).
+// ratioOverride - для экспорта: перед снимком кеш пересобирается под экспортный
+// pixelRatio, после - обратно под экранный (см. useHandoutExport).
 function syncInkCaches(ratioOverride = null) {
   const stage = stageRef.value?.getStage()
   if (!stage) return
@@ -532,7 +532,7 @@ function syncInkCaches(ratioOverride = null) {
     const active = strength > 0 && el.visible && store.editingElementId !== el.id
     if (active) {
       const rect = node.getClientRect({ skipTransform: true })
-      if (rect.width < 1 || rect.height < 1) continue // пустой текст и т.п. — кешировать нечего
+      if (rect.width < 1 || rect.height < 1) continue // пустой текст и т.п. - кешировать нечего
       node.filters([inkGrainFilter])
       node.setAttrs({ inkStrength: strength, inkSeed: inkSeedFromId(el.id), inkPixelRatio: ratio })
       node.cache({ pixelRatio: ratio, offset: 2 })
@@ -545,7 +545,7 @@ function syncInkCaches(ratioOverride = null) {
 }
 
 // Пересборка кеша при любом изменении внешности «вписанных» элементов.
-// x/y исключены из сигнатуры — перемещение не меняет локальную отрисовку
+// x/y исключены из сигнатуры - перемещение не меняет локальную отрисовку
 // (кеш едет вместе с узлом). Флаг загрузки картинки (imageCache) включён:
 // IMAGE мог закешироваться плейсхолдером до того, как файл догрузился.
 watch(
@@ -568,7 +568,7 @@ watch(
 //  - эллипс: node origin = ЦЕНТР bbox → вычитаем половину размеров;
 //  - rect/image/text: node origin = левый-верх, но при flip позиция сдвинута
 //    на +width/+height (см. flipBlendConfig) → вычитаем сдвиг обратно.
-// Нерундящая версия — для bbox'ов снэпа (Smart Guides), рундящая — для коммита.
+// Нерундящая версия - для bbox'ов снэпа (Smart Guides), рундящая - для коммита.
 function nodeTopLeftRaw(node, el) {
   if (el.type === 'SHAPE' && el.shapeType === 'ellipse') {
     return { x: node.x() - el.width / 2, y: node.y() - el.height / 2 }
@@ -586,10 +586,10 @@ function nodeToTopLeft(node, el) {
 
 // --- Smart Guides: bbox-хелперы ---
 
-// Живой axis-aligned bbox узла в док-координатах. Для неповёрнутых не-TEXT —
+// Живой axis-aligned bbox узла в док-координатах. Для неповёрнутых не-TEXT -
 // из позиции узла + сохранённых размеров: это иммунно к паддингу ink-кеша
 // (cache({offset:2}) раздувает getClientRect на ±2px) и к origin'ам эллипса/flip.
-// Повёрнутые и TEXT (авто-высота) — через getClientRect.
+// Повёрнутые и TEXT (авто-высота) - через getClientRect.
 function liveBBox(node, el) {
   if (!el.rotation && el.type !== 'TEXT') {
     const p = nodeTopLeftRaw(node, el)
@@ -602,7 +602,7 @@ function liveBBox(node, el) {
   })
 }
 
-// bbox элемента-таргета (не перетаскиваемого) — те же правила, что liveBBox
+// bbox элемента-таргета (не перетаскиваемого) - те же правила, что liveBBox
 function elementBBox(el) {
   if (!el.rotation && el.type !== 'TEXT') return { x: el.x, y: el.y, width: el.width, height: el.height }
   const node = stageRef.value?.getStage()?.findOne('#' + el.id)
@@ -634,17 +634,17 @@ function unionBBox(nodes) {
 
 // --- Smart Guides: drag-сессия ---
 // При мультидраге Konva Transformer (_proxyDrag) на первом dragmove запускает
-// нативный drag у ВСЕХ привязанных узлов — dragstart/dragmove/dragend всплывают
+// нативный drag у ВСЕХ привязанных узлов - dragstart/dragmove/dragend всплывают
 // от каждого. Сессия открывается один раз на жест (guard по dragSnap), поправка
 // применяется только из dragmove PRIMARY-узла: к этому моменту позиции всех
 // драгаемых узлов за кадр уже выставлены движком DD (позиция каждого кадра
-// пересчитывается от указателя заново — поправки не аккумулируются), а рамка
-// трансформера обновляется в его собственном dragmove ПОЗЖЕ по порядку — т.е.
+// пересчитывается от указателя заново - поправки не аккумулируются), а рамка
+// трансформера обновляется в его собственном dragmove ПОЗЖЕ по порядку - т.е.
 // уже с учётом нашей поправки.
 let dragSnap = null // { primaryId, nodes }
 
 function onElementDragStart(e) {
-  if (dragSnap) return // dragstart сиблинга — сессия открыта (заодно чинит дубли undo-снапшотов)
+  if (dragSnap) return // dragstart сиблинга - сессия открыта (заодно чинит дубли undo-снапшотов)
   history.record(store)
   const trNodes = transformerRef.value?.getNode()?.nodes() ?? []
   const nodes = trNodes.includes(e.target) ? trNodes : [e.target]
@@ -661,7 +661,7 @@ function onElementDragStart(e) {
 
 function onElementDragMove(e) {
   if (!dragSnap || e.target._id !== dragSnap.primaryId) return
-  // Ctrl — временное отключение снэпа (per-event: отпустил — снэп вернулся)
+  // Ctrl - временное отключение снэпа (per-event: отпустил - снэп вернулся)
   if (!store.snapEnabled || e.evt?.ctrlKey) {
     smartGuides.clearGuides()
     return
@@ -682,16 +682,16 @@ function onElementDragEnd(e) {
   store.updateElement(el.id, nodeToTopLeft(node, el))
 }
 
-// Живой ресайз: Konva эмитит 'transform' на узле СИНХРОННО каждый кадр жеста —
+// Живой ресайз: Konva эмитит 'transform' на узле СИНХРОННО каждый кадр жеста -
 // до того как Vue узнаёт об изменении. Тут же конвертируем scaleX/scaleY в
 // реальные width/height ПРЯМО на Konva-узле (минуя store) и сбрасываем scale в
-// 1 — Konva перерисовывает узел с новой геометрией в ТОМ ЖЕ кадре, поэтому нет
+// 1 - Konva перерисовывает узел с новой геометрией в ТОМ ЖЕ кадре, поэтому нет
 // растяжения (к отрисовке scale всегда 1) и рамка Transformer совпадает с узлом
 // (нет дёрганья: узел и рамка согласованы синхронно, без гонки с Vue-реактивностью).
 // Официальный приём Konva («Resize Text» в доках). store обновляется ТОЛЬКО на
 // transformend (см. onTransformEnd). Событие 'transform' Transformer эмитит через
 // _fire на СЕБЕ (без всплытия к слою), поэтому подписка на transformerRef, а не на
-// elementsLayer; e.target — конкретный изменяемый узел (по узлу на мультивыделении).
+// elementsLayer; e.target - конкретный изменяемый узел (по узлу на мультивыделении).
 function onElementLiveTransform(e) {
   const node = e.target
   const el = store.elements.find((x) => x.id === node.id())
@@ -699,7 +699,7 @@ function onElementLiveTransform(e) {
 
   // Размер берём по модулю scale. Знак scale = ЖИВОЙ знак от Konva: если тянуть
   // ручку за противоположную сторону, Konva сам делает scale отрицательным
-  // (переворот) — сохраняем этот знак на узле (НЕ навязываем сохранённый флаг),
+  // (переворот) - сохраняем этот знак на узле (НЕ навязываем сохранённый флаг),
   // иначе рамка/позиция глючат при пересечении. Флаг el.flipX/flipY доводится в
   // стор только на transformend (по финальному знаку узла).
   const sgnX = node.scaleX() < 0 ? -1 : 1
@@ -708,7 +708,7 @@ function onElementLiveTransform(e) {
   const sy = Math.abs(node.scaleY())
 
   if (el.type === 'TEXT') {
-    // Активны только горизонтальные ручки (TEXT_ANCHORS) — scaleY всегда 1,
+    // Активны только горизонтальные ручки (TEXT_ANCHORS) - scaleY всегда 1,
     // высота авто (текст перетекает по ширине).
     const newWidth = Math.max(30, node.width() * sx)
     node.getText().width(newWidth) // Konva.Label: прямой доступ к Text-child
@@ -719,13 +719,13 @@ function onElementLiveTransform(e) {
   } else if (el.type === 'IMAGE') {
     // Группа сама по себе НЕ имеет измеряемого размера: её getClientRect (по нему
     // Transformer считает жест) = объединение clientRect'ов ДЕТЕЙ. Поэтому мало
-    // впечь scale в width/height группы — надо синхронно догнать РАЗМЕРЫ ДЕТЕЙ
+    // впечь scale в width/height группы - надо синхронно догнать РАЗМЕРЫ ДЕТЕЙ
     // (картинка img-inner + хит-rect img-hit), иначе бокс группы (по стейл-детям)
     // разъезжается с реальным жестом → картинку раздувает/уносит.
     const newW = Math.max(20, node.width() * sx)
     const newH = Math.max(20, node.height() * sy)
     node.setAttrs({ width: newW, height: newH, scaleX: sgnX, scaleY: sgnY })
-    // clipFunc читает живой размер группы (shape.width()/height()), sceneFunc —
+    // clipFunc читает живой размер группы (shape.width()/height()), sceneFunc -
     // свой (img-inner ниже), перекладывая картинку по fit в этом же кадре.
     const inner = node.findOne('.img-inner')
     if (inner) inner.setAttrs({ width: newW, height: newH })
@@ -761,7 +761,7 @@ function onTransformStart() {
       getBBox: elementBBox,
     })
   }
-  // Кеш «вписанности» — битмап фиксированного размера: живая мутация
+  // Кеш «вписанности» - битмап фиксированного размера: живая мутация
   // width/height (onElementLiveTransform) его не перерисовывает, контент
   // отставал бы от рамки. На время жеста снимаем кеш (элемент временно без
   // зерна/растекания), transformend вернёт его через syncInkCaches.
@@ -779,9 +779,9 @@ function onTransformStart() {
 // Конец жеста: scale уже впечён в width/height покадрово (onElementLiveTransform),
 // узел имеет корректную геометрию и scale=±1. Финальный ЗНАК scale = актуальный
 // флаг flip (пользователь мог перевернуть элемент, протянув ручку за
-// противоположную сторону) — фиксируем flipX/flipY по нему, а позицию узла
+// противоположную сторону) - фиксируем flipX/flipY по нему, а позицию узла
 // приводим к левому-верху с тем же ЗНАКОМ (не по старому el.flipX). Эллипс
-// центр-based — flip не сдвигает позицию, только пишем флаг.
+// центр-based - flip не сдвигает позицию, только пишем флаг.
 function onTransformEnd() {
   smartGuides.endSession()
   const tr = transformerRef.value?.getNode()
@@ -824,7 +824,7 @@ function onTransformEnd() {
   })
 
   // Рамку обновляем ПОСЛЕ того, как Vue применит финальные конфиги к узлам
-  // (микротаск) — иначе строится по старой геометрии и «уезжает» до клика.
+  // (микротаск) - иначе строится по старой геометрии и «уезжает» до клика.
   // Кеш «вписанности» возвращаем тут же явно: watch-сигнатура не сработает,
   // если жест не изменил геометрию (кеш снят в onTransformStart).
   nextTick(() => {
@@ -901,7 +901,7 @@ function commitTextEditing() {
   store.editingElementId = null
 }
 
-// --- Навигация (pan/zoom) — та же схема, что в редакторе токенов ---
+// --- Навигация (pan/zoom) - та же схема, что в редакторе токенов ---
 let isSpaceDown = false
 let isPanning = false
 let panStart = { x: 0, y: 0 }
@@ -992,7 +992,7 @@ onMounted(() => {
   // Самохостed шрифты (Caveat/Marck Script/Neucha/PT Mono/Cousine/Overpass Mono)
   // грузятся браузером асинхронно при первом обращении. Konva рисует текст
   // синхронно текущим (фолбэк) шрифтом и САМ не перерисует холст, когда файл
-  // догрузится — 'loadingdone' на document.fonts форсит один redraw на весь
+  // догрузится - 'loadingdone' на document.fonts форсит один redraw на весь
   // документ сразу, как только шрифты готовы (без per-элементного отслеживания).
   // Кеши «вписанности» пересобираем тоже: текст мог закешироваться
   // фолбэк-шрифтом до догрузки woff2 (batchDraw кеш не перерисовывает).
@@ -1016,7 +1016,7 @@ onMounted(() => {
     syncInkCaches,
   })
 
-  // Элементы могли остаться в сторе с прошлого визита на страницу — watch
+  // Элементы могли остаться в сторе с прошлого визита на страницу - watch
   // по сигнатуре не сработает (она не изменилась), кешируем при монтировании.
   nextTick(syncInkCaches)
 
@@ -1082,14 +1082,14 @@ onMounted(() => {
   if (!stage) return
 
   // Delegation вместо индивидуальных @dragstart/@dragend/@transformstart/
-  // @transformend на каждом узле в шаблоне — заодно убирает Vue-варнинг
+  // @transformend на каждом узле в шаблоне - заодно убирает Vue-варнинг
   // "Extraneous non-emits event listeners" на v-group/v-label (компоненты
   // vue-konva, рендерящие несколько детей во фрагмент). ВАЖНО про всплытие:
-  // drag-события (dragstart/dragend) идут через fire(..., true) с bubbling —
+  // drag-события (dragstart/dragend) идут через fire(..., true) с bubbling -
   // ловятся на elementsLayer. А Transformer эмитит 'transform'/'transformstart'/
   // 'transformend' через _fire (БЕЗ bubbling) на СЕБЕ (см. Transformer.js:
-  // this._fire('transform', { target: node })) — до слоя они НЕ доходят, поэтому
-  // все три ловим на самом transformerRef; в 'transform' e.target — конкретный
+  // this._fire('transform', { target: node })) - до слоя они НЕ доходят, поэтому
+  // все три ловим на самом transformerRef; в 'transform' e.target - конкретный
   // изменяемый узел (при мультивыделении событие эмитится по узлу на каждый).
   const elementsLayer = elementsLayerRef.value?.getNode()
   if (elementsLayer) {
@@ -1146,7 +1146,7 @@ onUnmounted(() => {
   window.removeEventListener('blur', onWinBlur)
 })
 
-// Смена инструмента — курсор
+// Смена инструмента - курсор
 watch(() => store.activeTool, (tool) => {
   setCursor(tool === 'hand' ? 'grab' : '')
 })
@@ -1169,20 +1169,20 @@ watch(() => store.activeTool, (tool) => {
       @dblclick="onStageDblClick"
     >
       <!-- Слой 1: фон документа + элементы. Фон ОБЯЗАН жить в ТОМ ЖЕ слое, что
-           и элементы: Konva-слой — отдельный <canvas>, а globalCompositeOperation
+           и элементы: Konva-слой - отдельный <canvas>, а globalCompositeOperation
            (blendMode элемента и multiply «вписанности») смешивает только внутри
-           своего канваса — слои браузер складывает поверх друг друга обычным
+           своего канваса - слои браузер складывает поверх друг друга обычным
            source-over, и бленд через границу слоёв физически не работает
            (проверено: multiply-элемент над фоном-текстурой в отдельном слое
            рисовался как плоский source-over). Для type==='texture' НЕ красим
-           area сплошным цветом (см. bgRectConfig) — прозрачные пиксели картинки
+           area сплошным цветом (см. bgRectConfig) - прозрачные пиксели картинки
            остаются прозрачными пикселями Konva-канваса и просвечивают DOM-фон
            .handout-canvas ПОД стейджем (та же шахматка, что и снаружи документа,
-           см. стили ниже) — никакой второй шахматки рисовать не нужно, и она не
+           см. стили ниже) - никакой второй шахматки рисовать не нужно, и она не
            может разъехаться по масштабу с внешней, т.к. это один и тот же DOM-фон.
-           Так же и в экспортированном PNG/WebP — настоящая альфа, а не
+           Так же и в экспортированном PNG/WebP - настоящая альфа, а не
            запечённый цвет/узор.
-           Drag/transform-события элементов не биндятся на каждый узел —
+           Drag/transform-события элементов не биндятся на каждый узел -
            делегированы на весь слой в onMounted (см. комментарий там), это же
            убирает Vue-варнинг на v-group/v-label; фоновые узлы listening:false,
            делегации не мешают. -->
@@ -1212,7 +1212,7 @@ watch(() => store.activeTool, (tool) => {
             <v-image v-if="imageInnerConfig(el)" :config="imageInnerConfig(el)" />
             <v-rect v-else :config="imagePlaceholderConfig(el)" />
             <!-- Прозрачный хит-рект: группа без него не ловит клики по пустым местам.
-                 name='img-hit' — живой ресайз синхронно тянет его размер (см.
+                 name='img-hit' - живой ресайз синхронно тянет его размер (см.
                  onElementLiveTransform), чтобы getClientRect группы совпадал с жестом. -->
             <v-rect :config="{ name: 'img-hit', x: 0, y: 0, width: el.width, height: el.height, fill: 'rgba(0,0,0,0.001)' }" />
           </v-group>
@@ -1229,7 +1229,7 @@ watch(() => store.activeTool, (tool) => {
         </template>
       </v-layer>
 
-      <!-- Слой 3: UI — сетка, трансформер (скрывается при экспорте) -->
+      <!-- Слой 3: UI - сетка, трансформер (скрывается при экспорте) -->
       <v-layer ref="uiLayerRef">
         <template v-if="store.showGrid">
           <v-line

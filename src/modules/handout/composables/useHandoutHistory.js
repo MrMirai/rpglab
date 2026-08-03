@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 
-// Undo/redo для редактора раздаток. В отличие от редактора токенов снапшот —
+// Undo/redo для редактора раздаток. В отличие от редактора токенов снапшот -
 // чистый JSON ({ elements, document }), поэтому дёшев и не требует canvas-копий.
 // Синглтон на модуль: тулбар, канва и панели работают с одним стеком.
 
@@ -12,7 +12,7 @@ const canUndo = ref(false)
 const canRedo = ref(false)
 
 // Коалесинг: серия однотипных изменений (drag слайдера, ввод в поле)
-// пишется в историю одним шагом — record с тем же ключом в течение
+// пишется в историю одним шагом - record с тем же ключом в течение
 // COALESCE_MS не создаёт новый снапшот.
 const COALESCE_MS = 800
 let lastKey = null
@@ -30,7 +30,7 @@ function sync() {
 }
 
 export function useHandoutHistory() {
-  // Записать состояние ДО изменения. key — идентификатор операции для коалесинга.
+  // Записать состояние ДО изменения. key - идентификатор операции для коалесинга.
   function record(store, key = null) {
     const now = performance.now()
     if (key && key === lastKey && now - lastTime < COALESCE_MS) {

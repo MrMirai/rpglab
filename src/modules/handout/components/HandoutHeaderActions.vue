@@ -19,7 +19,7 @@ const store = useHandoutStore()
 </template>
 
 <style lang="scss" scoped>
-// Компактная высота (size=sm), но читаемый текст шапки — как у редактора токенов
+// Компактная высота (size=sm), но читаемый текст шапки - как у редактора токенов
 .header-btn {
   font-size: var(--text-sm);
 }

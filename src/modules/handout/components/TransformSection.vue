@@ -68,20 +68,22 @@ function flip(axis) {
         </BaseButton>
       </div>
 
-      <!-- Числовые поля -->
+      <!-- Числовые поля. Порядок парами: положение, размер, поворот -->
       <div class="fields-grid">
-        <NumberField label="X" :model-value="first.x"
+        <NumberField label="X" suffix="px" :model-value="first.x"
           @update:model-value="isMulti ? updateByDelta('x', $event, 'x') : update({ x: $event }, 'x')" />
-        <NumberField label="Y" :model-value="first.y"
+        <NumberField label="Y" suffix="px" :model-value="first.y"
           @update:model-value="isMulti ? updateByDelta('y', $event, 'y') : update({ y: $event }, 'y')" />
-        <NumberField label="W" :model-value="first.width" :min="8" :max="4000"
+        <NumberField label="Ш" suffix="px" :model-value="first.width" :min="8" :max="4000"
           @update:model-value="isMulti ? updateByDelta('width', $event, 'w') : update({ width: $event }, 'w')" />
         <NumberField
           v-if="!hasText"
-          label="H" :model-value="first.height" :min="8" :max="4000"
+          label="В" suffix="px" :model-value="first.height" :min="8" :max="4000"
           @update:model-value="isMulti ? updateByDelta('height', $event, 'h') : update({ height: $event }, 'h')"
         />
-        <NumberField label="∠" :model-value="first.rotation" :min="-360" :max="360"
+        <!-- Поворот занимает свою строку: иначе он вставал в пару к Ш/В и
+             читался как часть размера -->
+        <NumberField class="field-rotation" label="∠" suffix="°" :model-value="first.rotation" :min="-360" :max="360"
           @update:model-value="update({ rotation: $event }, 'rot')" />
       </div>
     </div>
@@ -105,5 +107,11 @@ function flip(axis) {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-2);
+}
+
+// У текста высота авто и поле В скрыто, поэтому поворот сам съехал бы в правую
+// колонку - явно возвращаем его в первую, чтобы строка не зависела от типа
+.field-rotation {
+  grid-column: 1;
 }
 </style>

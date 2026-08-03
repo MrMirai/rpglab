@@ -5,6 +5,7 @@ import { useEditorStore } from '../store'
 import { useExport } from '../composables/useExport'
 import { useBrushMask } from '../composables/useBrushMask'
 import BaseButton from '@/shared/components/BaseButton.vue'
+import SegmentedControl from '@/shared/components/SegmentedControl.vue'
 
 const store = useEditorStore()
 const { exportToken, downloadCanvas, calcExportSize } = useExport()
@@ -68,17 +69,10 @@ async function doExport(mode, format = 'png') {
           <!-- Размер -->
           <div class="modal__section">
             <div class="modal__label">Размер</div>
-            <div class="size-grid">
-              <BaseButton
-                v-for="s in sizes"
-                :key="s"
-                size="sm"
-                :active="exportSize === s"
-                @click="exportSize = s"
-              >
-                {{ s }}×{{ s }}
-              </BaseButton>
-            </div>
+            <SegmentedControl
+              v-model="exportSize"
+              :options="sizes.map((s) => ({ value: s, label: `${s}×${s}` }))"
+            />
           </div>
 
           <!-- Полный токен -->
@@ -221,12 +215,6 @@ async function doExport(mode, format = 'png') {
     flex-shrink: 0;
     margin-top: 1px;
   }
-}
-
-.size-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-1);
 }
 
 .token-name-input {

@@ -6,6 +6,8 @@ import BaseButton from '@/shared/components/BaseButton.vue'
 import SliderControl from '@/shared/components/SliderControl.vue'
 import CollapsibleSection from '@/shared/components/CollapsibleSection.vue'
 import SelectField from '@/shared/components/SelectField.vue'
+import PropertyRow from '@/shared/components/PropertyRow.vue'
+import SegmentedControl from '@/shared/components/SegmentedControl.vue'
 import { useHandoutStore } from '../store'
 import { useHandoutHistory } from '../composables/useHandoutHistory'
 import NumberField from './NumberField.vue'
@@ -97,11 +99,12 @@ function toggleUnderline() {
   update({ textDecoration: props.element.textDecoration === 'underline' ? 'none' : 'underline' })
 }
 
+// label пустой: выравнивание читается по иконке, подпись в сегмент не влезет
 const aligns = [
-  { id: 'left', icon: AlignLeft },
-  { id: 'center', icon: AlignCenter },
-  { id: 'right', icon: AlignRight },
-  { id: 'justify', icon: AlignJustify },
+  { value: 'left', label: '', icon: AlignLeft, title: 'По левому краю' },
+  { value: 'center', label: '', icon: AlignCenter, title: 'По центру' },
+  { value: 'right', label: '', icon: AlignRight, title: 'По правому краю' },
+  { value: 'justify', label: '', icon: AlignJustify, title: 'По ширине' },
 ]
 </script>
 
@@ -116,14 +119,15 @@ const aligns = [
           @update:model-value="update({ fontFamily: $event })"
         />
 
-        <div class="font-row">
+        <PropertyRow label="Размер">
           <NumberField
-            label="Размер"
+            label=""
+            suffix="pt"
             :model-value="element.fontSize"
             :min="6" :max="300"
             @update:model-value="update({ fontSize: $event }, 'size')"
           />
-        </div>
+        </PropertyRow>
 
         <div class="style-row">
           <BaseButton size="sm" square :active="isBold" title="Жирный" @click="toggleBold">
@@ -135,31 +139,27 @@ const aligns = [
           <BaseButton size="sm" square :active="element.textDecoration === 'underline'" title="Подчёркнутый" @click="toggleUnderline">
             <Underline :size="14" />
           </BaseButton>
-          <span class="style-row__divider" />
-          <BaseButton
-            v-for="a in aligns"
-            :key="a.id"
-            size="sm" square
-            :active="element.align === a.id"
-            @click="update({ align: a.id })"
-          >
-            <component :is="a.icon" :size="14" />
-          </BaseButton>
         </div>
+
+        <!-- Выравнивание - взаимоисключающий выбор, поэтому сегменты;
+             Ж/К/Ч выше независимы друг от друга и остаются кнопками -->
+        <SegmentedControl
+          :model-value="element.align"
+          :options="aligns"
+          @update:model-value="update({ align: $event })"
+        />
       </div>
     </CollapsibleSection>
 
     <CollapsibleSection v-model:open="sections.color" label="Цвет">
       <div class="section-body">
-        <div class="color-row">
-          <span class="color-row__label">Текст</span>
+        <PropertyRow label="Текст">
           <ColorButton
             :model-value="element.color"
             @update:model-value="update({ color: $event }, 'color')"
           />
-        </div>
-        <div class="color-row">
-          <span class="color-row__label">Фон</span>
+        </PropertyRow>
+        <PropertyRow label="Фон">
           <ColorButton
             v-if="element.backgroundColor"
             :model-value="element.backgroundColor"
@@ -171,7 +171,7 @@ const aligns = [
           >
             {{ element.backgroundColor ? 'Убрать' : 'Добавить' }}
           </BaseButton>
-        </div>
+        </PropertyRow>
       </div>
     </CollapsibleSection>
 
@@ -212,24 +212,5 @@ const aligns = [
   display: flex;
   align-items: center;
   gap: var(--space-1);
-
-  &__divider {
-    width: 1px;
-    height: 16px;
-    background: var(--color-border);
-    margin: 0 var(--space-1);
-  }
-}
-
-.color-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-
-  &__label {
-    font-size: var(--text-xs);
-    color: var(--color-text-3);
-    min-width: 40px;
-  }
 }
 </style>

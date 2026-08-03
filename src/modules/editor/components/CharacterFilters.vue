@@ -68,13 +68,12 @@
       </div>
 
       <template v-if="store.charShadowEnabled">
-        <div class="char-filters__color-row">
-          <span class="char-filters__field-label">Цвет</span>
+        <PropertyRow label="Цвет">
           <ColorButton
             :model-value="store.charShadowColor"
             @update:model-value="store.charShadowColor = $event"
           />
-        </div>
+        </PropertyRow>
         <SliderControl
           label="Размытие"
           :model-value="store.charShadowBlur"
@@ -115,6 +114,7 @@ import { RotateCcw } from 'lucide-vue-next'
 import { useEditorStore } from '../store'
 import SliderControl from '@/shared/components/SliderControl.vue'
 import ColorButton from '@/shared/components/ColorButton.vue'
+import PropertyRow from '@/shared/components/PropertyRow.vue'
 
 const store = useEditorStore()
 
@@ -185,18 +185,6 @@ function resetShadow() {
     &:hover {
       color: var(--color-text-1);
     }
-  }
-
-  &__color-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: var(--space-2);
-  }
-
-  &__field-label {
-    font-size: var(--text-xs);
-    color: var(--color-text-2);
   }
 
   &__reset {

@@ -11,14 +11,12 @@ async function loadFile(file) {
   const url = URL.createObjectURL(file)
   store.loadFrameImage(img, url)
   store.frameFileName = file.name
-  // Сбрасываем кастомную маску - рамка новая, нужна новая авто-маска
-  store.loadMaskImage(null)
-  store.useCustomMask = false
+  // Рамка новая - пересчитываем авто-маску
+  store.resetMask()
 }
 
 function onRemove() {
   store.removeFrame()
-  store.useCustomMask = false
 }
 </script>
 

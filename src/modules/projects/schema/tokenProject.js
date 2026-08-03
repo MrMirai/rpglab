@@ -1,6 +1,6 @@
 export const SCHEMA_VERSION = 1
 
-// ImageRef - единый тип для любого растра в проекте (персонаж/рамка/фон/маска/кисть).
+// ImageRef - единый тип для любого растра в проекте (персонаж/рамка/фон/кисть).
 // source: 'inline' - dataUrl хранится прямо в JSON (черновик без сохранения на сервер);
 // source: 'remote' - key/url ссылаются на ассет в MinIO (сохранённый проект). key -
 // непрозрачный assetId, выданный сервером при загрузке (дедупликация по SHA-256
@@ -54,8 +54,6 @@ export function createEmptyProject() {
     },
 
     mask: {
-      useCustomMask: false,
-      customImage: null,
       overflow: {
         y: 35,
         soft: 20,

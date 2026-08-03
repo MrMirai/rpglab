@@ -148,7 +148,7 @@ function renderBg() {
   }
 
   // Обрезаем маской формы рамки
-  const mask = store.maskImage || (store.frameImage ? generateMask(store.frameImage, frameSize) : null)
+  const mask = store.frameImage ? generateMask(store.frameImage, frameSize) : null
   if (mask) {
     btx.globalCompositeOperation = 'destination-in'
     btx.drawImage(mask, 0, 0, frameSize, frameSize)
@@ -273,7 +273,7 @@ function renderOffscreen(brushOnly = false) {
   }
 
   if (!brushOnly || !cachedBottomSilhouette) {
-    const mask = store.maskImage || (store.frameImage ? generateMask(store.frameImage, frameSize) : null)
+    const mask = store.frameImage ? generateMask(store.frameImage, frameSize) : null
     renderBg()
 
     // --- Нижний силуэт: персонаж × маска1 (только в области рамки), в полных координатах ---
@@ -535,7 +535,6 @@ watchEffect(() => {
   const x = store.charX
   const y = store.charY
   const scale = store.charScale
-  const maskImg = store.maskImage
   const mv = store.maskVersion
   const bt = store.bgType
   const bc = store.bgColor

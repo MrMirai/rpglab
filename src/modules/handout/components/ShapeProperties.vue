@@ -4,6 +4,7 @@ import ColorButton from '@/shared/components/ColorButton.vue'
 import SliderControl from '@/shared/components/SliderControl.vue'
 import CollapsibleSection from '@/shared/components/CollapsibleSection.vue'
 import CheckboxField from '@/shared/components/CheckboxField.vue'
+import PropertyRow from '@/shared/components/PropertyRow.vue'
 import { useHandoutStore } from '../store'
 import { useHandoutHistory } from '../composables/useHandoutHistory'
 import TransformSection from './TransformSection.vue'
@@ -35,20 +36,23 @@ function update(patch, key = null) {
           :model-value="element.fill === 'none'"
           @update:model-value="update({ fill: $event ? 'none' : '#c4954a' })"
         />
-        <ColorButton
-          v-if="element.fill !== 'none'"
-          :model-value="element.fill"
-          @update:model-value="update({ fill: $event }, 'fill')"
-        />
+        <PropertyRow v-if="element.fill !== 'none'" label="Цвет">
+          <ColorButton
+            :model-value="element.fill"
+            @update:model-value="update({ fill: $event }, 'fill')"
+          />
+        </PropertyRow>
       </div>
     </CollapsibleSection>
 
     <CollapsibleSection v-model:open="sections.stroke" label="Обводка">
       <div class="section-body">
-        <ColorButton
-          :model-value="element.stroke"
-          @update:model-value="update({ stroke: $event }, 'stroke')"
-        />
+        <PropertyRow label="Цвет">
+          <ColorButton
+            :model-value="element.stroke"
+            @update:model-value="update({ stroke: $event }, 'stroke')"
+          />
+        </PropertyRow>
         <SliderControl
           label="Толщина"
           :model-value="element.strokeWidth"

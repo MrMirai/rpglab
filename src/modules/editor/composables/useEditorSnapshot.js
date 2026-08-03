@@ -34,8 +34,6 @@ export function useEditorSnapshot() {
       frameImage: store.frameImage,
       frameFileName: store.frameFileName,
 
-      useCustomMask: store.useCustomMask,
-      maskImage: store.useCustomMask ? store.maskImage : null,
       overflowY: store.overflowY,
       overflowSoft: store.overflowSoft,
       brushCanvas,
@@ -84,8 +82,6 @@ export function useEditorSnapshot() {
     store.loadFrameImage(snapshot.frameImage ?? null)
     store.frameFileName = snapshot.frameFileName ?? ''
 
-    store.useCustomMask = snapshot.useCustomMask ?? false
-    store.loadMaskImage(snapshot.useCustomMask ? (snapshot.maskImage ?? null) : null)
     store.maskVersion++
     store.overflowY = snapshot.overflowY ?? 35
     store.overflowSoft = snapshot.overflowSoft ?? 20

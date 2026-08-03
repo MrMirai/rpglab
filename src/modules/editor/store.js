@@ -27,9 +27,7 @@ export const useEditorStore = defineStore('editor', () => {
   const framePreviewUrl = ref(null)
   const bgPreviewUrl = ref(null)
 
-  // Маска (авто или кастомная)
-  const maskImage = ref(null)      // HTMLImageElement
-  const useCustomMask = ref(false)
+  // Маска окна рамки считается автоматически (useAutoMask), загрузки своей нет
   const maskVersion = ref(0)       // инкремент форсирует пересчёт маски
 
   // Параметры маски вылезания
@@ -221,8 +219,6 @@ export const useEditorStore = defineStore('editor', () => {
       framePreviewUrl.value = url
     }
   }
-  function loadMaskImage(htmlImageElement) { maskImage.value = htmlImageElement }
-
   function removeChar() {
     if (charPreviewUrl.value) URL.revokeObjectURL(charPreviewUrl.value)
     charImage.value = null
@@ -234,7 +230,6 @@ export const useEditorStore = defineStore('editor', () => {
     frameImage.value = null
     framePreviewUrl.value = null
     frameFileName.value = ''
-    maskImage.value = null
     maskVersion.value++
   }
 
@@ -245,16 +240,15 @@ export const useEditorStore = defineStore('editor', () => {
     // Остаёмся в режиме «Картинка», чтобы снова показалась зона загрузки
   }
 
+  // Форсирует пересчёт авто-маски (новая рамка - новое окно)
   function resetMask() {
-    maskImage.value = null
-    useCustomMask.value = false
     maskVersion.value++
   }
 
   return {
     GRID_CELLS, canvasSize, fullCanvasSize, frameOffset,
     charImage, charX, charY, charScale,
-    frameImage, frameFileName, maskImage, useCustomMask, maskVersion,
+    frameImage, frameFileName, maskVersion,
     charPreviewUrl, framePreviewUrl, bgPreviewUrl,
     overflowY, overflowSoft,
     activeTool, brushSize, brushHardness, brushMode, setBrushMode, lassoMode, setLassoMode,
@@ -273,7 +267,7 @@ export const useEditorStore = defineStore('editor', () => {
     hasChar, hasFrame, isReady,
     setActiveTool, toggleGrid, togglePreview, toggleMaskOverlay, toggleHidden,
     setCharPosition, setCharScale,
-    loadCharImage, loadFrameImage, loadMaskImage, resetMask,
+    loadCharImage, loadFrameImage, resetMask,
     removeChar, removeFrame,
   }
 })

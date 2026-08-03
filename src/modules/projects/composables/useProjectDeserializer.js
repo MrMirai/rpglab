@@ -12,10 +12,9 @@ async function refToImage(ref) {
 // Восстанавливает "сырой" снимок редактора (для useEditorSnapshot().applySnapshot())
 // из JSON проекта токена.
 export async function deserializeProject(project) {
-  const [charImage, frameImage, maskImage, bgImage, brushImage] = await Promise.all([
+  const [charImage, frameImage, bgImage, brushImage] = await Promise.all([
     refToImage(project.character.image),
     refToImage(project.frame.image),
-    refToImage(project.mask.customImage),
     refToImage(project.background.image),
     refToImage(project.mask.brush),
   ])
@@ -44,8 +43,6 @@ export async function deserializeProject(project) {
     frameImage,
     frameFileName: project.frame.fileName,
 
-    useCustomMask: project.mask.useCustomMask,
-    maskImage,
     overflowY: project.mask.overflow.y,
     overflowSoft: project.mask.overflow.soft,
     brushCanvas: brushImage,

@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { X, Download } from 'lucide-vue-next'
 import BaseButton from '@/shared/components/BaseButton.vue'
+import SegmentedControl from '@/shared/components/SegmentedControl.vue'
 import { useHandoutStore } from '../store'
 import { useHandoutBridge } from '../composables/useHandoutBridge'
 import { useHandoutExport } from '../composables/useHandoutExport'
@@ -11,10 +12,12 @@ const store = useHandoutStore()
 const bridge = useHandoutBridge()
 const { exportPng, exportWebp, exportPdf } = useHandoutExport()
 
+// Назначение пресета ушло в подсказку сегмента (title): в сегменте на треть
+// ширины модалки «72 dpi — экран» не помещается и обрезается многоточием
 const DPI_PRESETS = [
-  { value: 72, label: '72 dpi — экран' },
-  { value: 150, label: '150 dpi' },
-  { value: 300, label: '300 dpi — печать' },
+  { value: 72, label: '72 dpi', title: '72 dpi — для экрана' },
+  { value: 150, label: '150 dpi', title: '150 dpi — универсально' },
+  { value: 300, label: '300 dpi', title: '300 dpi — для печати' },
 ]
 
 const dpi = ref(150)
@@ -60,17 +63,7 @@ async function doExport(format) {
 
           <div class="modal__section">
             <div class="modal__label">Разрешение</div>
-            <div class="dpi-row">
-              <BaseButton
-                v-for="p in DPI_PRESETS"
-                :key="p.value"
-                size="sm" full-width
-                :active="dpi === p.value"
-                @click="dpi = p.value"
-              >
-                {{ p.label }}
-              </BaseButton>
-            </div>
+            <SegmentedControl v-model="dpi" :options="DPI_PRESETS" />
           </div>
 
           <div class="modal__section">
@@ -173,11 +166,6 @@ async function doExport(format) {
     color: var(--color-accent);
     text-align: center;
   }
-}
-
-.dpi-row {
-  display: flex;
-  gap: var(--space-1);
 }
 
 .name-input {

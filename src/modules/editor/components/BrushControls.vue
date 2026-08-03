@@ -1,9 +1,19 @@
 <script setup>
 import { useEditorStore } from '../store'
 import SliderControl from '@/shared/components/SliderControl.vue'
-import BaseButton from '@/shared/components/BaseButton.vue'
+import SegmentedControl from '@/shared/components/SegmentedControl.vue'
 
 const store = useEditorStore()
+
+const brushModes = [
+  { value: 'restore', label: 'Восстановить' },
+  { value: 'erase', label: 'Стереть' },
+]
+
+const lassoModes = [
+  { value: 'add', label: 'Восстановить' },
+  { value: 'subtract', label: 'Стереть' },
+]
 </script>
 
 <template>
@@ -11,16 +21,13 @@ const store = useEditorStore()
     <!-- Режим кисти: стереть или восстановить -->
     <template v-if="store.activeTool === 'brush'">
       <label class="brush-controls__label">Режим</label>
-      <div class="brush-controls__modes">
-        <BaseButton size="sm" full-width :active="store.brushMode === 'restore'" @click="store.setBrushMode('restore')">
-          Восстановить
-        </BaseButton>
-        <BaseButton size="sm" full-width :active="store.brushMode === 'erase'" @click="store.setBrushMode('erase')">
-          Стереть
-        </BaseButton>
-      </div>
+      <SegmentedControl
+        class="brush-controls__modes"
+        :model-value="store.brushMode"
+        :options="brushModes"
+        @update:model-value="store.setBrushMode($event)"
+      />
       <SliderControl
-        style="margin-top: 1rem"
         label="Размер"
         :model-value="store.brushSize"
         :min="5" :max="200" :step="1" suffix="px"
@@ -37,14 +44,12 @@ const store = useEditorStore()
     <!-- Режим лассо: заливать (add) или вырезать (subtract) область в маске -->
     <template v-else-if="store.activeTool === 'lasso'">
       <label class="brush-controls__label">Режим лассо</label>
-      <div class="brush-controls__modes">
-        <BaseButton size="sm" full-width :active="store.lassoMode === 'add'" @click="store.setLassoMode('add')">
-          Восстановить
-        </BaseButton>
-        <BaseButton size="sm" full-width :active="store.lassoMode === 'subtract'" @click="store.setLassoMode('subtract')">
-          Стереть
-        </BaseButton>
-      </div>
+      <SegmentedControl
+        class="brush-controls__modes"
+        :model-value="store.lassoMode"
+        :options="lassoModes"
+        @update:model-value="store.setLassoMode($event)"
+      />
       <p class="brush-controls__hint">
         Клик — точка, перетаскивание — сгладить дугу. Клик в первую точку или двойной клик — замкнуть.
         Enter — замкнуть и применить, Esc — отменить. Alt нажатием переключает режим.
@@ -65,9 +70,7 @@ const store = useEditorStore()
   }
 
   &__modes {
-    display: flex;
-    gap: var(--space-1);
-    margin-bottom: var(--space-2);
+    margin-bottom: var(--space-3);
   }
 
   &__hint {

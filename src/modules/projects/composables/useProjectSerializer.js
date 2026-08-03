@@ -44,10 +44,9 @@ async function imageToRef(source, uploadImage) {
 export async function serializeProject(snapshot, { uploadImage = null, meta = {} } = {}) {
   const now = new Date().toISOString()
 
-  const [charImage, frameImage, maskImage, bgImage, brushImage] = await Promise.all([
+  const [charImage, frameImage, bgImage, brushImage] = await Promise.all([
     imageToRef(snapshot.charImage, uploadImage),
     imageToRef(snapshot.frameImage, uploadImage),
-    imageToRef(snapshot.maskImage, uploadImage),
     imageToRef(snapshot.bgImage, uploadImage),
     imageToRef(snapshot.brushCanvas, uploadImage),
   ])
@@ -94,8 +93,6 @@ export async function serializeProject(snapshot, { uploadImage = null, meta = {}
     },
 
     mask: {
-      useCustomMask: snapshot.useCustomMask,
-      customImage: maskImage,
       overflow: {
         y: snapshot.overflowY,
         soft: snapshot.overflowSoft,

@@ -5,18 +5,27 @@ import { useImageLoader } from '../composables/useImageLoader'
 import { useAutoBackground } from '../composables/useAutoBackground'
 import SliderControl from '@/shared/components/SliderControl.vue'
 import ColorButton from '@/shared/components/ColorButton.vue'
+import PropertyRow from '@/shared/components/PropertyRow.vue'
 import ImageDropzone from '@/shared/components/ImageDropzone.vue'
 import BaseButton from '@/shared/components/BaseButton.vue'
+import SegmentedControl from '@/shared/components/SegmentedControl.vue'
 
 const store = useEditorStore()
 const { loadFromFile } = useImageLoader()
 const { extractColor } = useAutoBackground()
 
+// «Картинка» сокращена до «Фото»: четыре сегмента в панели 260px не вмещают
+// длинное слово, оно обрезалось многоточием
 const typeOptions = [
   { value: 'none',  label: 'Нет' },
   { value: 'color', label: 'Цвет' },
-  { value: 'image', label: 'Картинка' },
+  { value: 'image', label: 'Фото', title: 'Картинка' },
   { value: 'auto',  label: 'Авто' },
+]
+
+const noiseOptions = [
+  { value: 'random', label: 'Случайный' },
+  { value: 'perlin', label: 'Перлин' },
 ]
 
 function colorToHex(c) {
@@ -52,25 +61,20 @@ async function loadFile(file) {
 <template>
   <div class="bg-controls">
 
-    <div class="bg-controls__types">
-      <BaseButton
-        v-for="opt in typeOptions"
-        :key="opt.value"
-        size="sm"
-        full-width
-        :active="store.bgType === opt.value"
-        @click="selectType(opt.value)"
-      >{{ opt.label }}</BaseButton>
-    </div>
+    <SegmentedControl
+      class="bg-controls__types"
+      :model-value="store.bgType"
+      :options="typeOptions"
+      @update:model-value="selectType($event)"
+    />
 
     <div v-if="store.bgType === 'color'" class="bg-controls__color">
-      <label class="bg-controls__label">Цвет фона</label>
-      <div class="bg-controls__color-row">
+      <PropertyRow label="Цвет">
         <ColorButton
           :model-value="store.bgColor"
           @update:model-value="store.setBgColor($event)"
         />
-      </div>
+      </PropertyRow>
       <div class="bg-controls__swatches">
         <button
           v-for="color in swatches"
@@ -109,16 +113,15 @@ async function loadFile(file) {
     </div>
 
     <div v-else-if="store.bgType === 'auto'" class="bg-controls__auto">
-      <label class="bg-controls__label">Базовый цвет</label>
-      <div class="bg-controls__color-row">
+      <PropertyRow label="Базовый">
         <ColorButton
           :model-value="store.bgAutoColor"
           @update:model-value="store.setBgAutoColor($event)"
         />
-        <BaseButton square @click="repickColor" title="Подобрать из рамки">
+        <BaseButton size="sm" square @click="repickColor" title="Подобрать из рамки">
           <Pipette :size="14" />
         </BaseButton>
-      </div>
+      </PropertyRow>
 
       <SliderControl
         label="Яркость центра"
@@ -140,14 +143,12 @@ async function loadFile(file) {
       />
 
       <label class="bg-controls__label">Тип шума</label>
-      <div class="bg-controls__types" style="margin-bottom: var(--space-3)">
-        <BaseButton size="sm" full-width :active="store.bgNoiseType === 'random'" @click="store.setBgNoiseType('random')">
-          Случайный
-        </BaseButton>
-        <BaseButton size="sm" full-width :active="store.bgNoiseType === 'perlin'" @click="store.setBgNoiseType('perlin')">
-          Перлин
-        </BaseButton>
-      </div>
+      <SegmentedControl
+        class="bg-controls__types"
+        :model-value="store.bgNoiseType"
+        :options="noiseOptions"
+        @update:model-value="store.setBgNoiseType($event)"
+      />
 
       <SliderControl
         label="Зерно шума"
@@ -165,8 +166,6 @@ async function loadFile(file) {
   padding: var(--space-3) var(--space-4);
 
   &__types {
-    display: flex;
-    gap: var(--space-1);
     margin-bottom: var(--space-3);
   }
 
@@ -174,13 +173,6 @@ async function loadFile(file) {
     font-size: var(--text-xs);
     color: var(--color-text-2);
     display: block;
-    margin-bottom: var(--space-2);
-  }
-
-  &__color-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
     margin-bottom: var(--space-2);
   }
 

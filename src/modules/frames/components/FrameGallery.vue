@@ -120,9 +120,8 @@ async function selectFrame(frame) {
   const { img, objectUrl } = await loadFromUrlAsBlob(frame.frameAssetUrl)
   editorStore.loadFrameImage(img, objectUrl)
   editorStore.frameFileName = frame.name
-  // Новая рамка → сбрасываем маску на авто
-  editorStore.loadMaskImage(null)
-  editorStore.useCustomMask = false
+  // Новая рамка → пересчитываем авто-маску
+  editorStore.resetMask()
 
   // Фон-компаньон рамки, если он задан в пресете
   if (frame.backgroundAssetUrl) {

@@ -1,28 +1,14 @@
 <script setup>
-import { ref } from 'vue'
 import { ArrowUp, ArrowDown, Maximize2, X } from 'lucide-vue-next'
-import { useEditorStore } from '../store'
-import { useImageLoader } from '../composables/useImageLoader'
 import { useBrushMask } from '../composables/useBrushMask'
 import { useEditorBridge } from '../composables/useEditorBridge'
 import BaseButton from '@/shared/components/BaseButton.vue'
 
-const store = useEditorStore()
-const { loadFromFile } = useImageLoader()
+// Маска окна рамки считается только автоматически (flood fill от углов кадра,
+// см. useAutoMask). Загрузка своей маски убрана: авто-режим справляется, а
+// ручной путь дублировал его и требовал от пользователя готовый PNG.
 const { fillTop, fillBottom, fillAll, clear, redraw } = useBrushMask()
 const bridge = useEditorBridge()
-
-const maskFileInput = ref(null)
-
-function triggerMaskUpload() { maskFileInput.value.click() }
-
-async function onMaskFileChange(e) {
-  const file = e.target.files[0]
-  if (!file) return
-  const img = await loadFromFile(file)
-  store.loadMaskImage(img)
-  store.useCustomMask = true
-}
 
 function runPreset(type) {
   bridge.recordHistory() // снимок перед изменением маски
@@ -36,15 +22,6 @@ function runPreset(type) {
 
 <template>
   <div class="mask-controls">
-    <div class="mask-controls__toggle">
-      <BaseButton size="sm" full-width :active="!store.useCustomMask" @click="store.resetMask()">
-        Авто
-      </BaseButton>
-      <BaseButton size="sm" full-width :active="store.useCustomMask" @click="triggerMaskUpload">
-        Загрузить
-      </BaseButton>
-    </div>
-
     <p class="mask-controls__hint">
       Рисуй кистью на холсте где персонаж вылезает над рамкой.
       Инструмент «Восстановить» проявляет, «Стереть» убирает.
@@ -65,26 +42,12 @@ function runPreset(type) {
         <X :size="14" /> Очистить
       </BaseButton>
     </div>
-
-    <input
-      ref="maskFileInput"
-      type="file"
-      accept="image/png,image/webp"
-      style="display: none"
-      @change="onMaskFileChange"
-    />
   </div>
 </template>
 
 <style lang="scss" scoped>
 .mask-controls {
   padding: var(--space-3) var(--space-4);
-
-  &__toggle {
-    display: flex;
-    gap: var(--space-1);
-    margin-bottom: var(--space-3);
-  }
 
   &__hint {
     font-size: var(--text-xs);

@@ -4,6 +4,7 @@ import {
   Type, Image as ImageIcon, Square, Circle,
   ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, Layers,
 } from 'lucide-vue-next'
+import SegmentedControl from '@/shared/components/SegmentedControl.vue'
 import { useHandoutStore } from '../store'
 import { useHandoutHistory } from '../composables/useHandoutHistory'
 import LayerRow from './LayerRow.vue'
@@ -14,6 +15,11 @@ const store = useHandoutStore()
 const history = useHandoutHistory()
 
 const activeTab = ref('elements') // templates | elements
+
+const tabOptions = [
+  { value: 'templates', label: 'Шаблоны' },
+  { value: 'elements', label: 'Элементы' },
+]
 
 // --- Шаблоны (заглушки до готовности API) ---
 const categories = [
@@ -136,24 +142,7 @@ const reorderButtons = [
 
 <template>
   <div class="handout-sidebar">
-    <div class="tabs">
-      <button
-        type="button"
-        class="tabs__item"
-        :class="{ 'is-active': activeTab === 'templates' }"
-        @click="activeTab = 'templates'"
-      >
-        Шаблоны
-      </button>
-      <button
-        type="button"
-        class="tabs__item"
-        :class="{ 'is-active': activeTab === 'elements' }"
-        @click="activeTab = 'elements'"
-      >
-        Элементы
-      </button>
-    </div>
+    <SegmentedControl v-model="activeTab" class="tabs" :options="tabOptions" />
 
     <!-- Таб «Шаблоны» -->
     <div v-if="activeTab === 'templates'" class="tab-body">
@@ -252,38 +241,8 @@ const reorderButtons = [
 }
 
 .tabs {
-  display: flex;
-  gap: 2px;
   margin: var(--space-3);
-  padding: 2px;
-  background: var(--color-bg-1);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
   flex-shrink: 0;
-
-  &__item {
-    flex: 1;
-    padding: var(--space-1) var(--space-2);
-    height: 26px;
-    background: transparent;
-    border: none;
-    border-radius: var(--radius-sm);
-    color: var(--color-text-2);
-    font-family: inherit;
-    font-size: var(--text-xs);
-    font-weight: var(--weight-medium);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-
-    &:hover:not(.is-active) {
-      color: var(--color-text-1);
-    }
-
-    &.is-active {
-      background: var(--color-bg-3);
-      color: var(--color-accent);
-    }
-  }
 }
 
 .tab-body {
@@ -380,11 +339,18 @@ const reorderButtons = [
   border-bottom: 1px solid var(--color-border);
 }
 
+// Кнопки добавления - действия, а не переключатель (активной среди них нет),
+// поэтому это не SegmentedControl. Вид держим общий: та же подложка-группа,
+// сегменты подсвечиваются на наведении.
 .add-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--space-2);
+  gap: 2px;
   margin-top: var(--space-2);
+  padding: 2px;
+  background: var(--color-bg-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
 }
 
 .add-btn {
@@ -394,14 +360,15 @@ const reorderButtons = [
   justify-content: center;
   gap: var(--space-1);
   // Одинаковая высота независимо от того, переносится ли подпись
-  height: 62px;
-  padding: var(--space-2) var(--space-1);
-  background: var(--color-bg-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  height: 56px;
+  padding: 0 var(--space-1);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
   color: var(--color-text-2);
   font-family: inherit;
   font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
   line-height: var(--leading-tight);
   text-align: center;
   cursor: pointer;
@@ -416,9 +383,8 @@ const reorderButtons = [
   }
 
   &:hover {
-    border-color: var(--color-accent);
+    background: var(--color-bg-3);
     color: var(--color-accent);
-    background: var(--color-accent-muted);
   }
 }
 

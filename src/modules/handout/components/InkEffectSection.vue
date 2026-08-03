@@ -38,10 +38,7 @@ function onChange(value) {
         :min="0" :max="100" :step="1" suffix="%"
         @update:model-value="onChange"
       />
-      <p class="ink-hint">
-        Регулирует, насколько элемент впитывается в бумагу: цвет, зерно и край
-        подстраиваются под фон.
-      </p>
+      <p class="ink-hint">Элемент впитывается в бумагу: цвет, зерно и край подстраиваются под фон.</p>
     </div>
   </CollapsibleSection>
 </template>

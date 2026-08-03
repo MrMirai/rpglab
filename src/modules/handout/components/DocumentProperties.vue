@@ -8,6 +8,7 @@ import SelectField from '@/shared/components/SelectField.vue'
 import ImageDropzone from '@/shared/components/ImageDropzone.vue'
 import { useHandoutStore, SIZE_PRESETS } from '../store'
 import { useHandoutHistory } from '../composables/useHandoutHistory'
+import SegmentedControl from '@/shared/components/SegmentedControl.vue'
 import NumberField from './NumberField.vue'
 
 // Свойства документа (показываются, когда ничего не выбрано):
@@ -23,6 +24,12 @@ const presetOptions = computed(() =>
     label: `${p.label}${p.width ? ` — ${p.width}×${p.height}` : ''}`,
   })),
 )
+
+const bgTypeOptions = [
+  { value: 'none', label: 'Нет' },
+  { value: 'color', label: 'Цвет' },
+  { value: 'texture', label: 'Текстура' },
+]
 
 function onPresetChange(id) {
   const preset = SIZE_PRESETS.find((p) => p.id === id)
@@ -92,13 +99,15 @@ function removeTexture() {
 
         <div class="fields-row">
           <NumberField
-            label="W"
+            label="Ш"
+            suffix="px"
             :model-value="store.document.width"
             :min="50" :max="4000"
             @update:model-value="setCustomSize('width', $event)"
           />
           <NumberField
-            label="H"
+            label="В"
+            suffix="px"
             :model-value="store.document.height"
             :min="50" :max="4000"
             @update:model-value="setCustomSize('height', $event)"
@@ -109,17 +118,11 @@ function removeTexture() {
 
     <CollapsibleSection v-model:open="sections.background" label="Фон">
       <div class="section-body">
-        <div class="bg-types">
-          <BaseButton size="sm" full-width :active="store.document.background.type === 'none'" @click="setBgType('none')">
-            Нет
-          </BaseButton>
-          <BaseButton size="sm" full-width :active="store.document.background.type === 'color'" @click="setBgType('color')">
-            Цвет
-          </BaseButton>
-          <BaseButton size="sm" full-width :active="store.document.background.type === 'texture'" @click="setBgType('texture')">
-            Текстура
-          </BaseButton>
-        </div>
+        <SegmentedControl
+          :model-value="store.document.background.type"
+          :options="bgTypeOptions"
+          @update:model-value="setBgType($event)"
+        />
 
         <div v-if="store.document.background.type === 'color'" class="bg-color">
           <ColorButton
@@ -165,11 +168,6 @@ function removeTexture() {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-2);
-}
-
-.bg-types {
-  display: flex;
-  gap: var(--space-1);
 }
 
 .bg-texture {

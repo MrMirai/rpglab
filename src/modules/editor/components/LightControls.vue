@@ -4,7 +4,14 @@ import { Plus, Trash2, Eye, EyeOff, Lightbulb } from 'lucide-vue-next'
 import { useEditorStore } from '../store'
 import SliderControl from '@/shared/components/SliderControl.vue'
 import ColorButton from '@/shared/components/ColorButton.vue'
+import PropertyRow from '@/shared/components/PropertyRow.vue'
 import CheckboxField from '@/shared/components/CheckboxField.vue'
+import SegmentedControl from '@/shared/components/SegmentedControl.vue'
+
+const modeOptions = [
+  { value: 'manual', label: 'Вручную' },
+  { value: 'auto', label: 'По свечению', title: 'Свет исходит от самых ярких пикселей персонажа' },
+]
 
 const store = useEditorStore()
 
@@ -72,23 +79,12 @@ function addLight() {
       <!-- Режим позиционирования -->
       <div class="light-controls__group">
         <div class="light-controls__group-label">Положение</div>
-        <div class="light-controls__modes">
-          <button
-            class="light-controls__mode"
-            :class="{ active: selected.mode === 'manual' }"
-            @click="patch('mode', 'manual')"
-          >
-            Вручную
-          </button>
-          <button
-            class="light-controls__mode"
-            :class="{ active: selected.mode === 'auto' }"
-            @click="patch('mode', 'auto')"
-            title="Свет исходит от самых ярких пикселей персонажа"
-          >
-            По свечению
-          </button>
-        </div>
+        <SegmentedControl
+          class="light-controls__modes"
+          :model-value="selected.mode"
+          :options="modeOptions"
+          @update:model-value="patch('mode', $event)"
+        />
 
         <p v-if="selected.mode === 'auto'" class="light-controls__hint">
           <template v-if="store.hasChar">
@@ -121,13 +117,12 @@ function addLight() {
       <div class="light-controls__group">
         <div class="light-controls__group-label">Свечение</div>
 
-        <div class="light-controls__color-row">
-          <span class="light-controls__field-label">Цвет</span>
+        <PropertyRow label="Цвет">
           <ColorButton
             :model-value="selected.color"
             @update:model-value="patch('color', $event)"
           />
-        </div>
+        </PropertyRow>
 
         <SliderControl
           label="Радиус" :model-value="selected.radius"
@@ -225,29 +220,7 @@ function addLight() {
   }
 
   &__modes {
-    display: flex;
-    gap: var(--space-1);
-    margin-bottom: var(--space-1);
-  }
-
-  &__mode {
-    flex: 1;
-    padding: var(--space-2);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-md);
-    background: transparent;
-    color: var(--color-text-2);
-    font-size: var(--text-xs);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-
-    &:hover { color: var(--color-text-1); }
-
-    &.active {
-      background: var(--color-accent-muted);
-      border-color: var(--color-accent);
-      color: var(--color-accent);
-    }
+    margin-bottom: var(--space-2);
   }
 
   &__hint {
@@ -258,18 +231,6 @@ function addLight() {
     color: var(--color-text-3);
     line-height: 1.4;
     margin-bottom: var(--space-1);
-  }
-
-  &__color-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: var(--space-2);
-  }
-
-  &__field-label {
-    font-size: var(--text-xs);
-    color: var(--color-text-2);
   }
 
 }

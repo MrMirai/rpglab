@@ -1,9 +1,10 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, shallowRef, computed } from 'vue'
 import { api } from '@/shared/composables/useApi'
 import { useEditorSnapshot } from '@/modules/editor'
 import { serializeProject } from './composables/useProjectSerializer.js'
 import { deserializeProject } from './composables/useProjectDeserializer.js'
+import { useProjectPreview } from './composables/useProjectPreview.js'
 
 // Папка на бэке (FolderResponse):
 // { id, userId, userName, name, parentId|null, parentName|null, createdAt, childCount, children[] }
@@ -45,18 +46,26 @@ export const useProjectsStore = defineStore('projects', () => {
   // PUT считает непереданный folderId сбросом в корень, поэтому при каждом
   // сохранении её надо передавать явно, иначе проект переедет.
   const currentProjectFolderId = ref(null)
+  // Текущее превью проекта. PUT считает непереданное поле сбросом, поэтому его
+  // тоже надо слать каждый раз; а если съёмка нового превью не удалась, есть
+  // куда откатиться - иначе сетевой сбой стирал бы нормальную миниатюру.
+  const currentProjectPreviewAssetId = ref(null)
   const isDirty = ref(false)
   const isSaving = ref(false)
   // configuration проекта в том виде, в каком он пришёл с сервера. База для
   // следующего сохранения: собирать содержимое с нуля нельзя - поля, которых эта
   // версия редактора не знает (сохранены другой версией), бэк вернул бы нетронутыми,
   // а мы бы их затёрли. Хранится ПОСЛЕ миграции - в актуальной версии схемы.
-  const currentConfig = ref(null)
+  // shallowRef, а не ref: это JSON-блоб, который целиком заменяется и никогда не
+  // правится по полям - глубокий обход в прокси тут пустая работа. Обычный ref
+  // ещё и подсовывал бы наружу Proxy, а его не берёт structuredClone.
+  const currentConfig = shallowRef(null)
 
-  function setCurrentProject(id, name, folderId = null) {
+  function setCurrentProject(id, name, folderId = null, previewAssetId = null) {
     currentProjectId.value = id
     currentProjectName.value = name
     currentProjectFolderId.value = folderId
+    currentProjectPreviewAssetId.value = previewAssetId
     isDirty.value = false
   }
 
@@ -70,6 +79,7 @@ export const useProjectsStore = defineStore('projects', () => {
     currentProjectId.value = null
     currentProjectName.value = 'Без названия'
     currentProjectFolderId.value = null
+    currentProjectPreviewAssetId.value = null
     currentConfig.value = null
     isDirty.value = false
   }
@@ -125,6 +135,16 @@ export const useProjectsStore = defineStore('projects', () => {
   // Перейти в папку и загрузить её содержимое.
   function openFolder(folderId) {
     return fetchFolders(folderId)
+  }
+
+  // Плоский список ВСЕХ папок пользователя - для выбора папки в модалке
+  // сохранения (folders выше держит только текущий уровень вложенности).
+  const allFolders = ref([])
+
+  async function fetchAllFolders() {
+    const res = await api.get('/api/folders')
+    if (!res.ok) return
+    allFolders.value = await res.json()
   }
 
   async function createFolder(name) {
@@ -294,6 +314,22 @@ export const useProjectsStore = defineStore('projects', () => {
 
   // ── Пайплайн сохранения/открытия проекта токена ─────────────────────────
 
+  // Снимает превью текущей работы и заливает его, возвращая assetId для проекта.
+  // Превью - косметика: любая осечка (нет персонажа, сбой заливки) НЕ должна
+  // ронять сохранение самого проекта, поэтому ошибка гасится, а вместо нового
+  // id остаётся прежний - иначе сетевой сбой стирал бы уже снятую миниатюру.
+  async function capturePreviewAssetId() {
+    const { buildTokenPreview } = useProjectPreview()
+    try {
+      const blob = await buildTokenPreview()
+      if (!blob) return currentProjectPreviewAssetId.value
+      const asset = await uploadAsset(blob, 'preview_image')
+      return asset?.id ?? currentProjectPreviewAssetId.value
+    } catch {
+      return currentProjectPreviewAssetId.value
+    }
+  }
+
   // Сохраняет текущее состояние редактора. Порядок из docs/API.md: сначала
   // заливаются картинки, у которых ещё нет assetId (этим занимается сериализатор),
   // и только потом уходит содержимое со ссылками на них.
@@ -307,12 +343,14 @@ export const useProjectsStore = defineStore('projects', () => {
         uploadAsset,
         baseConfig: currentConfig.value,
       })
+      const previewAssetId = await capturePreviewAssetId()
 
       const projectName = name ?? currentProjectName.value
       const saved = currentProjectId.value
         ? await updateProject(currentProjectId.value, {
             name: projectName,
             configuration,
+            previewAssetId,
             // Своя папка проекта, а не открытая в списке: иначе PUT утащил бы
             // проект туда, куда пользователь просто зашёл посмотреть.
             folderId: folderId ?? currentProjectFolderId.value,
@@ -320,6 +358,7 @@ export const useProjectsStore = defineStore('projects', () => {
         : await createProject({
             name: projectName,
             configuration,
+            previewAssetId,
             folderId: folderId ?? currentFolderId.value,
           })
 
@@ -334,11 +373,24 @@ export const useProjectsStore = defineStore('projects', () => {
       })
 
       currentConfig.value = configuration
-      setCurrentProject(saved.id, saved.name, saved.folderId ?? null)
+      setCurrentProject(
+        saved.id,
+        saved.name,
+        saved.folderId ?? null,
+        saved.previewAssetId ?? null,
+      )
       return saved
     } finally {
       isSaving.value = false
     }
+  }
+
+  // Новый пустой проект: чистим и холст редактора, и привязку к сохранённому
+  // проекту - иначе первое же «Сохранить» перезапишет тот, что был открыт.
+  function newTokenProject() {
+    const { applySnapshot } = useEditorSnapshot()
+    applySnapshot({})
+    resetCurrentProject()
   }
 
   // Открывает проект в редакторе. Возвращает { project, missingAssets } -
@@ -351,7 +403,12 @@ export const useProjectsStore = defineStore('projects', () => {
 
     applySnapshot(snapshot)
     currentConfig.value = config
-    setCurrentProject(project.id, project.name, project.folderId ?? null)
+    setCurrentProject(
+      project.id,
+      project.name,
+      project.folderId ?? null,
+      project.previewAssetId ?? null,
+    )
     return { project, missingAssets }
   }
 
@@ -381,9 +438,12 @@ export const useProjectsStore = defineStore('projects', () => {
     deleteProject,
     saveTokenProject,
     openTokenProject,
+    newTokenProject,
     // папки
     currentFolderId,
     folders,
+    allFolders,
+    fetchAllFolders,
     breadcrumbs,
     parentFolderId,
     foldersLoading,

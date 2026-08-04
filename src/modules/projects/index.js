@@ -10,3 +10,7 @@ export { migrate } from './schema/migrations.js'
 export { default as FolderCard } from './components/FolderCard.vue'
 export { default as FolderBreadcrumbs } from './components/FolderBreadcrumbs.vue'
 export { default as CreateFolderModal } from './components/CreateFolderModal.vue'
+
+// Проекты
+export { default as ProjectCard } from './components/ProjectCard.vue'
+export { default as SaveProjectModal } from './components/SaveProjectModal.vue'

@@ -8,14 +8,25 @@ import AppPropertiesPanel from './AppPropertiesPanel.vue'
 // не зависела от модуля auth (значение даёт вид через useAuthStore).
 defineProps({
   isAuthenticated: { type: Boolean, default: false },
+  saving: { type: Boolean, default: false },
+  dirty: { type: Boolean, default: false },
 })
+
+// Сохранение обрабатывает вид конкретного редактора - оболочка только пробрасывает.
+defineEmits(['save'])
 
 const slots = useSlots()
 </script>
 
 <template>
   <div class="app-layout">
-    <AppHeader class="layout-header" :is-authenticated="isAuthenticated">
+    <AppHeader
+      class="layout-header"
+      :is-authenticated="isAuthenticated"
+      :saving="saving"
+      :dirty="dirty"
+      @save="$emit('save')"
+    >
       <!-- logo пробрасываем только если вид его задал, иначе остаётся дефолт в AppHeader -->
       <template v-if="slots['header-logo']" #logo><slot name="header-logo" /></template>
       <template #toolbar><slot name="header-toolbar" /></template>

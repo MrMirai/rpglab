@@ -10,12 +10,21 @@ import {
   HandoutExportModal,
 } from '@/modules/handout'
 import { UserMenu, useAuthStore } from '@/modules/auth'
+import { useToast } from '@/shared/composables/useToast'
 
 const auth = useAuthStore()
+const toast = useToast()
+
+// Сохранение раздаток пока не реализовано: формат проекта (configuration) описан
+// только для токенов - schema/tokenProject.js. Кнопка в шапке общая для всех
+// редакторов, поэтому честно говорим, а не молчим в ответ на клик.
+function onSave() {
+  toast.info('Сохранение раздаток появится позже - пока доступен экспорт в PNG/PDF')
+}
 </script>
 
 <template>
-  <AppLayout :is-authenticated="auth.isAuthenticated">
+  <AppLayout :is-authenticated="auth.isAuthenticated" @save="onSave">
     <template #header-logo>
       <EditorSwitcher />
     </template>

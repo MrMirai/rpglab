@@ -45,7 +45,11 @@ async function resolveAssetId(source, knownAssetId, type, uploadAsset) {
 // перезаписать содержимое собранным с нуля объектом - они потеряются на клиенте.
 // Поэтому известные поля НАКЛАДЫВАЮТСЯ на пришедшую базу.
 export async function serializeProject(snapshot, { uploadAsset = null, baseConfig = null } = {}) {
-  const base = baseConfig ? structuredClone(baseConfig) : {}
+  // Клонируем через JSON, а НЕ structuredClone: база приходит из стора и может
+  // оказаться реактивным Proxy, а structuredClone на прокси бросает DataCloneError
+  // («could not be cloned»). Заодно JSON-проход гарантирует, что в базе только
+  // то, что переживёт отправку на сервер - содержимое всё равно уедет как JSON.
+  const base = baseConfig ? JSON.parse(JSON.stringify(baseConfig)) : {}
 
   const [charAssetId, frameAssetId, imageAssetId, brushMaskAssetId] = await Promise.all([
     resolveAssetId(snapshot.charImage, snapshot.charAssetId, ASSET_TYPE.char, uploadAsset),

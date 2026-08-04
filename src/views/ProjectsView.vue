@@ -8,6 +8,7 @@ import {
   FolderCard,
   FolderBreadcrumbs,
   CreateFolderModal,
+  ProjectCard,
 } from '@/modules/projects'
 import { UserMenu } from '@/modules/auth'
 import PageHeader from '@/shared/components/layout/PageHeader.vue'
@@ -18,15 +19,22 @@ const router = useRouter()
 const store = useProjectsStore()
 const { folders, breadcrumbs, currentFolderId, parentFolderId, foldersLoading, foldersError } =
   storeToRefs(store)
+const { projects, projectsLoading, projectsError } = storeToRefs(store)
 
-// Проекты внутри папок пока не реализованы (бэк проектов не готов) - показываем
-// только папки. Карточки проектов появятся здесь же, рядом с папками.
+// Папки и лежащие в них проекты - два независимых запроса, показываются одной
+// сеткой: сначала папки, затем проекты (как в файловых менеджерах).
+function loadFolder(folderId) {
+  store.fetchFolders(folderId)
+  store.fetchProjects(folderId)
+}
 
-onMounted(() => store.fetchFolders(null))
+onMounted(() => loadFolder(null))
 
-// Кнопки шапки ведут в соответствующие редакторы.
+// Кнопки шапки ведут в соответствующие редакторы. ?new=1 - явно начать с
+// чистого холста: без него редактор сохранил бы состояние прошлого проекта
+// и «Сохранить» перезаписало бы уже открытый проект.
 function createToken() {
-  router.push('/editor/token')
+  router.push({ path: '/editor/token', query: { new: 1 } })
 }
 
 function createHandout() {
@@ -47,13 +55,23 @@ const draggingId = ref(null)
 const dropTargetId = ref(null)
 // Подсветка элемента «на уровень выше» как drop-цели.
 const upDropActive = ref(false)
+// Что именно тащим: у папки и проекта разные эндпоинты перемещения, а
+// dataTransfer несёт только id. Тип держим здесь - источник и цель в одном виде.
+const draggingKind = ref(null)
 
 function onDragStart(id) {
   draggingId.value = id
+  draggingKind.value = 'folder'
+}
+
+function onProjectDragStart(id) {
+  draggingId.value = id
+  draggingKind.value = 'project'
 }
 
 function onDragEnd() {
   draggingId.value = null
+  draggingKind.value = null
   dropTargetId.value = null
   upDropActive.value = false
 }
@@ -67,15 +85,21 @@ function onCardDragLeave(id) {
   if (dropTargetId.value === id) dropTargetId.value = null
 }
 
-// Переместить папку draggedId в папку targetId (общий обработчик для карточек,
-// крошек и элемента «вверх»).
+// Переместить перетаскиваемый элемент в папку targetId (общий обработчик для
+// карточек, крошек и элемента «вверх»). Папка и проект переезжают разными
+// эндпоинтами, поэтому смотрим на тип источника.
 async function moveInto(draggedId, targetId) {
+  const kind = draggingKind.value
   onDragEnd()
   if (!draggedId || draggedId === targetId) return
   try {
-    await store.moveFolder(draggedId, targetId)
-    // Перечитываем текущую папку, чтобы обновился счётчик вложенных у цели.
-    await store.fetchFolders(currentFolderId.value)
+    if (kind === 'project') {
+      await store.moveProject(draggedId, targetId)
+    } else {
+      await store.moveFolder(draggedId, targetId)
+      // Перечитываем текущую папку, чтобы обновился счётчик вложенных у цели.
+      await store.fetchFolders(currentFolderId.value)
+    }
   } catch (e) {
     foldersError.value = e.message
   }
@@ -87,11 +111,28 @@ function onDropOnCard({ draggedId, targetId }) {
 
 // ── Навигация ──
 function openFolder(id) {
-  store.openFolder(id)
+  loadFolder(id)
 }
 
 function goUp() {
-  store.openFolder(parentFolderId.value)
+  loadFolder(parentFolderId.value)
+}
+
+// ── Проекты ──
+// Открытие проекта - переход в редактор его типа с ?project=<id>: сам проект
+// подтягивает EditorView, чтобы ссылка работала и при прямом заходе/перезагрузке.
+function openProject(id) {
+  const project = projects.value.find((p) => p.id === id)
+  const path = project?.projectType === 'handout' ? '/editor/handout' : '/editor/token'
+  router.push({ path, query: { project: id } })
+}
+
+async function renameProject(id, name) {
+  try {
+    await store.renameProject(id, name)
+  } catch (e) {
+    projectsError.value = e.message
+  }
 }
 
 // ── Создание папки ──
@@ -127,21 +168,30 @@ async function renameFolder(id, name) {
 }
 
 // ── Удаление ──
+// Один диалог на папки и проекты: kind решает, что удалять и каким текстом
+// предупреждать (у папки уносится всё содержимое, у проекта - его файлы).
 const deleteTarget = ref(null)
 const deleting = ref(false)
 const deleteError = ref('')
 
 function askDelete(folder) {
-  deleteTarget.value = folder
+  deleteTarget.value = { kind: 'folder', item: folder }
+  deleteError.value = ''
+}
+
+function askDeleteProject(project) {
+  deleteTarget.value = { kind: 'project', item: project }
   deleteError.value = ''
 }
 
 async function confirmDelete() {
   if (!deleteTarget.value) return
+  const { kind, item } = deleteTarget.value
   deleting.value = true
   deleteError.value = ''
   try {
-    await store.deleteFolder(deleteTarget.value.id)
+    if (kind === 'project') await store.deleteProject(item.id)
+    else await store.deleteFolder(item.id)
     deleteTarget.value = null
   } catch (e) {
     deleteError.value = e.message
@@ -150,15 +200,28 @@ async function confirmDelete() {
   }
 }
 
-const deleteMessage = computed(() =>
-  deleteTarget.value
-    ? `Папка «${deleteTarget.value.name}»${
-        deleteTarget.value.childCount > 0 ? ' и всё её содержимое' : ''
-      } будет удалена безвозвратно.`
-    : '',
+const deleteTitle = computed(() =>
+  deleteTarget.value?.kind === 'project' ? 'Удалить проект?' : 'Удалить папку?',
 )
 
-const isEmpty = computed(() => !foldersLoading.value && folders.value.length === 0)
+const deleteMessage = computed(() => {
+  const target = deleteTarget.value
+  if (!target) return ''
+  if (target.kind === 'project') {
+    return `Проект «${target.item.name}» и его файлы будут удалены безвозвратно.`
+  }
+  return `Папка «${target.item.name}»${
+    target.item.childCount > 0 ? ' и всё её содержимое' : ''
+  } будет удалена безвозвратно.`
+})
+
+const isEmpty = computed(
+  () =>
+    !foldersLoading.value &&
+    !projectsLoading.value &&
+    folders.value.length === 0 &&
+    projects.value.length === 0,
+)
 </script>
 
 <template>
@@ -199,7 +262,9 @@ const isEmpty = computed(() => !foldersLoading.value && folders.value.length ===
     </div>
 
     <main class="projects-content">
-      <p v-if="foldersError" class="projects-error">{{ foldersError }}</p>
+      <p v-if="foldersError || projectsError" class="projects-error">
+        {{ foldersError || projectsError }}
+      </p>
 
       <div class="projects-grid">
         <!-- Элемент «на уровень выше» - не папка, а возврат вверх по вложенности.
@@ -233,12 +298,25 @@ const isEmpty = computed(() => !foldersLoading.value && folders.value.length ===
           @drag-leave="onCardDragLeave"
           @drop-folder="onDropOnCard"
         />
+
+        <!-- Проекты идут после папок, как в файловых менеджерах. Drop-целью не
+             являются: вложить проект в проект некуда. -->
+        <ProjectCard
+          v-for="project in projects"
+          :key="project.id"
+          :project="project"
+          @open="openProject"
+          @rename="renameProject"
+          @delete="askDeleteProject"
+          @dragstart="onProjectDragStart"
+          @dragend="onDragEnd"
+        />
       </div>
 
-      <!-- Подсказку показываем только в корне (у нового пользователя нет папок);
+      <!-- Подсказку показываем только в корне (у нового пользователя пусто);
            внутри открытой папки пустоту не подписываем. -->
       <p v-if="isEmpty && currentFolderId === null" class="projects-empty">
-        У вас пока нет папок
+        У вас пока нет проектов и папок
       </p>
     </main>
 
@@ -252,7 +330,7 @@ const isEmpty = computed(() => !foldersLoading.value && folders.value.length ===
 
     <ConfirmDialog
       :open="!!deleteTarget"
-      title="Удалить папку?"
+      :title="deleteTitle"
       :message="deleteMessage"
       :pending="deleting"
       :error="deleteError"

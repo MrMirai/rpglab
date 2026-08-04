@@ -27,6 +27,22 @@ export const useEditorStore = defineStore('editor', () => {
   const framePreviewUrl = ref(null)
   const bgPreviewUrl = ref(null)
 
+  // assetId картинки на сервере, если её происхождение известно: пришла с
+  // открытого проекта или это встроенная (системная) рамка. null - картинка
+  // локальная, при сохранении проекта её придётся залить.
+  // Зачем: без этого сохранение растеризует и заливает КАЖДУЮ картинку заново,
+  // а встроенная рамка превращается в личную копию пользователя - дедупликация
+  // на бэке идёт по паре (пользователь, хеш) и с системным файлом не схлопнется.
+  // Тысяча пользователей с одной популярной рамкой - тысяча объектов в бакете.
+  const charAssetId = ref(null)
+  const frameAssetId = ref(null)
+  const bgAssetId = ref(null)
+  // Маска кисти меняется прямо на холсте, поэтому её assetId живёт в паре с
+  // версией brushCanvas, на которой он был получен (см. useEditorSnapshot):
+  // после любого мазка ссылка протухает и файл надо заливать заново.
+  const brushAssetId = ref(null)
+  const brushAssetVersion = ref(-1)
+
   // Маска окна рамки считается автоматически (useAutoMask), загрузки своей нет
   const maskVersion = ref(0)       // инкремент форсирует пересчёт маски
 
@@ -135,6 +151,19 @@ export const useEditorStore = defineStore('editor', () => {
     selectedLightId.value = null
   }
 
+  // Заменяет список источников света целиком (открытие сохранённого проекта).
+  // ВАЖНО: счётчик id перематывается за максимальный загруженный номер - иначе
+  // следующий addLight выдаст id, который уже занят пришедшим из проекта светом
+  // (одинаковые :key в списке и попадание не в тот источник при updateLight).
+  function setLights(list) {
+    lights.value = (list ?? []).map((l) => ({ ...l }))
+    for (const light of lights.value) {
+      const n = Number(String(light.id).replace(/^light-/, ''))
+      if (Number.isFinite(n) && n > lightIdSeq) lightIdSeq = n
+    }
+    selectedLightId.value = lights.value.length ? lights.value[0].id : null
+  }
+
   const hasLights = computed(() => lights.value.length > 0)
 
   // Сетка и превью
@@ -186,8 +215,12 @@ export const useEditorStore = defineStore('editor', () => {
 
   function setBgType(type) { bgType.value = type }
   function setBgColor(color) { bgColor.value = color }
-  function loadBgImage(img, url = null) {
+  // assetId передаётся только когда происхождение картинки известно (пресет
+  // рамки, открытый проект). Загрузка пользователем своего файла зовёт функцию
+  // без него - и ссылка сбрасывается: файла с таким содержимым на сервере ещё нет.
+  function loadBgImage(img, url = null, assetId = null) {
     bgImage.value = img
+    bgAssetId.value = assetId
     bgType.value = img ? 'image' : 'none'
     if (url) {
       if (bgPreviewUrl.value) URL.revokeObjectURL(bgPreviewUrl.value)
@@ -205,15 +238,17 @@ export const useEditorStore = defineStore('editor', () => {
   function setCharPosition(x, y) { charX.value = x; charY.value = y }
   function setCharScale(scale) { charScale.value = Math.min(10, Math.max(0.05, scale)) }
 
-  function loadCharImage(img, url = null) {
+  function loadCharImage(img, url = null, assetId = null) {
     charImage.value = img
+    charAssetId.value = assetId
     if (url) {
       if (charPreviewUrl.value) URL.revokeObjectURL(charPreviewUrl.value)
       charPreviewUrl.value = url
     }
   }
-  function loadFrameImage(img, url = null) {
+  function loadFrameImage(img, url = null, assetId = null) {
     frameImage.value = img
+    frameAssetId.value = assetId
     if (url) {
       if (framePreviewUrl.value) URL.revokeObjectURL(framePreviewUrl.value)
       framePreviewUrl.value = url
@@ -223,6 +258,7 @@ export const useEditorStore = defineStore('editor', () => {
     if (charPreviewUrl.value) URL.revokeObjectURL(charPreviewUrl.value)
     charImage.value = null
     charPreviewUrl.value = null
+    charAssetId.value = null
   }
 
   function removeFrame() {
@@ -230,6 +266,7 @@ export const useEditorStore = defineStore('editor', () => {
     frameImage.value = null
     framePreviewUrl.value = null
     frameFileName.value = ''
+    frameAssetId.value = null
     maskVersion.value++
   }
 
@@ -237,6 +274,7 @@ export const useEditorStore = defineStore('editor', () => {
     if (bgPreviewUrl.value) URL.revokeObjectURL(bgPreviewUrl.value)
     bgImage.value = null
     bgPreviewUrl.value = null
+    bgAssetId.value = null
     // Остаёмся в режиме «Картинка», чтобы снова показалась зона загрузки
   }
 
@@ -250,6 +288,7 @@ export const useEditorStore = defineStore('editor', () => {
     charImage, charX, charY, charScale,
     frameImage, frameFileName, maskVersion,
     charPreviewUrl, framePreviewUrl, bgPreviewUrl,
+    charAssetId, frameAssetId, bgAssetId, brushAssetId, brushAssetVersion,
     overflowY, overflowSoft,
     activeTool, brushSize, brushHardness, brushMode, setBrushMode, lassoMode, setLassoMode,
     charHue, charSaturation, charBrightness, charContrast, charLuminosity,
@@ -260,7 +299,7 @@ export const useEditorStore = defineStore('editor', () => {
     bgAutoColor, bgCenterLight, bgEdgeLight, bgNoiseStrength, bgGrain, bgNoiseType,
     setBgAutoColor, setBgNoiseType,
     lights, selectedLightId, hasLights,
-    addLight, removeLight, updateLight, selectLight, clearLights,
+    addLight, removeLight, updateLight, selectLight, clearLights, setLights,
     showGrid, previewMode, showMaskOverlay, showHidden,
     canUndo, canRedo, setUndoRedo,
     exportModalOpen, openExportModal, closeExportModal,

@@ -1,75 +1,77 @@
 import { SCHEMA_VERSION } from '../schema/tokenProject.js'
 
-// Растеризует HTMLImageElement/HTMLCanvasElement в ImageRef.
-// uploadImage(blob) => Promise<{ key, url }> - опциональный колбэк для загрузки
-// ассета на сервер; без него изображение сериализуется inline (data URL) -
-// сценарий локального несохранённого проекта.
-// key - непрозрачный assetId, который целиком возвращает uploadImage(). Сервер
-// дедуплицирует файлы по SHA-256 содержимого, поэтому key НЕ конструируется
-// здесь (например, из projectId/имени файла) - предсказуемый путь на клиенте
-// сломал бы дедупликацию на сервере.
-async function imageToRef(source, uploadImage) {
-  if (!source) return null
-
-  const width = source.width
-  const height = source.height
-
-  if (!uploadImage) {
-    const canvas = document.createElement('canvas')
-    canvas.width = width
-    canvas.height = height
-    canvas.getContext('2d').drawImage(source, 0, 0, width, height)
-    return {
-      source: 'inline',
-      dataUrl: canvas.toDataURL('image/png'),
-      mimeType: 'image/png',
-      width,
-      height,
-    }
-  }
-
-  const blob = await new Promise((resolve) => {
-    const canvas = document.createElement('canvas')
-    canvas.width = width
-    canvas.height = height
-    canvas.getContext('2d').drawImage(source, 0, 0, width, height)
-    canvas.toBlob(resolve, 'image/png')
-  })
-  const { key, url } = await uploadImage(blob)
-  return { source: 'remote', key, url, mimeType: 'image/png', width, height }
+// Тип ассета (POST /api/assets?type=…) для каждого слота редактора. Значения -
+// строчный snake_case, как их ждёт бэкенд.
+const ASSET_TYPE = {
+  char: 'character_image',
+  frame: 'frame_image',
+  bg: 'background_image',
+  brush: 'brush_mask',
 }
 
-// Собирает JSON проекта токена из "сырого" снимка редактора
-// (useEditorSnapshot().getSnapshot()) и метаданных проекта.
-export async function serializeProject(snapshot, { uploadImage = null, meta = {} } = {}) {
-  const now = new Date().toISOString()
+function sourceToBlob(source) {
+  const canvas = document.createElement('canvas')
+  canvas.width = source.width
+  canvas.height = source.height
+  canvas.getContext('2d').drawImage(source, 0, 0, canvas.width, canvas.height)
+  return new Promise((resolve) => canvas.toBlob(resolve, 'image/png'))
+}
 
-  const [charImage, frameImage, bgImage, brushImage] = await Promise.all([
-    imageToRef(snapshot.charImage, uploadImage),
-    imageToRef(snapshot.frameImage, uploadImage),
-    imageToRef(snapshot.bgImage, uploadImage),
-    imageToRef(snapshot.brushCanvas, uploadImage),
+// Возвращает assetId для одного слота.
+// Если у картинки уже есть assetId (пришла с сервера при открытии проекта или
+// выбрана встроенная рамка) - файл НЕ перезаливается: содержимое то же, сервер
+// вернул бы по дедупликации тот же id, а растеризация в PNG + upload на каждое
+// сохранение стоят времени и трафика. Для встроенной рамки это ещё и вопрос
+// владения: дедупликация идёт по паре (пользователь, хеш) и с системным файлом
+// не схлопывается - перезаливка наплодила бы личную копию у каждого юзера.
+// Без uploadAsset (нет сессии/офлайн) ссылка остаётся пустой: класть картинку
+// в содержимое инлайном нельзя, лимит configuration - 1 МиБ.
+async function resolveAssetId(source, knownAssetId, type, uploadAsset) {
+  if (!source) return null
+  if (knownAssetId) return knownAssetId
+  if (!uploadAsset) return null
+
+  const blob = await sourceToBlob(source)
+  const asset = await uploadAsset(blob, type)
+  return asset?.id ?? null
+}
+
+// Собирает configuration проекта токена из "сырого" снимка редактора
+// (useEditorSnapshot().getSnapshot()).
+//
+// baseConfig - содержимое, пришедшее с сервера при открытии проекта. Собирать
+// configuration с нуля НЕЛЬЗЯ: бэкенд хранит содержимое как есть и вернул бы
+// поля, которых эта версия редактора не знает (сохранены новее/старее), но если
+// перезаписать содержимое собранным с нуля объектом - они потеряются на клиенте.
+// Поэтому известные поля НАКЛАДЫВАЮТСЯ на пришедшую базу.
+export async function serializeProject(snapshot, { uploadAsset = null, baseConfig = null } = {}) {
+  const base = baseConfig ? structuredClone(baseConfig) : {}
+
+  const [charAssetId, frameAssetId, imageAssetId, brushMaskAssetId] = await Promise.all([
+    resolveAssetId(snapshot.charImage, snapshot.charAssetId, ASSET_TYPE.char, uploadAsset),
+    resolveAssetId(snapshot.frameImage, snapshot.frameAssetId, ASSET_TYPE.frame, uploadAsset),
+    resolveAssetId(snapshot.bgImage, snapshot.bgAssetId, ASSET_TYPE.bg, uploadAsset),
+    resolveAssetId(snapshot.brushCanvas, snapshot.brushAssetId, ASSET_TYPE.brush, uploadAsset),
   ])
 
   return {
+    ...base,
     schemaVersion: SCHEMA_VERSION,
 
-    id: meta.id ?? crypto.randomUUID(),
-    name: meta.name ?? 'Без названия',
-    createdAt: meta.createdAt ?? now,
-    updatedAt: now,
-
     canvas: {
+      ...base.canvas,
       size: snapshot.canvasSize,
     },
 
     character: {
-      image: charImage,
+      ...base.character,
+      assetId: charAssetId,
       x: snapshot.charX,
       y: snapshot.charY,
       scale: snapshot.charScale,
 
       filters: {
+        ...base.character?.filters,
         hue: snapshot.charHue,
         saturation: snapshot.charSaturation,
         brightness: snapshot.charBrightness,
@@ -78,6 +80,7 @@ export async function serializeProject(snapshot, { uploadImage = null, meta = {}
       },
 
       shadow: {
+        ...base.character?.shadow,
         enabled: snapshot.charShadowEnabled,
         color: snapshot.charShadowColor,
         blur: snapshot.charShadowBlur,
@@ -88,35 +91,44 @@ export async function serializeProject(snapshot, { uploadImage = null, meta = {}
     },
 
     frame: {
-      image: frameImage,
+      ...base.frame,
+      frameAssetId,
       fileName: snapshot.frameFileName,
     },
 
     mask: {
+      ...base.mask,
       overflow: {
+        ...base.mask?.overflow,
         y: snapshot.overflowY,
         soft: snapshot.overflowSoft,
       },
-      brush: brushImage,
+      brushMaskAssetId,
     },
 
     background: {
+      ...base.background,
       type: snapshot.bgType,
       color: snapshot.bgColor,
-      image: bgImage,
+      imageAssetId,
 
       auto: {
+        ...base.background?.auto,
         baseColor: snapshot.bgAutoColor,
         centerLight: snapshot.bgCenterLight,
         edgeLight: snapshot.bgEdgeLight,
         noiseStrength: snapshot.bgNoiseStrength,
         grain: snapshot.bgGrain,
         noiseType: snapshot.bgNoiseType,
-        generatedImage: null,
       },
     },
 
+    // Список целиком заменяет базу: слить массивы по индексу нельзя - удалённый
+    // источник света «воскрес» бы из baseConfig.
+    lights: (snapshot.lights ?? []).map((light) => ({ ...light })),
+
     toolPrefs: {
+      ...base.toolPrefs,
       brushSize: snapshot.brushSize,
       brushHardness: snapshot.brushHardness,
       brushMode: snapshot.brushMode,

@@ -1,31 +1,29 @@
-export const SCHEMA_VERSION = 1
+export const SCHEMA_VERSION = 2
 
-// ImageRef - единый тип для любого растра в проекте (персонаж/рамка/фон/кисть).
-// source: 'inline' - dataUrl хранится прямо в JSON (черновик без сохранения на сервер);
-// source: 'remote' - key/url ссылаются на ассет в MinIO (сохранённый проект). key -
-// непрозрачный assetId, выданный сервером при загрузке (дедупликация по SHA-256
-// содержимого) - клиент не конструирует и не предполагает его формат;
-// null - изображения нет.
-export function createEmptyImageRef() {
-  return null
-}
-
+// Содержимое проекта (configuration в ProjectResponse) непрозрачно для бэкенда:
+// он не знает структуру, ничего не валидирует и ничего не дописывает. Проверяет
+// ровно три вещи - что это JSON-объект, что внутри есть числовой schemaVersion >= 1
+// и что размер <= 1 МиБ. Отсюда следствия: миграции и дефолты - целиком на клиенте
+// (migrations.js + applyDefaults ниже), а картинки в содержимое НЕ встраиваются
+// (data URL сожрал бы лимит) - только ссылки на заранее залитые ассеты.
+//
+// ССЫЛКА НА ФАЙЛ - ЭТО КОНТРАКТ ПО ИМЕНИ ПОЛЯ. Бэкенд обходит configuration
+// целиком (любая глубина, включая массивы) и считает ссылкой на файл значение
+// поля, чьё имя равно `assetId` либо заканчивается на `AssetId`; значение -
+// строка-UUID или null. Именно по этим полям он закрепляет файлы за проектом
+// и защищает их от сборки мусора. Поле с другим именем (image / imageId / src)
+// бэкенд НЕ УВИДИТ: файл останется неприкреплённым и будет удалён как ненужный.
+// Поэтому переименование любого *AssetId-поля - ломающее изменение схемы.
 export function createEmptyProject() {
-  const now = new Date().toISOString()
   return {
     schemaVersion: SCHEMA_VERSION,
-
-    id: crypto.randomUUID(),
-    name: 'Без названия',
-    createdAt: now,
-    updatedAt: now,
 
     canvas: {
       size: 500,
     },
 
     character: {
-      image: null,
+      assetId: null,
       x: 0,
       y: 0,
       scale: 1,
@@ -49,7 +47,7 @@ export function createEmptyProject() {
     },
 
     frame: {
-      image: null,
+      frameAssetId: null,
       fileName: '',
     },
 
@@ -58,14 +56,16 @@ export function createEmptyProject() {
         y: 35,
         soft: 20,
       },
-      brush: null,
+      brushMaskAssetId: null,
     },
 
     background: {
       type: 'none',
       color: '#1a1a2e',
-      image: null,
+      imageAssetId: null,
 
+      // Авто-фон процедурный: сохраняем параметры, а не картинку - она
+      // пересобирается из них при открытии (useAutoBackground).
       auto: {
         baseColor: '#28283c',
         centerLight: 0.7,
@@ -73,9 +73,11 @@ export function createEmptyProject() {
         noiseStrength: 15,
         grain: 6,
         noiseType: 'perlin',
-        generatedImage: null,
       },
     },
+
+    // Источники света: массив простых объектов, файлов не содержит.
+    lights: [],
 
     toolPrefs: {
       brushSize: 30,
@@ -84,4 +86,30 @@ export function createEmptyProject() {
       lassoMode: 'add',
     },
   }
+}
+
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+// Глубокое слияние дефолтов с содержимым: объекты сливаются рекурсивно, а
+// массивы и примитивы источник ЗАМЕНЯЕТ целиком (склеивать lights с дефолтным
+// пустым списком бессмысленно). Незнакомые ключи источника сохраняются - их
+// мог положить более новый редактор, и терять их нельзя.
+function deepMerge(defaults, source) {
+  const out = { ...defaults }
+  for (const [key, value] of Object.entries(source ?? {})) {
+    if (value === undefined) continue
+    out[key] = isPlainObject(value) && isPlainObject(defaults?.[key])
+      ? deepMerge(defaults[key], value)
+      : value
+  }
+  return out
+}
+
+// Накладывает дефолты на содержимое проекта. Вызывать ПОСЛЕ migrate():
+// проект мог быть сохранён версией редактора, в которой поля ещё не было,
+// и читать его вложенные поля напрямую (config.character.filters.hue) нельзя.
+export function applyDefaults(config) {
+  return deepMerge(createEmptyProject(), config)
 }

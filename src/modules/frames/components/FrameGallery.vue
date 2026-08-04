@@ -117,8 +117,13 @@ onMounted(() => {
 async function selectFrame(frame) {
   selectedFrameId.value = frame.id
 
+  // Третьим аргументом идёт assetId пресета: файл уже лежит на сервере, и при
+  // сохранении проекта его не надо заливать заново. Для СИСТЕМНОЙ рамки это
+  // принципиально - дедупликация на бэке идёт по паре (пользователь, хеш) и с
+  // системным файлом не схлопывается, так что перезаливка создала бы личную
+  // копию встроенной рамки у каждого пользователя.
   const { img, objectUrl } = await loadFromUrlAsBlob(frame.frameAssetUrl)
-  editorStore.loadFrameImage(img, objectUrl)
+  editorStore.loadFrameImage(img, objectUrl, frame.frameAssetId)
   editorStore.frameFileName = frame.name
   // Новая рамка → пересчитываем авто-маску
   editorStore.resetMask()
@@ -126,7 +131,7 @@ async function selectFrame(frame) {
   // Фон-компаньон рамки, если он задан в пресете
   if (frame.backgroundAssetUrl) {
     const { img: bgImg, objectUrl: bgObjectUrl } = await loadFromUrlAsBlob(frame.backgroundAssetUrl)
-    editorStore.loadBgImage(bgImg, bgObjectUrl)
+    editorStore.loadBgImage(bgImg, bgObjectUrl, frame.backgroundAssetId)
   }
 }
 

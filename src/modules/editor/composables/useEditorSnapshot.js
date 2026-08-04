@@ -7,13 +7,23 @@ import { useBrushMask } from './useBrushMask.js'
 // этим занимается модуль projects (см. useProjectSerializer/useProjectDeserializer).
 export function useEditorSnapshot() {
   const store = useEditorStore()
-  const { brushCanvas, loadFromImage: loadBrushFromImage, bumpBrushVersion } = useBrushMask()
+  const {
+    brushCanvas,
+    brushVersion,
+    loadFromImage: loadBrushFromImage,
+    bumpBrushVersion,
+  } = useBrushMask()
 
   function getSnapshot() {
     return {
       canvasSize: store.canvasSize,
 
       charImage: store.charImage,
+      // assetId уже залитой картинки - чтобы сохранение не заливало её повторно.
+      // Превью-URL идут вместе с картинкой: без них при открытии другого проекта
+      // в панели свойств осталась бы миниатюра предыдущего.
+      charAssetId: store.charAssetId,
+      charPreviewUrl: store.charPreviewUrl,
       charX: store.charX,
       charY: store.charY,
       charScale: store.charScale,
@@ -32,15 +42,24 @@ export function useEditorSnapshot() {
       charShadowOpacity: store.charShadowOpacity,
 
       frameImage: store.frameImage,
+      frameAssetId: store.frameAssetId,
+      framePreviewUrl: store.framePreviewUrl,
       frameFileName: store.frameFileName,
 
       overflowY: store.overflowY,
       overflowSoft: store.overflowSoft,
       brushCanvas,
+      brushVersion: brushVersion.value,
+      // Маску кисти правят прямо на холсте, поэтому её assetId действителен
+      // только для той версии brushCanvas, на которой был получен: после мазка
+      // ссылка ведёт на устаревший файл и слот считается незалитым.
+      brushAssetId: store.brushAssetVersion === brushVersion.value ? store.brushAssetId : null,
 
       bgType: store.bgType,
       bgColor: store.bgColor,
       bgImage: store.bgType === 'image' ? store.bgImage : null,
+      bgAssetId: store.bgType === 'image' ? store.bgAssetId : null,
+      bgPreviewUrl: store.bgPreviewUrl,
       bgAutoColor: store.bgAutoColor,
       bgCenterLight: store.bgCenterLight,
       bgEdgeLight: store.bgEdgeLight,
@@ -62,7 +81,13 @@ export function useEditorSnapshot() {
   function applySnapshot(snapshot) {
     if (snapshot.canvasSize != null) store.canvasSize = snapshot.canvasSize
 
-    store.loadCharImage(snapshot.charImage ?? null)
+    // removeChar/removeFrame/removeBgImage перед загрузкой - чтобы освободить
+    // object URL прошлого превью: loadXImage(img) без url его не трогает, и в
+    // панели свойств осталась бы миниатюра предыдущего проекта.
+    store.removeChar()
+    if (snapshot.charImage) {
+      store.loadCharImage(snapshot.charImage, snapshot.charPreviewUrl ?? null, snapshot.charAssetId ?? null)
+    }
     store.setCharPosition(snapshot.charX ?? 0, snapshot.charY ?? 0)
     store.setCharScale(snapshot.charScale ?? 1)
 
@@ -79,7 +104,10 @@ export function useEditorSnapshot() {
     store.charShadowOffsetY = snapshot.charShadowOffsetY ?? 8
     store.charShadowOpacity = snapshot.charShadowOpacity ?? 60
 
-    store.loadFrameImage(snapshot.frameImage ?? null)
+    store.removeFrame()
+    if (snapshot.frameImage) {
+      store.loadFrameImage(snapshot.frameImage, snapshot.framePreviewUrl ?? null, snapshot.frameAssetId ?? null)
+    }
     store.frameFileName = snapshot.frameFileName ?? ''
 
     store.maskVersion++
@@ -92,12 +120,17 @@ export function useEditorSnapshot() {
       brushCanvas.getContext('2d').clearRect(0, 0, brushCanvas.width, brushCanvas.height)
       bumpBrushVersion()
     }
+    // Загруженная маска соответствует своему серверному файлу - фиксируем это
+    // на текущей (только что увеличенной) версии холста, иначе первое сохранение
+    // зальёт её копию заново.
+    store.brushAssetId = snapshot.brushAssetId ?? null
+    store.brushAssetVersion = snapshot.brushAssetId ? brushVersion.value : -1
 
     store.setBgColor(snapshot.bgColor ?? '#1a1a2e')
+    store.removeBgImage()
     if (snapshot.bgType === 'image' && snapshot.bgImage) {
-      store.loadBgImage(snapshot.bgImage)
+      store.loadBgImage(snapshot.bgImage, snapshot.bgPreviewUrl ?? null, snapshot.bgAssetId ?? null)
     } else {
-      store.bgImage = null
       store.setBgType(snapshot.bgType ?? 'none')
     }
     store.setBgAutoColor(snapshot.bgAutoColor ?? '#28283c')
@@ -107,8 +140,9 @@ export function useEditorSnapshot() {
     store.bgGrain = snapshot.bgGrain ?? 6
     store.setBgNoiseType(snapshot.bgNoiseType ?? 'perlin')
 
-    store.lights = (snapshot.lights ?? []).map((l) => ({ ...l }))
-    store.selectedLightId = store.lights.length ? store.lights[0].id : null
+    // setLights, а не присваивание списка: он перематывает счётчик id за
+    // загруженные источники (иначе следующий addLight выдаст занятый id).
+    store.setLights(snapshot.lights)
 
     store.brushSize = snapshot.brushSize ?? 30
     store.brushHardness = snapshot.brushHardness ?? 50
@@ -116,5 +150,18 @@ export function useEditorSnapshot() {
     store.setLassoMode(snapshot.lassoMode ?? 'add')
   }
 
-  return { getSnapshot, applySnapshot }
+  // Записывает обратно в стор assetId'ы, выданные сервером при сохранении
+  // проекта: следующее сохранение уже не будет перезаливать те же картинки.
+  // brushVersion берётся из снимка, с которого шло сохранение - пользователь мог
+  // успеть мазнуть кистью, пока файлы уезжали на сервер, и тогда ссылка на маску
+  // сразу протухшая.
+  function commitAssetIds({ char, frame, bg, brushMask, brushVersion: savedBrushVersion } = {}) {
+    store.charAssetId = char ?? null
+    store.frameAssetId = frame ?? null
+    store.bgAssetId = bg ?? null
+    store.brushAssetId = brushMask ?? null
+    store.brushAssetVersion = brushMask ? (savedBrushVersion ?? brushVersion.value) : -1
+  }
+
+  return { getSnapshot, applySnapshot, commitAssetIds }
 }

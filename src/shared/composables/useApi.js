@@ -1,5 +1,6 @@
 // Базовый HTTP-клиент с авто-refresh access-токена.
-// accessToken живёт в памяти, refreshToken - в localStorage (переживает перезагрузку).
+// ОБА токена - в localStorage: пара переживает перезагрузку вкладки и общая
+// на все вкладки одного origin.
 
 // Бэк теперь сам настраивает CORS (разрешённый origin - см. API.md), поэтому
 // дев-прокси Vite (/api → localhost:8080) больше не нужен - ходим напрямую.
@@ -9,21 +10,79 @@ function resolveUrl(path) {
   return path.startsWith('/api/') ? `${API_BASE_URL}${path}` : path
 }
 
+const ACCESS_TOKEN_KEY = 'accessToken'
+const REFRESH_TOKEN_KEY = 'refreshToken'
+
+// Считаем access протухшим за 30 с до реального exp: запрос ещё должен успеть
+// долететь, да и часы клиента с сервером расходятся на секунды.
+const ACCESS_EXPIRY_SKEW_MS = 30 * 1000
+
 let accessToken = null
+let accessExpiresAt = 0 // мс epoch, 0 = срок неизвестен
+
+// exp из payload JWT. Access - подписанный JWT (refresh, наоборот, непрозрачная
+// строка, см. API.md), так что срок жизни читается прямо на клиенте. Подпись НЕ
+// проверяем: знать надо лишь одно - стоит ли вообще пробовать этот токен, решение
+// о валидности всё равно за бэком. base64url ≠ base64, и в payload бывает кириллица,
+// поэтому декодируем через TextDecoder, а не голым atob.
+function readTokenExpiry(token) {
+  try {
+    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+    const bytes = Uint8Array.from(atob(base64), (ch) => ch.charCodeAt(0))
+    const payload = JSON.parse(new TextDecoder().decode(bytes))
+    return typeof payload.exp === 'number' ? payload.exp * 1000 : 0
+  } catch {
+    // Не JWT / битый токен - пусть его отбракует бэк своим 401
+    return 0
+  }
+}
 
 export function setAccessToken(token) {
-  accessToken = token
+  accessToken = token || null
+  accessExpiresAt = token ? readTokenExpiry(token) : 0
+  if (token) localStorage.setItem(ACCESS_TOKEN_KEY, token)
+  else localStorage.removeItem(ACCESS_TOKEN_KEY)
 }
 export function getAccessToken() {
   return accessToken
 }
 
+// Жив ли сохранённый access. По нему решаем, нужна ли вообще ротация refresh:
+// каждая ротация оставляет строку в БД, а перезагрузок и вкладок много.
+export function hasValidAccessToken() {
+  return !!accessToken && accessExpiresAt - ACCESS_EXPIRY_SKEW_MS > Date.now()
+}
+
+// Подтянуть пару, которую мог обновить сосед по вкладке. Читаем именно из
+// localStorage, а не полагаемся на событие 'storage': оно асинхронное и к моменту
+// проверки могло ещё не долететь.
+function syncAccessTokenFromStorage() {
+  const stored = localStorage.getItem(ACCESS_TOKEN_KEY)
+  if (stored !== accessToken) {
+    accessToken = stored
+    accessExpiresAt = stored ? readTokenExpiry(stored) : 0
+  }
+  return accessToken
+}
+
+// Стартовое чтение: после перезагрузки access ещё может быть жив, и тогда
+// восстановление сессии обойдётся без ротации refresh вовсе.
+syncAccessTokenFromStorage()
+
+// Соседняя вкладка обновила пару (или вышла) - подхватываем без своего /refresh.
+// Событие 'storage' приходит только в ДРУГИЕ вкладки, поэтому эха не будет.
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key === ACCESS_TOKEN_KEY) syncAccessTokenFromStorage()
+  })
+}
+
 export function setRefreshToken(token) {
-  if (token) localStorage.setItem('refreshToken', token)
-  else localStorage.removeItem('refreshToken')
+  if (token) localStorage.setItem(REFRESH_TOKEN_KEY, token)
+  else localStorage.removeItem(REFRESH_TOKEN_KEY)
 }
 export function getRefreshToken() {
-  return localStorage.getItem('refreshToken')
+  return localStorage.getItem(REFRESH_TOKEN_KEY)
 }
 
 export function clearTokens() {
@@ -77,23 +136,44 @@ const NO_REFRESH_RETRY = [
   '/api/auth/reset-password/validate',
 ]
 
-// Single-flight обновление пары токенов.
+// Single-flight обновление пары токенов - в ДВА яруса, внутри вкладки и между ними.
 //
 // КРИТИЧНО: бэк РОТИРУЕТ refresh - каждый /api/auth/refresh гасит предъявленный
 // токен и выдаёт НОВУЮ пару. Повторная отправка уже использованного refresh
 // трактуется бэком как кража: он отзывает ВСЕ токены пользователя (разлогин со
-// всех устройств). Отсюда два правила:
+// всех устройств). Отсюда три правила:
 //   1) после ответа перезаписываем ОБА токена значениями из ответа;
-//   2) обновление - одно на всех: параллельные 401 ждут один и тот же промис,
-//      иначе второй ушёл бы со старым (только что погашенным) refresh → реюз → разлогин.
+//   2) обновление - одно на вкладку: параллельные 401 ждут один и тот же промис,
+//      иначе второй ушёл бы со старым (только что погашенным) refresh → реюз → разлогин;
+//   3) обновление - одно на ВСЕ вкладки: refresh лежит в общем localStorage, поэтому
+//      два одновременных 401 в разных вкладках прочитали бы один и тот же токен и
+//      предъявили его дважды - тот же реюз. Замок - Web Locks (общий на origin),
+//      и внутри него мы ещё раз перечитываем хранилище: если сосед уже провернул
+//      ротацию, свой /refresh не нужен вовсе.
 // Этот же промис переиспользует restoreSession() в authStore - чтобы восстановление
 // сессии на старте и 401 от параллельного запроса не устроили два /refresh подряд.
 let refreshPromise = null
 
-export function refreshSession() {
+const REFRESH_LOCK_NAME = 'rpglab-auth-refresh'
+
+// Web Locks есть во всех целевых браузерах; на всякий случай (старый Safari,
+// не-secure origin) деградируем до внутривкладочного single-flight.
+function withRefreshLock(fn) {
+  if (typeof navigator === 'undefined' || !navigator.locks?.request) return fn()
+  return navigator.locks.request(REFRESH_LOCK_NAME, fn)
+}
+
+// staleToken - access, с которым запрос словил 401. Нужен, чтобы отличить
+// «сосед уже обновил пару, бери готовую» от «мой токен отозвали, хотя exp ещё
+// не наступил»: во втором случае в хранилище лежит ровно тот же мёртвый токен,
+// и обновляться всё-таки надо.
+export function refreshSession(staleToken = null) {
   if (refreshPromise) return refreshPromise
 
-  refreshPromise = (async () => {
+  refreshPromise = withRefreshLock(async () => {
+    const fresh = syncAccessTokenFromStorage()
+    if (fresh && fresh !== staleToken && hasValidAccessToken()) return fresh
+
     const refresh = getRefreshToken()
     if (!refresh) throw new Error('No refresh token')
 
@@ -108,7 +188,7 @@ export function refreshSession() {
     setAccessToken(data.accessToken)
     setRefreshToken(data.refreshToken) // ротация: старый refresh уже мёртв
     return data.accessToken
-  })()
+  })
     .catch((err) => {
       // Сессия мертва (refresh протух/отозван/реюз) - чистим пару и уводим на вход.
       clearTokens()
@@ -137,12 +217,15 @@ export async function apiFetch(path, options = {}, attempt = 0) {
     headers['Authorization'] = `Bearer ${accessToken}`
   }
 
+  const sentToken = accessToken
   let res = await fetch(resolveUrl(path), { ...options, headers })
 
   // 401 - access протух: обновляем пару (single-flight) и повторяем запрос ОДИН раз.
   if (res.status === 401 && getRefreshToken() && !NO_REFRESH_RETRY.includes(path)) {
     try {
-      const newToken = await refreshSession()
+      // Отдаём токен, с которым словили 401: если соседняя вкладка успела обновить
+      // пару, refreshSession вернёт её без похода на /refresh (см. staleToken).
+      const newToken = await refreshSession(sentToken)
       res = await fetch(resolveUrl(path), {
         ...options,
         headers: { ...headers, Authorization: `Bearer ${newToken}` },

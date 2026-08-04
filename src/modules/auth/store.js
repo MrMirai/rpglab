@@ -8,6 +8,7 @@ import {
   getRetryAfterSeconds,
   clearTokens,
   refreshSession,
+  hasValidAccessToken,
 } from '@/shared/composables/useApi'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -350,15 +351,22 @@ export const useAuthStore = defineStore('auth', () => {
     sessionReadyResolve = resolve
   })
 
-  // Восстановление сессии при перезагрузке: по refreshToken из localStorage
-  // получаем новую пару и подтягиваем профиль. Обновление идёт через общий
-  // single-flight refreshSession() из useApi (НЕ собственный POST /refresh):
-  // refresh ротируется, и два параллельных обновления послали бы один и тот же
-  // токен дважды - бэк счёл бы это реюзом и отозвал все токены пользователя.
+  // Восстановление сессии при перезагрузке: по сохранённой паре токенов
+  // подтягиваем профиль. Обновление идёт через общий single-flight
+  // refreshSession() из useApi (НЕ собственный POST /refresh): refresh
+  // ротируется, и два параллельных обновления послали бы один и тот же токен
+  // дважды - бэк счёл бы это реюзом и отозвал все токены пользователя.
+  //
+  // ВАЖНО: /refresh зовём ТОЛЬКО если access реально протух. Каждая ротация
+  // оставляет строку в БД, а перезагрузок много (F5, полный reload от HMR в деве)
+  // и вкладок тоже - безусловное обновление на старте давало сотни лишних строк
+  // в сутки на пользователя (правило в docs/API.md: обновляться по сроку жизни
+  // access, а не по расписанию). Если access живой, но уже отозван (сменили
+  // пароль в другом месте), fetchMe получит 401 и apiFetch обновит пару сам.
   async function restoreSession() {
     try {
       if (!getRefreshToken()) return
-      await refreshSession()
+      if (!hasValidAccessToken()) await refreshSession()
       await fetchMe()
     } catch {
       // refreshSession уже почистил токены (сессия мертва) - просто остаёмся гостем

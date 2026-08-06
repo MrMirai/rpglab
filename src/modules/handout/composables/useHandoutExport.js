@@ -61,6 +61,22 @@ export function useHandoutExport() {
     }
   }
 
+  // Снимок для превью проекта: возвращает Blob, а не скачивает файл, и сам
+  // достаёт стейдж через мост (у вызывающего - модуль projects - ссылки на
+  // Konva нет и быть не должно). Стейджа нет, если холст ещё не смонтирован -
+  // тогда снимать нечего, и это не ошибка.
+  // maxSize - самая длинная сторона миниатюры; апскейла нет (ratio ≤ 1), мелкий
+  // документ остаётся мелким, но резким.
+  async function capturePreviewBlob(doc, elements = [], maxSize = 512) {
+    const { stage, uiLayer } = bridge.getStageForExport() ?? {}
+    if (!stage || !doc?.width || !doc?.height) return null
+
+    await ensureFontsLoaded(elements)
+    const ratio = Math.min(maxSize / Math.max(doc.width, doc.height), 1)
+    const dataUrl = captureDataUrl(stage, uiLayer, doc, ratio * BASE_DPI, 'image/webp')
+    return (await fetch(dataUrl)).blob()
+  }
+
   function download(dataUrl, filename) {
     const a = document.createElement('a')
     a.href = dataUrl
@@ -98,5 +114,5 @@ export function useHandoutExport() {
     pdf.save(`${filename}.pdf`)
   }
 
-  return { exportPng, exportWebp, exportPdf }
+  return { exportPng, exportWebp, exportPdf, capturePreviewBlob }
 }

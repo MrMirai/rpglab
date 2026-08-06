@@ -2,8 +2,11 @@ import { defineStore } from 'pinia'
 import { ref, shallowRef, computed } from 'vue'
 import { api } from '@/shared/composables/useApi'
 import { useEditorSnapshot } from '@/modules/editor'
+import { useHandoutStore } from '@/modules/handout'
 import { serializeProject } from './composables/useProjectSerializer.js'
 import { deserializeProject } from './composables/useProjectDeserializer.js'
+import { serializeHandoutProject } from './composables/useHandoutSerializer.js'
+import { deserializeHandoutProject } from './composables/useHandoutDeserializer.js'
 import { useProjectPreview } from './composables/useProjectPreview.js'
 
 // Папка на бэке (FolderResponse):
@@ -37,6 +40,7 @@ import { useProjectPreview } from './composables/useProjectPreview.js'
 //   DELETE /api/projects/{id}               204
 
 const PROJECT_TYPE_TOKEN = 'token'
+const PROJECT_TYPE_HANDOUT = 'handout'
 
 export const useProjectsStore = defineStore('projects', () => {
   // ── Текущий сохранённый проект ──────────────────────────────────────────
@@ -50,6 +54,10 @@ export const useProjectsStore = defineStore('projects', () => {
   // тоже надо слать каждый раз; а если съёмка нового превью не удалась, есть
   // куда откатиться - иначе сетевой сбой стирал бы нормальную миниатюру.
   const currentProjectPreviewAssetId = ref(null)
+  // Тип открытого проекта ('token' | 'handout'). Редактора два, а «текущий
+  // проект» один - без сверки типа сохранение из одного редактора перезаписало
+  // бы проект, открытый в другом.
+  const currentProjectType = ref(null)
   const isDirty = ref(false)
   const isSaving = ref(false)
   // configuration проекта в том виде, в каком он пришёл с сервера. База для
@@ -61,11 +69,12 @@ export const useProjectsStore = defineStore('projects', () => {
   // ещё и подсовывал бы наружу Proxy, а его не берёт structuredClone.
   const currentConfig = shallowRef(null)
 
-  function setCurrentProject(id, name, folderId = null, previewAssetId = null) {
+  function setCurrentProject(id, name, folderId = null, previewAssetId = null, projectType = null) {
     currentProjectId.value = id
     currentProjectName.value = name
     currentProjectFolderId.value = folderId
     currentProjectPreviewAssetId.value = previewAssetId
+    currentProjectType.value = projectType
     isDirty.value = false
   }
 
@@ -80,6 +89,7 @@ export const useProjectsStore = defineStore('projects', () => {
     currentProjectName.value = 'Без названия'
     currentProjectFolderId.value = null
     currentProjectPreviewAssetId.value = null
+    currentProjectType.value = null
     currentConfig.value = null
     isDirty.value = false
   }
@@ -312,16 +322,15 @@ export const useProjectsStore = defineStore('projects', () => {
     if (currentProjectId.value === id) resetCurrentProject()
   }
 
-  // ── Пайплайн сохранения/открытия проекта токена ─────────────────────────
+  // ── Пайплайн сохранения/открытия проектов ───────────────────────────────
 
   // Снимает превью текущей работы и заливает его, возвращая assetId для проекта.
-  // Превью - косметика: любая осечка (нет персонажа, сбой заливки) НЕ должна
+  // Превью - косметика: любая осечка (нечего снимать, сбой заливки) НЕ должна
   // ронять сохранение самого проекта, поэтому ошибка гасится, а вместо нового
   // id остаётся прежний - иначе сетевой сбой стирал бы уже снятую миниатюру.
-  async function capturePreviewAssetId() {
-    const { buildTokenPreview } = useProjectPreview()
+  async function capturePreviewAssetId(buildPreview) {
     try {
-      const blob = await buildTokenPreview()
+      const blob = await buildPreview()
       if (!blob) return currentProjectPreviewAssetId.value
       const asset = await uploadAsset(blob, 'preview_image')
       return asset?.id ?? currentProjectPreviewAssetId.value
@@ -330,37 +339,82 @@ export const useProjectsStore = defineStore('projects', () => {
     }
   }
 
-  // Сохраняет текущее состояние редактора. Порядок из docs/API.md: сначала
-  // заливаются картинки, у которых ещё нет assetId (этим занимается сериализатор),
-  // и только потом уходит содержимое со ссылками на них.
+  // Общая для обоих редакторов часть сохранения: создать или перезаписать.
+  //
+  // ВАЖНО: «текущий проект» в сторе один на приложение, а редактора два.
+  // Перезаписывать открытый проект можно, только если он ТОГО ЖЕ типа: иначе
+  // сохранение раздатки ушло бы в PUT по id открытого токена и затёрло бы его
+  // содержимое чужим форматом. Тип не совпал - значит это новый проект.
+  async function persistProject({ projectType, configuration, previewAssetId, name, folderId }) {
+    const sameProject = currentProjectId.value && currentProjectType.value === projectType
+    const projectName = name ?? (sameProject ? currentProjectName.value : 'Без названия')
+
+    const saved = sameProject
+      ? await updateProject(currentProjectId.value, {
+          name: projectName,
+          configuration,
+          previewAssetId,
+          // Своя папка проекта, а не открытая в списке: иначе PUT утащил бы
+          // проект туда, куда пользователь просто зашёл посмотреть.
+          folderId: folderId ?? currentProjectFolderId.value,
+        })
+      : await createProject({
+          name: projectName,
+          projectType,
+          configuration,
+          previewAssetId,
+          folderId: folderId ?? currentFolderId.value,
+        })
+
+    currentConfig.value = configuration
+    setCurrentProject(
+      saved.id,
+      saved.name,
+      saved.folderId ?? null,
+      saved.previewAssetId ?? null,
+      saved.projectType ?? projectType,
+    )
+    return saved
+  }
+
+  // Общая часть открытия: читает проект и сверяет тип с тем редактором, куда
+  // его собираются загрузить. Несовпадение - осмысленная ошибка, а не мусор
+  // на холсте: у токена и раздатки форматы содержимого не пересекаются.
+  async function fetchProjectOfType(id, projectType) {
+    const project = await fetchProject(id)
+    if (project.projectType && project.projectType !== projectType) {
+      throw new Error(
+        projectType === PROJECT_TYPE_TOKEN
+          ? 'Это проект раздатки - его открывает редактор раздаток'
+          : 'Это проект токена - его открывает редактор токенов',
+      )
+    }
+    return project
+  }
+
+  // Сохраняет текущее состояние редактора токенов. Порядок из docs/API.md:
+  // сначала заливаются картинки, у которых ещё нет assetId (этим занимается
+  // сериализатор), и только потом уходит содержимое со ссылками на них.
   async function saveTokenProject({ name, folderId = null } = {}) {
     const { getSnapshot, commitAssetIds } = useEditorSnapshot()
+    const { buildTokenPreview } = useProjectPreview()
     const snapshot = getSnapshot()
 
     isSaving.value = true
     try {
       const configuration = await serializeProject(snapshot, {
         uploadAsset,
-        baseConfig: currentConfig.value,
+        baseConfig: baseConfigFor(PROJECT_TYPE_TOKEN),
       })
-      const previewAssetId = await capturePreviewAssetId()
+      const previewAssetId = await capturePreviewAssetId(buildTokenPreview)
 
-      const projectName = name ?? currentProjectName.value
-      const saved = currentProjectId.value
-        ? await updateProject(currentProjectId.value, {
-            name: projectName,
-            configuration,
-            previewAssetId,
-            // Своя папка проекта, а не открытая в списке: иначе PUT утащил бы
-            // проект туда, куда пользователь просто зашёл посмотреть.
-            folderId: folderId ?? currentProjectFolderId.value,
-          })
-        : await createProject({
-            name: projectName,
-            configuration,
-            previewAssetId,
-            folderId: folderId ?? currentFolderId.value,
-          })
+      const saved = await persistProject({
+        projectType: PROJECT_TYPE_TOKEN,
+        configuration,
+        previewAssetId,
+        name,
+        folderId,
+      })
 
       // Ссылки, выданные сервером, возвращаются в редактор: следующее сохранение
       // не будет заново растеризовать и заливать те же самые картинки.
@@ -372,17 +426,55 @@ export const useProjectsStore = defineStore('projects', () => {
         brushVersion: snapshot.brushVersion,
       })
 
-      currentConfig.value = configuration
-      setCurrentProject(
-        saved.id,
-        saved.name,
-        saved.folderId ?? null,
-        saved.previewAssetId ?? null,
-      )
       return saved
     } finally {
       isSaving.value = false
     }
+  }
+
+  // Сохраняет текущее состояние редактора раздаток.
+  async function saveHandoutProject({ name, folderId = null } = {}) {
+    const handout = useHandoutStore()
+    const { buildHandoutPreview } = useProjectPreview()
+
+    isSaving.value = true
+    try {
+      const configuration = await serializeHandoutProject(handout, {
+        uploadAsset,
+        baseConfig: baseConfigFor(PROJECT_TYPE_HANDOUT),
+      })
+      const previewAssetId = await capturePreviewAssetId(buildHandoutPreview)
+
+      const saved = await persistProject({
+        projectType: PROJECT_TYPE_HANDOUT,
+        configuration,
+        previewAssetId,
+        name,
+        folderId,
+      })
+
+      // Выданные сервером id возвращаем в стор, иначе следующее сохранение
+      // зальёт те же картинки заново. Сопоставляем по индексу: сериализатор
+      // строит elements ровно из store.elements, порядок сохранён.
+      handout.setBackground({ textureAssetId: configuration.document.background.textureAssetId })
+      configuration.elements.forEach((element, i) => {
+        const live = handout.elements[i]
+        if (live && live.id === element.id && element.type === 'IMAGE') {
+          handout.updateElement(live.id, { assetId: element.assetId })
+        }
+      })
+
+      return saved
+    } finally {
+      isSaving.value = false
+    }
+  }
+
+  // База для слияния при сохранении - только если открытый проект ТОГО ЖЕ типа.
+  // Иначе за основу взялось бы содержимое чужого формата (поля токена уехали бы
+  // в раздатку и наоборот).
+  function baseConfigFor(projectType) {
+    return currentProjectType.value === projectType ? currentConfig.value : null
   }
 
   // Новый пустой проект: чистим и холст редактора, и привязку к сохранённому
@@ -393,23 +485,48 @@ export const useProjectsStore = defineStore('projects', () => {
     resetCurrentProject()
   }
 
-  // Открывает проект в редакторе. Возвращает { project, missingAssets } -
+  function newHandoutProject() {
+    useHandoutStore().resetDocument()
+    resetCurrentProject()
+  }
+
+  // Открывает проект в редакторе токенов. Возвращает { project, missingAssets } -
   // список слотов, чьи файлы не нашлись в словаре assets (файл потерян);
   // это не ошибка открытия, слот просто останется пустым.
   async function openTokenProject(id) {
-    const project = await fetchProject(id)
+    const project = await fetchProjectOfType(id, PROJECT_TYPE_TOKEN)
     const { applySnapshot } = useEditorSnapshot()
     const { snapshot, config, missingAssets } = await deserializeProject(project)
 
     applySnapshot(snapshot)
+    adoptOpenedProject(project, config)
+    return { project, missingAssets }
+  }
+
+  // Открывает проект в редакторе раздаток.
+  async function openHandoutProject(id) {
+    const project = await fetchProjectOfType(id, PROJECT_TYPE_HANDOUT)
+    const handout = useHandoutStore()
+    const { state, config, missingAssets } = await deserializeHandoutProject(project)
+
+    // Освобождаем object URL'ы уходящего документа до подмены состояния -
+    // после replaceDocument ссылок на них уже не останется.
+    handout.revokeObjectUrls()
+    handout.replaceDocument(state)
+    handout.clearSelection()
+    adoptOpenedProject(project, config)
+    return { project, missingAssets }
+  }
+
+  function adoptOpenedProject(project, config) {
     currentConfig.value = config
     setCurrentProject(
       project.id,
       project.name,
       project.folderId ?? null,
       project.previewAssetId ?? null,
+      project.projectType ?? null,
     )
-    return { project, missingAssets }
   }
 
   return {
@@ -417,6 +534,7 @@ export const useProjectsStore = defineStore('projects', () => {
     currentProjectId,
     currentProjectName,
     currentProjectFolderId,
+    currentProjectType,
     currentConfig,
     isDirty,
     isSaving,
@@ -439,6 +557,9 @@ export const useProjectsStore = defineStore('projects', () => {
     saveTokenProject,
     openTokenProject,
     newTokenProject,
+    saveHandoutProject,
+    openHandoutProject,
+    newHandoutProject,
     // папки
     currentFolderId,
     folders,

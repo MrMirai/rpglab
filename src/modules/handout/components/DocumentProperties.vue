@@ -70,7 +70,9 @@ async function onTextureFile(file) {
     // без автоподгона размера, чем ломать загрузку целиком
   }
   history.record(store)
-  const patch = { type: 'texture', textureUrl: url }
+  // textureAssetId сбрасывается: пользователь выбрал СВОЙ файл, на сервере его
+  // ещё нет - при сохранении проекта он зальётся и получит новый id.
+  const patch = { type: 'texture', textureUrl: url, textureAssetId: null }
   if (img.naturalWidth && img.naturalHeight) {
     store.setDocument({
       sizePreset: 'custom',
@@ -83,7 +85,7 @@ async function onTextureFile(file) {
 
 function removeTexture() {
   history.record(store)
-  store.setBackground({ textureUrl: null })
+  store.setBackground({ textureUrl: null, textureAssetId: null })
 }
 </script>
 

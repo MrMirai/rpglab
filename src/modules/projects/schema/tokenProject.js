@@ -1,3 +1,5 @@
+import { deepMerge } from './deepMerge.js'
+
 export const SCHEMA_VERSION = 2
 
 // Содержимое проекта (configuration в ProjectResponse) непрозрачно для бэкенда:
@@ -86,25 +88,6 @@ export function createEmptyProject() {
       lassoMode: 'add',
     },
   }
-}
-
-function isPlainObject(value) {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-// Глубокое слияние дефолтов с содержимым: объекты сливаются рекурсивно, а
-// массивы и примитивы источник ЗАМЕНЯЕТ целиком (склеивать lights с дефолтным
-// пустым списком бессмысленно). Незнакомые ключи источника сохраняются - их
-// мог положить более новый редактор, и терять их нельзя.
-function deepMerge(defaults, source) {
-  const out = { ...defaults }
-  for (const [key, value] of Object.entries(source ?? {})) {
-    if (value === undefined) continue
-    out[key] = isPlainObject(value) && isPlainObject(defaults?.[key])
-      ? deepMerge(defaults[key], value)
-      : value
-  }
-  return out
 }
 
 // Накладывает дефолты на содержимое проекта. Вызывать ПОСЛЕ migrate():

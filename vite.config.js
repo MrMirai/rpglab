@@ -18,5 +18,9 @@ export default defineConfig({
   server: {
     port: 5176,
     strictPort: true,
+    // Туннель Cloudpub отдаёт свой поддомен в заголовке Host, а Vite по умолчанию
+    // пускает только localhost (защита от DNS rebinding). Точка в начале = любой
+    // поддомен cloudpub.ru - имя туннеля выдаётся случайное и меняется.
+    allowedHosts: ['.cloudpub.ru'],
   },
 })

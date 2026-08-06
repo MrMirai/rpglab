@@ -1,4 +1,5 @@
 import { useEditorStore, useExport, useBrushMask } from '@/modules/editor'
+import { useHandoutStore, useHandoutExport } from '@/modules/handout'
 
 // Превью проекта - уменьшенная копия готового токена для карточки в списке.
 // Хранится ОТДЕЛЬНЫМ полем проекта (previewAssetId), а не внутри configuration:
@@ -95,5 +96,15 @@ export function useProjectPreview() {
     )
   }
 
-  return { buildTokenPreview }
+  // Превью раздатки - уменьшенный лист целиком, БЕЗ обрезки по содержимому:
+  // у раздатки содержимое и есть страница, и пропорции листа (A4, свиток,
+  // карточка) сами по себе узнаваемы - обрезка только ломала бы узнавание.
+  // Шага обрезки нет, поэтому RENDER_SIZE тут сразу итоговая длинная сторона.
+  function buildHandoutPreview() {
+    const store = useHandoutStore()
+    const { capturePreviewBlob } = useHandoutExport()
+    return capturePreviewBlob(store.document, store.elements, RENDER_SIZE)
+  }
+
+  return { buildTokenPreview, buildHandoutPreview }
 }

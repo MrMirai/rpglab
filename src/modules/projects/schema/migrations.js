@@ -1,4 +1,5 @@
 import { SCHEMA_VERSION } from './tokenProject.js'
+import { runMigrations } from './runMigrations.js'
 
 // Миграции содержимого проекта между версиями схемы. Бэкенд про версии не знает
 // и ничего не переписывает - что положили, то и вернётся, поэтому поднимать
@@ -44,15 +45,5 @@ const migrations = {
 // (пользователь открыл проект в старой вкладке) не трогаем - незнакомые поля
 // сохранятся при сериализации через слияние с базой.
 export function migrate(config) {
-  let current = config ?? {}
-  // Шага для версии нет - дальше не поднимаемся: дефолты наложит applyDefaults,
-  // молчаливое зацикливание тут хуже неполной миграции.
-  while (typeof current.schemaVersion === 'number' && current.schemaVersion < SCHEMA_VERSION) {
-    const step = migrations[current.schemaVersion]
-    if (!step) break
-    const next = step(current)
-    if (!(next.schemaVersion > current.schemaVersion)) break
-    current = next
-  }
-  return current
+  return runMigrations(config, migrations, SCHEMA_VERSION)
 }

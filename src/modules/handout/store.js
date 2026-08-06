@@ -41,16 +41,24 @@ export function blendModeToOp(id) {
 
 export const useHandoutStore = defineStore('handout', () => {
   // --- Документ ---
-  const document = ref({
-    width: 794,
-    height: 1123,
-    sizePreset: 'a4-portrait',
-    background: {
-      type: 'color', // color | texture | none
-      color: '#f5ecd8',
-      textureUrl: null,
-    },
-  })
+  // textureUrl - РАНТАЙМ-ссылка для холста (обычно blob: на локальный файл),
+  // textureAssetId - происхождение картинки на сервере. В сохраняемое содержимое
+  // проекта уходит только id: blob:-ссылка мертва после перезагрузки вкладки.
+  function createEmptyDocument() {
+    return {
+      width: 794,
+      height: 1123,
+      sizePreset: 'a4-portrait',
+      background: {
+        type: 'color', // color | texture | none
+        color: '#f5ecd8',
+        textureUrl: null,
+        textureAssetId: null,
+      },
+    }
+  }
+
+  const document = ref(createEmptyDocument())
 
   // Порядок в массиве = порядок рендера (последний - поверх всех)
   const elements = ref([])
@@ -233,6 +241,31 @@ export const useHandoutStore = defineStore('handout', () => {
     if (editingElementId.value && !alive.has(editingElementId.value)) editingElementId.value = null
   }
 
+  // Чистый лист (новый проект раздатки). Освобождает object URL'ы картинок
+  // уходящего документа - иначе за сессию из нескольких открытых раздаток
+  // блобы копятся в памяти вкладки до самого её закрытия.
+  function resetDocument() {
+    revokeObjectUrls()
+    document.value = createEmptyDocument()
+    elements.value = []
+    selectedIds.value = []
+    editingElementId.value = null
+    clipboard.value = []
+  }
+
+  // blob:-ссылки принадлежат этой вкладке; presigned-ссылки на сервер (http)
+  // трогать нечего. Один и тот же url могут делить копии элемента - отзываем
+  // по одному разу, документ всё равно уходит целиком.
+  function revokeObjectUrls() {
+    const urls = new Set([
+      document.value.background?.textureUrl,
+      ...elements.value.map((el) => el.url),
+    ])
+    urls.forEach((url) => {
+      if (typeof url === 'string' && url.startsWith('blob:')) URL.revokeObjectURL(url)
+    })
+  }
+
   function setActiveTool(tool) {
     activeTool.value = tool
   }
@@ -282,6 +315,8 @@ export const useHandoutStore = defineStore('handout', () => {
     setDocument,
     setBackground,
     replaceDocument,
+    resetDocument,
+    revokeObjectUrls,
     setActiveTool,
     toggleGrid,
     toggleSnap,

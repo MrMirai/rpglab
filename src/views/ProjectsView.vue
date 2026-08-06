@@ -38,7 +38,7 @@ function createToken() {
 }
 
 function createHandout() {
-  router.push('/editor/handout')
+  router.push({ path: '/editor/handout', query: { new: 1 } })
 }
 
 // Лимит проектов по тарифу - пока заглушка (бэк квот не готов, см. API.md
